@@ -8,7 +8,8 @@ REST API для навчальної платформи, побудований 
 - [Django 6](https://www.djangoproject.com/)
 - [Django REST Framework](https://www.django-rest-framework.org/)
 - [python-decouple](https://github.com/HBNetwork/python-decouple) — конфігурація через `.env`
-- SQLite (розробка)
+- [PostgreSQL](https://www.postgresql.org/)
+- [psycopg2-binary](https://pypi.org/project/psycopg2-binary/) — драйвер PostgreSQL
 
 ## Вимоги
 
@@ -52,7 +53,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Відкрийте `.env` і заповніть значення (SECRET_KEY та DEBUG обов'язкові).
+Відкрийте `.env` і заповніть значення (`SECRET_KEY`, `DEBUG` та змінні `DB_*` обов'язкові).
 
 ### 5. Застосування міграцій
 
@@ -72,10 +73,10 @@ API доступне за адресою: `http://127.0.0.1:8000`
 ## Команди
 
 ```bash
-python manage.py createsuperuser       # Створити адміністратора
-python manage.py makemigrations        # Створити міграції після змін у моделях
-python manage.py migrate               # Застосувати міграції
-python manage.py test <назва_застосунку>  # Запустити тести конкретного застосунку
+python manage.py createsuperuser         # Створити адміністратора
+python manage.py makemigrations          # Створити міграції після змін у моделях
+python manage.py migrate                 # Застосувати міграції
+python manage.py test <назва_застосунку> # Запустити тести конкретного застосунку
 ```
 
 ## Структура проєкту
