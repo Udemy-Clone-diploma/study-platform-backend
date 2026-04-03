@@ -46,6 +46,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user = User(**validated_data)
         user.set_password(password)
         user.save()
+        profile_model = PROFILE_MODELS.get(user.role)
+        if profile_model:
+            profile_model.objects.create(user=user)
         return user
 
 

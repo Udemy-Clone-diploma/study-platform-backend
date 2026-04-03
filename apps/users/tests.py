@@ -20,6 +20,7 @@ class UserRegistrationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["email"], self.valid_data["email"])
         self.assertNotIn("password", response.data)
+        self.assertIsNotNone(response.data["profile"])
 
     def test_register_duplicate_email(self):
         self.client.post(self.url, self.valid_data)
@@ -111,10 +112,18 @@ class UserDeleteTests(APITestCase):
         )
         self.url = reverse("users-detail", args=[self.user.pk])
 
-    def test_delete_user(self):
+    def test_soft_delete_user(self):
         response = self.client.delete(self.url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+        # User still exists in DB but is marked deleted
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_deleted)
+        self.assertEqual(self.user.status, "inactive")
+
+    def test_deleted_user_not_visible(self):
+        self.client.delete(self.url)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class UserBlockTests(APITestCase):
