@@ -138,3 +138,44 @@ class UserBlockTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data["is_blocked"])
         self.assertEqual(response.data["status"], "active")
+
+
+class UserProfileUpdateTests(APITestCase):
+    def setUp(self):
+        self.student = User.objects.create_user(
+            username="student", email="student@example.com",
+            password="pass", role="student",
+        )
+        self.teacher = User.objects.create_user(
+            username="teacher", email="teacher@example.com",
+            password="pass", role="teacher",
+        )
+        self.admin = User.objects.create_user(
+            username="admin", email="admin@example.com",
+            password="pass", role="administrator",
+        )
+
+    def test_update_student_profile_creates_if_missing(self):
+        url = reverse("users-profile", args=[self.student.pk])
+        response = self.client.patch(url, {"education_level": "bachelor"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["profile"]["education_level"], "bachelor")
+
+    def test_update_student_profile_updates_existing(self):
+        from apps.users.models import StudentProfile
+        StudentProfile.objects.create(user=self.student, education_level="bachelor")
+        url = reverse("users-profile", args=[self.student.pk])
+        response = self.client.patch(url, {"education_level": "master"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["profile"]["education_level"], "master")
+
+    def test_update_teacher_profile(self):
+        url = reverse("users-profile", args=[self.teacher.pk])
+        response = self.client.patch(url, {"specialization": "Python"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["profile"]["specialization"], "Python")
+
+    def test_update_profile_unavailable_for_administrator(self):
+        url = reverse("users-profile", args=[self.admin.pk])
+        response = self.client.patch(url, {"some_field": "value"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

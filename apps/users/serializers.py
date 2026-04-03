@@ -21,6 +21,19 @@ class ModeratorProfileSerializer(serializers.ModelSerializer):
         fields = ["level"]
 
 
+PROFILE_SERIALIZERS = {
+    "student": StudentProfileSerializer,
+    "teacher": TeacherProfileSerializer,
+    "moderator": ModeratorProfileSerializer,
+}
+
+PROFILE_MODELS = {
+    "student": StudentProfile,
+    "teacher": TeacherProfile,
+    "moderator": ModeratorProfile,
+}
+
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 
@@ -48,13 +61,13 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "date_joined"]
 
     def get_profile(self, obj):
-        if obj.role == "student" and hasattr(obj, "studentprofile"):
-            return StudentProfileSerializer(obj.studentprofile).data
-        if obj.role == "teacher" and hasattr(obj, "teacherprofile"):
-            return TeacherProfileSerializer(obj.teacherprofile).data
-        if obj.role == "moderator" and hasattr(obj, "moderatorprofile"):
-            return ModeratorProfileSerializer(obj.moderatorprofile).data
-        return None
+        serializer_class = PROFILE_SERIALIZERS.get(obj.role)
+        if not serializer_class:
+            return None
+        profile_attr = obj.role + "profile"
+        if not hasattr(obj, profile_attr):
+            return None
+        return serializer_class(getattr(obj, profile_attr)).data
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):

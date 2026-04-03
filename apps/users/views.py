@@ -4,6 +4,8 @@ from rest_framework.response import Response
 
 from apps.users.models import User
 from apps.users.serializers import (
+    PROFILE_MODELS,
+    PROFILE_SERIALIZERS,
     UserRegistrationSerializer,
     UserSerializer,
     UserUpdateSerializer,
@@ -34,4 +36,22 @@ class UserViewSet(viewsets.ModelViewSet):
         user.is_blocked = is_blocked
         user.status = "inactive" if is_blocked else "active"
         user.save()
+        return Response(UserSerializer(user).data)
+
+    @action(detail=True, methods=["patch"], url_path="profile")
+    def profile(self, request, pk=None):
+        user = self.get_object()
+        serializer_class = PROFILE_SERIALIZERS.get(user.role)
+        profile_model = PROFILE_MODELS.get(user.role)
+
+        if not serializer_class or not profile_model:
+            return Response(
+                {"detail": "Profile is not available for this role."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile, _ = profile_model.objects.get_or_create(user=user)
+        serializer = serializer_class(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(UserSerializer(user).data)
