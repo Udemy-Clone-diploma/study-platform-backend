@@ -3,7 +3,7 @@ from django.db import models
 
 
 class ActiveUserManager(UserManager):
-    """Returns only non-deleted users — equivalent of EF Core HasQueryFilter."""
+    """Returns only non-deleted users."""
 
     def get_queryset(self):
         return super().get_queryset().filter(is_deleted=False)
@@ -36,7 +36,7 @@ class User(AbstractUser):
     is_deleted = models.BooleanField(default=False)
 
     objects = ActiveUserManager()
-    all_objects = models.Manager()  # bypass filter when needed (e.g. admin)
+    all_objects = models.Manager()
 
     def __str__(self):
         return self.email
