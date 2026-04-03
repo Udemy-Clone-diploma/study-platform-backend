@@ -1,6 +1,24 @@
 from rest_framework import serializers
 
-from apps.users.models import User
+from apps.users.models import ModeratorProfile, StudentProfile, TeacherProfile, User
+
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentProfile
+        fields = ["date_of_birth", "learning_goals", "education_level"]
+
+
+class TeacherProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeacherProfile
+        fields = ["bio", "experience", "specialization"]
+
+
+class ModeratorProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModeratorProfile
+        fields = ["level"]
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -19,13 +37,24 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             "id", "username", "email", "role", "status",
-            "avatar", "language", "is_blocked", "date_joined",
+            "avatar", "language", "is_blocked", "date_joined", "profile",
         ]
         read_only_fields = ["id", "date_joined"]
+
+    def get_profile(self, obj):
+        if obj.role == "student" and hasattr(obj, "studentprofile"):
+            return StudentProfileSerializer(obj.studentprofile).data
+        if obj.role == "teacher" and hasattr(obj, "teacherprofile"):
+            return TeacherProfileSerializer(obj.teacherprofile).data
+        if obj.role == "moderator" and hasattr(obj, "moderatorprofile"):
+            return ModeratorProfileSerializer(obj.moderatorprofile).data
+        return None
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
