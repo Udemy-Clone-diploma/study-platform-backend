@@ -36,10 +36,12 @@ PROFILE_MODELS = {
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "password", "role", "language"]
+        fields = ["id", "email", "password", "first_name", "last_name", "role", "language"]
 
     def create(self, validated_data):
         password = validated_data.pop("password")
@@ -58,7 +60,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "username", "email", "role", "status",
+            "id", "email", "first_name", "last_name", "role", "status",
             "avatar", "language", "is_blocked", "date_joined", "profile",
         ]
         read_only_fields = ["id", "date_joined"]
@@ -76,14 +78,9 @@ class UserSerializer(serializers.ModelSerializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["username", "email", "avatar", "language"]
+        fields = ["first_name", "last_name", "email", "avatar", "language"]
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
             raise serializers.ValidationError("A user with this email already exists.")
-        return value
-
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exclude(pk=self.instance.pk).exists():
-            raise serializers.ValidationError("A user with this username already exists.")
         return value

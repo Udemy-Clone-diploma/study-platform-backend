@@ -10,9 +10,10 @@ class RegisterTests(APITestCase):
     def setUp(self):
         self.url = reverse("auth-register")
         self.data = {
-            "username": "newuser",
             "email": "new@example.com",
             "password": "StrongPass123",
+            "first_name": "John",
+            "last_name": "Doe",
             "role": "student",
         }
 
@@ -30,13 +31,13 @@ class RegisterTests(APITestCase):
         self.assertTrue(StudentProfile.objects.filter(user=user).exists())
 
     def test_register_auto_creates_teacher_profile(self):
-        data = {**self.data, "email": "teacher@example.com", "username": "teacher1", "role": "teacher"}
+        data = {**self.data, "email": "teacher@example.com", "role": "teacher"}
         self.client.post(self.url, data, format="json")
         user = User.objects.get(email="teacher@example.com")
         self.assertTrue(TeacherProfile.objects.filter(user=user).exists())
 
     def test_register_administrator_no_profile(self):
-        data = {**self.data, "email": "admin@example.com", "username": "adminuser", "role": "administrator"}
+        data = {**self.data, "email": "admin@example.com", "role": "administrator"}
         self.client.post(self.url, data, format="json")
         user = User.objects.get(email="admin@example.com")
         self.assertFalse(StudentProfile.objects.filter(user=user).exists())
@@ -47,8 +48,7 @@ class RegisterTests(APITestCase):
 
     def test_register_duplicate_email_returns_400(self):
         self.client.post(self.url, self.data, format="json")
-        data = {**self.data, "username": "anotheruser"}
-        response = self.client.post(self.url, data, format="json")
+        response = self.client.post(self.url, self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_register_missing_required_fields_returns_400(self):
@@ -61,7 +61,6 @@ class LoginTests(APITestCase):
         self.url = reverse("auth-login")
         self.password = "StrongPass123"
         self.user = User.objects.create_user(
-            username="testuser",
             email="test@example.com",
             password=self.password,
             role="student",
@@ -112,7 +111,6 @@ class TokenRefreshTests(APITestCase):
     def setUp(self):
         self.url = reverse("auth-refresh")
         self.user = User.objects.create_user(
-            username="testuser",
             email="test@example.com",
             password="StrongPass123",
             role="student",
@@ -137,7 +135,6 @@ class TokenRefreshTests(APITestCase):
 class MeTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser",
             email="test@example.com",
             password="StrongPass123",
             role="student",
@@ -170,15 +167,15 @@ class MeTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["language"], "uk")
 
-    def test_me_patch_updates_username(self):
+    def test_me_patch_updates_first_name(self):
         self._auth()
-        response = self.client.patch(self.url, {"username": "updatedname"}, format="json")
+        response = self.client.patch(self.url, {"first_name": "Updated"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["username"], "updatedname")
+        self.assertEqual(response.data["first_name"], "Updated")
 
     def test_me_patch_duplicate_email_returns_400(self):
         User.objects.create_user(
-            username="other", email="other@example.com", password="pass", role="student"
+            email="other@example.com", password="pass", role="student"
         )
         self._auth()
         response = self.client.patch(self.url, {"email": "other@example.com"}, format="json")
@@ -188,13 +185,13 @@ class MeTests(APITestCase):
 class MeProfileTests(APITestCase):
     def setUp(self):
         self.student = User.objects.create_user(
-            username="student", email="student@example.com", password="StrongPass123", role="student"
+            email="student@example.com", password="StrongPass123", role="student"
         )
         self.teacher = User.objects.create_user(
-            username="teacher", email="teacher@example.com", password="StrongPass123", role="teacher"
+            email="teacher@example.com", password="StrongPass123", role="teacher"
         )
         self.admin = User.objects.create_user(
-            username="admin", email="admin@example.com", password="StrongPass123", role="administrator"
+            email="admin@example.com", password="StrongPass123", role="administrator"
         )
         self.url = reverse("auth-me-profile")
 

@@ -9,9 +9,10 @@ class UserRegistrationTests(APITestCase):
     def setUp(self):
         self.url = reverse("users-list")
         self.valid_data = {
-            "username": "testuser",
             "email": "test@example.com",
             "password": "StrongPass123",
+            "first_name": "John",
+            "last_name": "Doe",
             "role": "student",
         }
 
@@ -24,14 +25,7 @@ class UserRegistrationTests(APITestCase):
 
     def test_register_duplicate_email(self):
         self.client.post(self.url, self.valid_data)
-        data = {**self.valid_data, "username": "anotheruser"}
-        response = self.client.post(self.url, data)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_register_duplicate_username(self):
-        self.client.post(self.url, self.valid_data)
-        data = {**self.valid_data, "email": "another@example.com"}
-        response = self.client.post(self.url, data)
+        response = self.client.post(self.url, self.valid_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_register_missing_password(self):
@@ -44,7 +38,7 @@ class UserRegistrationTests(APITestCase):
 class UserRetrieveTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser", email="test@example.com",
+            email="test@example.com",
             password="pass", role="student",
         )
         self.url = reverse("users-detail", args=[self.user.pk])
@@ -77,7 +71,7 @@ class UserRetrieveTests(APITestCase):
 class UserUpdateTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser", email="test@example.com",
+            email="test@example.com",
             password="pass", role="student",
         )
         self.url = reverse("users-detail", args=[self.user.pk])
@@ -89,25 +83,17 @@ class UserUpdateTests(APITestCase):
 
     def test_update_duplicate_email(self):
         User.objects.create_user(
-            username="other", email="other@example.com",
+            email="other@example.com",
             password="pass", role="student",
         )
         response = self.client.patch(self.url, {"email": "other@example.com"})
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_update_duplicate_username(self):
-        User.objects.create_user(
-            username="other", email="other@example.com",
-            password="pass", role="student",
-        )
-        response = self.client.patch(self.url, {"username": "other"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class UserDeleteTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser", email="test@example.com",
+            email="test@example.com",
             password="pass", role="student",
         )
         self.url = reverse("users-detail", args=[self.user.pk])
@@ -115,7 +101,6 @@ class UserDeleteTests(APITestCase):
     def test_soft_delete_user(self):
         response = self.client.delete(self.url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        # User still exists in DB but is marked deleted
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_deleted)
         self.assertEqual(self.user.status, "inactive")
@@ -129,7 +114,7 @@ class UserDeleteTests(APITestCase):
 class UserBlockTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="testuser", email="test@example.com",
+            email="test@example.com",
             password="pass", role="student",
         )
         self.url = reverse("users-block", args=[self.user.pk])
@@ -152,15 +137,15 @@ class UserBlockTests(APITestCase):
 class UserProfileUpdateTests(APITestCase):
     def setUp(self):
         self.student = User.objects.create_user(
-            username="student", email="student@example.com",
+            email="student@example.com",
             password="pass", role="student",
         )
         self.teacher = User.objects.create_user(
-            username="teacher", email="teacher@example.com",
+            email="teacher@example.com",
             password="pass", role="teacher",
         )
         self.admin = User.objects.create_user(
-            username="admin", email="admin@example.com",
+            email="admin@example.com",
             password="pass", role="administrator",
         )
 
