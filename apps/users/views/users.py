@@ -29,6 +29,13 @@ class UserViewSet(viewsets.ModelViewSet):
         user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        user.is_deleted = True
+        user.status = "inactive"
+        user.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["patch"], url_path="block")
     def block(self, request, pk=None):
         user = self.get_object()

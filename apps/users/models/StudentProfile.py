@@ -16,5 +16,9 @@ class StudentProfile(models.Model):
     def clean(self):
         if self.user.role != "student":
             raise ValidationError(
-                "Цей профіль можна створювати лише для користувача з роллю 'student'"
+                "This profile can only be created for a user with the 'student' role."
             )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
