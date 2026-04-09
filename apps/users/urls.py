@@ -8,6 +8,8 @@ from apps.users.views import (
     RegisterView,
     TokenRefreshView,
     UserViewSet,
+    VerifyEmailView,
+    ResendVerificationEmailView,
 )
 
 router = DefaultRouter()
@@ -20,4 +22,6 @@ urlpatterns = [
     path("auth/me/", MeView.as_view(), name="auth-me"),
     path("auth/me/profile/", MeProfileView.as_view(), name="auth-me-profile"),
     path("", include(router.urls)),
+    path("auth/verify-email/<str:uidb64>/<str:token>/", VerifyEmailView.as_view(), name="auth-verify-email"),
+    path("auth/resend-verification/", ResendVerificationEmailView.as_view(), name="auth-resend-verification"),
 ]
