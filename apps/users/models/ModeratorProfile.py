@@ -14,7 +14,7 @@ class ModeratorProfile(models.Model):
     def clean(self):
         if self.user.role != "moderator":
             raise ValidationError(
-                "Цей профіль можна створювати лише для користувача з роллю 'moderator'"
+                "This profile can only be created for a user with the 'moderator' role."
             )
 
     def save(self, *args, **kwargs):

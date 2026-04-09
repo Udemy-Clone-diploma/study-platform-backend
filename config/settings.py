@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     "rest_framework",
     # Local
     "apps.users",
-    "apps.auth.apps.AuthAppConfig",
 ]
 
 MIDDLEWARE = [
@@ -144,7 +143,7 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-MEDIA_URL = "media/"
+MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 STATIC_URL = "static/"
