@@ -9,6 +9,7 @@ from django.utils.encoding import force_str
 from apps.users.services.tokenGenerator import email_verification_token
 from apps.users.services.sendEmail import send_verification_email
 from apps.users.services.emailMessages import EmailMessages
+from rest_framework.throttling import AnonRateThrottle
 
 from apps.users.models import User
 from apps.users.serializers import (
@@ -144,7 +145,6 @@ class MeProfileView(APIView):
 
 
 
-
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 
@@ -170,8 +170,12 @@ class VerifyEmailView(APIView):
         return Response({"detail": EmailMessages.CONFIRMED_SUCCESS}, status=200)
 
 
+class EmailVerificationThrottle(AnonRateThrottle):
+    rate = "5/hour"
+    
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [EmailVerificationThrottle]
 
     def post(self, request):
         email = request.data.get("email")

@@ -135,6 +135,11 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "email_verification": "5/hour",
+    }
 }
 
 SIMPLE_JWT = {
@@ -156,7 +161,7 @@ CORS_ALLOWED_ORIGINS = config(
 CORS_ALLOW_CREDENTIALS = True
 
 
-PASSWORD_RESET_TIMEOUT = 60 * 60 * 24 * 2  # 2 дні
+EMAIL_VERIFICATION_TIMEOUT = 60 * 60 * 24 * 2 
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 
