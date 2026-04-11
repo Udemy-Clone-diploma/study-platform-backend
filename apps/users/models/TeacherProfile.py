@@ -16,5 +16,9 @@ class TeacherProfile(models.Model):
     def clean(self):
         if self.user.role != "teacher":
             raise ValidationError(
-                "Цей профіль можна створювати лише для користувача з роллю 'teacher'"
+                "This profile can only be created for a user with the 'teacher' role."
             )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
