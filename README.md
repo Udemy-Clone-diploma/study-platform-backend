@@ -4,19 +4,19 @@ REST API для навчальної платформи, побудований 
 
 ## Технології
 
-- [Python 3.11+](https://www.python.org/)
+- [Python 3.13](https://www.python.org/)
 - [Django 6](https://www.djangoproject.com/)
 - [Django REST Framework](https://www.django-rest-framework.org/)
 - [python-decouple](https://github.com/HBNetwork/python-decouple) — конфігурація через `.env`
-- [PostgreSQL](https://www.postgresql.org/)
+- [PostgreSQL 17](https://www.postgresql.org/)
 - [psycopg2-binary](https://pypi.org/project/psycopg2-binary/) — драйвер PostgreSQL
 
 ## Вимоги
 
-- Python 3.11+
-- pip
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [VS Code](https://code.visualstudio.com/) з розширенням [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-## Встановлення
+## Запуск
 
 ### 1. Клонування репозиторію
 
@@ -25,68 +25,52 @@ git clone https://github.com/YOUR_ORG/study-platform-backend.git
 cd study-platform-backend
 ```
 
-### 2. Створення та активація віртуального середовища
-
-```bash
-python -m venv venv
-```
-
-**Windows:**
-```bash
-venv\Scripts\activate
-```
-
-**macOS / Linux:**
-```bash
-source venv/bin/activate
-```
-
-### 3. Встановлення залежностей
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Налаштування змінних середовища
+### 2. Налаштування змінних середовища
 
 ```bash
 cp .env.example .env
 ```
 
-Відкрийте `.env` і заповніть значення (`SECRET_KEY`, `DEBUG` та змінні `DB_*` обов'язкові).
+Заповни `.env` — мінімум `SECRET_KEY` і `DB_PASSWORD`.
 
-### 5. Застосування міграцій
+### 3. Відкрити в DevContainer
+
+У VS Code: `Ctrl+Shift+P` → **Dev Containers: Reopen in Container**
+
+Docker автоматично підніме два контейнери: `app` (Python) і `db` (PostgreSQL 17).
+
+### 4. Застосувати міграції та запустити сервер
 
 ```bash
 python manage.py migrate
-```
-
-### 6. Запуск сервера
-
-```bash
 python manage.py runserver
 ```
 
-API доступне за адресою: `http://127.0.0.1:8000`  
-Адмін-панель: `http://127.0.0.1:8000/admin`
+API: `http://localhost:8000`  
+Адмін-панель: `http://localhost:8000/admin`
 
 ## Команди
 
 ```bash
-python manage.py createsuperuser         # Створити адміністратора
-python manage.py makemigrations          # Створити міграції після змін у моделях
-python manage.py migrate                 # Застосувати міграції
-python manage.py test <назва_застосунку> # Запустити тести конкретного застосунку
+python manage.py createsuperuser          # Створити адміністратора
+python manage.py makemigrations           # Створити міграції після змін у моделях
+python manage.py migrate                  # Застосувати міграції
+python manage.py test <назва_застосунку>  # Запустити тести
 ```
 
 ## Структура проєкту
 
 ```
 .
-├── config/           # Налаштування Django (settings, urls, wsgi, asgi)
+├── .devcontainer/
+│   ├── devcontainer.json   # Конфігурація VS Code DevContainer
+│   └── docker-compose.yml  # Сервіси: app + db
+├── apps/
+│   └── users/              # Автентифікація, профілі користувачів
+├── config/                 # Налаштування Django (settings, urls, wsgi, asgi)
 ├── manage.py
 ├── requirements.txt
-└── .env.example
+└── .env.example            # Шаблон змінних середовища
 ```
 
-> Нові Django-застосунки додаються поряд із `config/` і реєструються в `INSTALLED_APPS`.
+> Нові Django-застосунки додаються в `apps/` і реєструються в `INSTALLED_APPS`.
