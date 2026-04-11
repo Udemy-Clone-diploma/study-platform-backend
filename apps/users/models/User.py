@@ -54,6 +54,7 @@ class User(AbstractUser):
     language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")
     is_blocked = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
+    is_email_verified = models.BooleanField(default=False)
 
     objects = ActiveUserManager()
     all_objects = UserManager()

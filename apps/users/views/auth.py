@@ -4,6 +4,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
+from apps.users.services.tokenGenerator import email_verification_token
+from apps.users.services.sendEmail import send_verification_email
+from apps.users.services.emailMessages import EmailMessages
+from rest_framework.throttling import AnonRateThrottle
 
 from apps.users.models import User
 from apps.users.serializers import (
@@ -30,9 +36,9 @@ class RegisterView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        tokens = get_tokens_for_user(user)
+        send_verification_email(user)
         return Response(
-            {"user": UserSerializer(user).data, **tokens},
+            {"detail": "Registration successful. Check your email for confirmation"},
             status=status.HTTP_201_CREATED,
         )
 
@@ -62,6 +68,12 @@ class LoginView(APIView):
             return Response(
                 {"detail": "Invalid email or password."},
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+        
+        if not user.is_email_verified:
+            return Response(
+                {"detail": "Please confirm your email before logging in"},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         if user.is_deleted:
@@ -130,3 +142,53 @@ class MeProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(UserSerializer(user).data)
+
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, uidb64, token):
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.all_objects.get(pk=uid)
+        except (ValueError, User.DoesNotExist):
+            return Response({"detail": EmailMessages.INVALID_LINK}, status=400)
+
+        if user.is_deleted or user.is_blocked:
+            return Response({"detail": EmailMessages.INVALID_LINK}, status=400)
+        
+
+        if not email_verification_token.check_token(user, token):
+            return Response({"detail": EmailMessages.INVALID_LINK}, status=400)
+
+        
+       
+        user.is_email_verified = True
+        user.save()
+
+        return Response({"detail": EmailMessages.CONFIRMED_SUCCESS}, status=200)
+
+
+class EmailVerificationThrottle(AnonRateThrottle):
+    rate = "5/hour"
+    
+class ResendVerificationEmailView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [EmailVerificationThrottle]
+
+    def post(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response({"detail": EmailMessages.EMAIL_REQUIRED}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.all_objects.get(email=email, is_deleted=False, is_blocked=False)
+        except User.DoesNotExist:
+            return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
+
+        if user.is_email_verified:
+            return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
+
+        send_verification_email(user)
+        return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)

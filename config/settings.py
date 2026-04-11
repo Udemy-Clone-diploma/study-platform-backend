@@ -145,6 +145,11 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "email_verification": "5/hour",
+    }
 }
 
 SIMPLE_JWT = {
@@ -164,3 +169,16 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda v: [s.strip() for s in v.split(",")],
 )
 CORS_ALLOW_CREDENTIALS = True
+
+
+EMAIL_VERIFICATION_TIMEOUT = 60 * 60 * 24 * 2 
+
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
