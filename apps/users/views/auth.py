@@ -4,11 +4,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from apps.users.services.tokenGenerator import email_verification_token
 from apps.users.services.sendEmail import send_verification_email
 from apps.users.services.emailMessages import EmailMessages
+from apps.users.services.tokens import get_tokens_for_user
 from rest_framework.throttling import AnonRateThrottle
 
 from apps.users.models import User
@@ -21,12 +23,6 @@ from apps.users.serializers import (
 )
 
 
-def get_tokens_for_user(user):
-    refresh = RefreshToken.for_user(user)
-    return {
-        "refresh": str(refresh),
-        "access": str(refresh.access_token),
-    }
 
 
 class RegisterView(APIView):
@@ -105,9 +101,27 @@ class TokenRefreshView(APIView):
 
         try:
             token = RefreshToken(refresh_token)
-            return Response({"access": str(token.access_token)}, status=status.HTTP_200_OK)
+            user_id = token[jwt_settings.USER_ID_CLAIM]
+            user = User.all_objects.get(pk=user_id)
         except TokenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        except (User.DoesNotExist, KeyError):
+            return Response({"detail": "Invalid token."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if user.is_deleted:
+            return Response(
+                {"detail": "This account has been deleted."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if user.is_blocked:
+            return Response(
+                {"detail": "This account has been blocked."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        access = token.access_token
+        access["role"] = user.role
+        return Response({"access": str(access)}, status=status.HTTP_200_OK)
 
 
 class MeView(APIView):
@@ -192,3 +206,4 @@ class ResendVerificationEmailView(APIView):
 
         send_verification_email(user)
         return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
+    
