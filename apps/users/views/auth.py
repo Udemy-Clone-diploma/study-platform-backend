@@ -87,6 +87,33 @@ class LoginView(APIView):
         return Response(get_tokens_for_user(user), status=status.HTTP_200_OK)
 
 
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            return Response(
+                {"detail": "Refresh token is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            return Response(
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"detail": "Logged out successfully."},
+            status=status.HTTP_205_RESET_CONTENT
+        )
+
+
 class TokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
@@ -101,7 +128,7 @@ class TokenRefreshView(APIView):
 
         try:
             token = RefreshToken(refresh_token)
-            user_id = token[jwt_settings.USER_ID_CLAIM]
+            user_id = token[jwt_settings.USER_ID_CLAIM] # type: ignore
             user = User.all_objects.get(pk=user_id)
         except TokenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
