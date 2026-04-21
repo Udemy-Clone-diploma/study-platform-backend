@@ -4,12 +4,11 @@ from rest_framework.response import Response
 
 from apps.users.models import User
 from apps.users.serializers import (
-    PROFILE_MODELS,
-    PROFILE_SERIALIZERS,
     UserRegistrationSerializer,
     UserSerializer,
     UserUpdateSerializer,
 )
+from apps.users.services.user_service import UserService
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -31,34 +30,26 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
-        user.is_deleted = True
-        user.status = "inactive"
-        user.save()
+        UserService.soft_delete_user(user) # Мягкое удаление через сервис
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["patch"], url_path="block")
     def block(self, request, pk=None):
         user = self.get_object()
         is_blocked = request.data.get("is_blocked", True)
-        user.is_blocked = is_blocked
-        user.status = "inactive" if is_blocked else "active"
-        user.save()
+
+        user = UserService.set_block_status(user, is_blocked=is_blocked) # Ставим блок через сервис
+
         return Response(UserSerializer(user).data)
 
     @action(detail=True, methods=["patch"], url_path="profile")
     def profile(self, request, pk=None):
         user = self.get_object()
-        serializer_class = PROFILE_SERIALIZERS.get(user.role)
-        profile_model = PROFILE_MODELS.get(user.role)
 
-        if not serializer_class or not profile_model:
-            return Response(
-                {"detail": "Profile is not available for this role."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        user = UserService.update_profile( # Обновляем профиль через сервис
+            user=user,
+            data=request.data,
+            partial=True,
+        )
 
-        profile, _ = profile_model.objects.get_or_create(user=user)
-        serializer = serializer_class(profile, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
         return Response(UserSerializer(user).data)

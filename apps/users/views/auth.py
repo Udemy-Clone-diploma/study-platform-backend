@@ -7,9 +7,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
-from apps.users.services.tokenGenerator import email_verification_token
-from apps.users.services.sendEmail import send_verification_email
-from apps.users.services.emailMessages import EmailMessages
+from apps.users.services.token_generator_service import email_verification_token
+from apps.users.services.send_email_service import send_verification_email
+from apps.users.services.email_messages_service import EmailMessages
 from apps.users.services.tokens import get_tokens_for_user
 from rest_framework.throttling import AnonRateThrottle
 
@@ -21,8 +21,6 @@ from apps.users.serializers import (
     UserSerializer,
     UserUpdateSerializer,
 )
-
-
 
 
 class RegisterView(APIView):
