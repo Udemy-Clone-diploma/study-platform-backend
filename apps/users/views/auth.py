@@ -7,9 +7,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
-from apps.users.services.tokenGenerator import email_verification_token, password_reset_token
-from apps.users.services.sendEmail import send_verification_email, send_password_reset_email
-from apps.users.services.emailMessages import EmailMessages
+from apps.users.services.token_generator_service import email_verification_token
+from apps.users.services.send_email_service import send_password_reset_email, send_verification_email, password_reset_token
+from apps.users.services.email_messages_service import EmailMessages
 from apps.users.services.tokens import get_tokens_for_user
 from rest_framework.throttling import AnonRateThrottle
 from django.utils.http import urlsafe_base64_decode
@@ -21,8 +21,6 @@ from apps.users.serializers import (
     UserSerializer,
     UserUpdateSerializer,
 )
-
-
 
 
 class RegisterView(APIView):
@@ -87,6 +85,33 @@ class LoginView(APIView):
         return Response(get_tokens_for_user(user), status=status.HTTP_200_OK)
 
 
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            return Response(
+                {"detail": "Refresh token is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            return Response(
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"detail": "Logged out successfully."},
+            status=status.HTTP_205_RESET_CONTENT
+        )
+
+
 class TokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
@@ -101,7 +126,7 @@ class TokenRefreshView(APIView):
 
         try:
             token = RefreshToken(refresh_token)
-            user_id = token[jwt_settings.USER_ID_CLAIM]
+            user_id = token[jwt_settings.USER_ID_CLAIM] # type: ignore
             user = User.all_objects.get(pk=user_id)
         except TokenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)

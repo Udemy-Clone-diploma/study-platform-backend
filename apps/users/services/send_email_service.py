@@ -2,7 +2,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
-from apps.users.services.tokenGenerator import email_verification_token, password_reset_token
+from apps.users.services.token_generator_service import email_verification_token, password_reset_token
 
 
 def send_verification_email(user):

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.users.models import ModeratorProfile, StudentProfile, TeacherProfile, User
-
+from django.contrib.auth.password_validation import validate_password
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -35,16 +35,18 @@ PROFILE_MODELS = {
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(write_only=True, min_length=8, validators=[validate_password])
+    password_confirm = serializers.CharField(write_only=True, min_length=8)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "first_name", "last_name", "role", "language"]
+        fields = ["id", "email", "password", "password_confirm", "first_name", "last_name", "role", "language"]
 
     def create(self, validated_data):
         password = validated_data.pop("password")
+        validated_data.pop('password_confirm')
         user = User(**validated_data)
         user.set_password(password)
         user.save()
@@ -53,6 +55,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             profile_model.objects.create(user=user)
         return user
 
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirm"]:
+            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+        return attrs
 
 class UserSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()
@@ -81,6 +87,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = ["first_name", "last_name", "email", "avatar", "language"]
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
+        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists(): # type: ignore
             raise serializers.ValidationError("A user with this email already exists.")
         return value
