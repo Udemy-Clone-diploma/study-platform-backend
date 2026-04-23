@@ -2,7 +2,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
-from apps.users.services.tokenGenerator import email_verification_token
+from apps.users.services.tokenGenerator import email_verification_token, password_reset_token
 
 
 def send_verification_email(user):
@@ -16,3 +16,16 @@ def send_verification_email(user):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
     )
+
+def send_password_reset_email(user):
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = password_reset_token.make_token(user)
+    url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
+ 
+    send_mail(
+        subject="Скидання пароля",
+        message=f"Перейдіть за посиланням, щоб скинути пароль (діє 1 годину):\n{url}",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+    )
+ 
