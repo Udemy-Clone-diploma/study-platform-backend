@@ -32,7 +32,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         UserService.soft_delete_user(user) # Мягкое удаление через сервис
         return Response(status=status.HTTP_204_NO_CONTENT)
-
+    
     @action(detail=True, methods=["patch"], url_path="block")
     def block(self, request, pk=None):
         user = self.get_object()

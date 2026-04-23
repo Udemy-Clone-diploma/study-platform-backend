@@ -50,7 +50,7 @@ class Course(models.Model):
 
     class DeliveryTypeChoices(models.TextChoices):
         SELF_PACED = "self_paced", "Self-paced"
-        SCHEDULED = "scheduled", "Scheduled"
+        SCHEDULED = "scheduled", "Scheduled" # додатково
         INDIVIDUAL = "individual", "Individual"
         GROUP = "group", "Group"
 
@@ -60,6 +60,7 @@ class Course(models.Model):
         KNOWLEDGE = "knowledge", "Knowledge"
 
     class PricingTypeChoices(models.TextChoices):
+        # Подумать, как сделать несколько вариантов оплаты для одного курса (например, и бесплатный, и платный)
         FREE = "free", "Free"
         FULL_PAYMENT = "full_payment", "Full Payment"
         INSTALLMENT = "installment", "Installment"
@@ -70,7 +71,7 @@ class Course(models.Model):
         PUBLISHED = "published", "Published"
         ARCHIVED = "archived", "Archived"
 
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, unique=True)
 
     short_description = models.CharField(
         max_length=500
@@ -139,19 +140,7 @@ class Course(models.Model):
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=0.00
-    )
-
-    installment_count = models.PositiveIntegerField(
-        null=True,
-        blank=True
-    )
-
-    installment_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True
+        default=0.00 #type: ignore
     )
 
     duration_hours = models.PositiveIntegerField()
@@ -171,7 +160,7 @@ class Course(models.Model):
     rating_avg = models.DecimalField(
         max_digits=3,
         decimal_places=2,
-        default=0.00,
+        default=0.00, #type: ignore
         validators=[
             MinValueValidator(0),
             MaxValueValidator(5),

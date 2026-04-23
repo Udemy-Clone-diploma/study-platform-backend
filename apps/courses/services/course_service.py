@@ -5,9 +5,72 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.courses.models import Course
+from apps.courses.serializers import (
+    CourseCreateUpdateSerializer,
+    CourseDetailSerializer,
+    CourseListSerializer,
+)
 
 
 class CourseService:
+    @staticmethod
+    def get_serializer_class(action: str):
+        if action == "list":
+            return CourseListSerializer
+        if action in {"create", "partial_update"}:
+            return CourseCreateUpdateSerializer
+        return CourseDetailSerializer
+
+    @staticmethod
+    def validate_course_data(
+        data: dict,
+        course: Course | None = None,
+        partial: bool = False,
+        context: dict | None = None,
+    ) -> dict:
+        serializer = CourseCreateUpdateSerializer(
+            course,
+            data=data,
+            partial=partial,
+            context=context or {},
+        )
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data #type: ignore
+
+    @staticmethod
+    def serialize_course_detail(
+        course: Course,
+        context: dict | None = None,
+    ) -> dict:
+        return CourseDetailSerializer(course, context=context or {}).data #type: ignore
+
+    @classmethod
+    def create_course_from_data(
+        cls,
+        data: dict,
+        context: dict | None = None,
+    ) -> dict:
+        validated_data = cls.validate_course_data(data, context=context)
+        course = cls.create_course(validated_data)
+        return cls.serialize_course_detail(course, context=context)
+
+    @classmethod
+    def update_course_from_data(
+        cls,
+        course: Course,
+        data: dict,
+        partial: bool = True,
+        context: dict | None = None,
+    ) -> dict:
+        validated_data = cls.validate_course_data(
+            data,
+            course=course,
+            partial=partial,
+            context=context,
+        )
+        course = cls.update_course(course, validated_data)
+        return cls.serialize_course_detail(course, context=context)
+
     # data validation
     @staticmethod
     def _resolve_value(
@@ -22,7 +85,6 @@ class CourseService:
             return getattr(course, field)
         return default
 
-    # pricing rules
     @classmethod
     def _build_unique_slug(cls, base_value: str, course: Course | None = None) -> str:
         base_slug = slugify(base_value) or "course"
@@ -48,7 +110,7 @@ class CourseService:
         title = cls._resolve_value(validated_data, "title", course, "")
 
         if course is None:
-            validated_data["slug"] = cls._build_unique_slug(title, None)
+            validated_data["slug"] = cls._build_unique_slug(title, None) #type: ignore
             return validated_data
 
         title_changed = "title" in validated_data and validated_data["title"] != course.title
@@ -57,7 +119,7 @@ class CourseService:
         )
 
         if can_regenerate_slug:
-            validated_data["slug"] = cls._build_unique_slug(title, course)
+            validated_data["slug"] = cls._build_unique_slug(title, course) #type: ignore
 
         return validated_data
 
@@ -79,23 +141,10 @@ class CourseService:
             course,
             Decimal("0.00"),
         )
-        installment_count = cls._resolve_value(
-            validated_data,
-            "installment_count",
-            course,
-            None,
-        )
-        installment_amount = cls._resolve_value(
-            validated_data,
-            "installment_amount",
-            course,
-            None,
-        )
 
         if pricing_type == Course.PricingTypeChoices.FREE:
             validated_data["price"] = Decimal("0.00")
-            validated_data["installment_count"] = None
-            validated_data["installment_amount"] = None
+
             return validated_data
 
         if pricing_type == Course.PricingTypeChoices.FULL_PAYMENT:
@@ -103,26 +152,9 @@ class CourseService:
                 raise ValidationError(
                     {"price": "Price must be greater than 0 for fully paid courses."}
                 )
-            validated_data["installment_count"] = None
-            validated_data["installment_amount"] = None
+
             return validated_data
 
-        if pricing_type == Course.PricingTypeChoices.INSTALLMENT:
-            errors = {}
-
-            if price is None or price <= 0:
-                errors["price"] = "Total course price must be greater than 0."
-            if installment_count is None or installment_count <= 0:
-                errors["installment_count"] = (
-                    "Installment count must be greater than 0."
-                )
-            if installment_amount is None or installment_amount <= 0:
-                errors["installment_amount"] = (
-                    "Installment amount must be greater than 0."
-                )
-
-            if errors:
-                raise ValidationError(errors)
 
         return validated_data
 

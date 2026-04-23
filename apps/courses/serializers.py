@@ -46,9 +46,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "short_description", "full_description", "slug", "teacher_id",
             "teacher_name", "moderator_id", "category", "level", "language", "mode",
-            "delivery_type", "course_type", "pricing_type", "price", "installment_count",
-            "installment_amount", "duration_hours", "lessons_count", "with_certificate",
-            "is_on_sale", "rating_avg", "students_count", "status", "created_at",
+            "delivery_type", "course_type", "pricing_type", "price", "duration_hours", "lessons_count", 
+            "with_certificate", "is_on_sale", "rating_avg", "students_count", "status", "created_at",
             "updated_at", "published_at", "tags",
         ]
 
@@ -79,9 +78,8 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         fields = [
             "title", "short_description", "full_description", "teacher_profile",
             "moderator_profile", "category_id", "level","language", "mode", "delivery_type", 
-            "course_type", "pricing_type", "price", "installment_count", "installment_amount",
-            "duration_hours", "lessons_count", "with_certificate", "is_on_sale", "status", 
-            "tag_ids",
+            "course_type", "pricing_type", "price", "duration_hours", "lessons_count", "with_certificate", 
+            "is_on_sale", "status", "tag_ids",
         ]
 
     def validate(self, attrs):
