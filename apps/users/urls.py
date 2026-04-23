@@ -11,6 +11,9 @@ from apps.users.views import (
     VerifyEmailView,
     ResendVerificationEmailView,
     LogoutView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
+    PasswordResetValidateView,
 )
 
 router = DefaultRouter()
@@ -24,6 +27,24 @@ urlpatterns = [
     path("auth/me/", MeView.as_view(), name="auth-me"),
     path("auth/me/profile/", MeProfileView.as_view(), name="auth-me-profile"),
     path("", include(router.urls)),
-    path("auth/verify-email/<str:uidb64>/<str:token>/", VerifyEmailView.as_view(), name="auth-verify-email"),
-    path("auth/resend-verification/", ResendVerificationEmailView.as_view(), name="auth-resend-verification"),
+    path(
+        "auth/verify-email/<str:uidb64>/<str:token>/", 
+        VerifyEmailView.as_view(), 
+        name="auth-verify-email"),
+    path(
+        "auth/resend-verification/", 
+        ResendVerificationEmailView.as_view(), 
+        name="auth-resend-verification"),
+    path(
+        "auth/password-reset/", 
+        PasswordResetRequestView.as_view(), 
+        name="auth-password-reset"),
+    path(
+        "auth/password-reset/<str:uidb64>/<str:token>/", 
+        PasswordResetConfirmView.as_view(), 
+        name="auth-password-reset-confirm"),
+    path(
+        "auth/password-reset/<str:uidb64>/<str:token>/validate/", 
+        PasswordResetValidateView.as_view(), 
+        name="auth-password-reset-validate"),
 ]

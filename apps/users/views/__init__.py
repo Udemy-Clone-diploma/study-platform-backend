@@ -1,4 +1,4 @@
-from .auth import LoginView, MeProfileView, MeView, LogoutView, RegisterView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView
+from .auth import LoginView, LogoutView, MeProfileView, MeView, RegisterView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView
 from .users import UserViewSet
 
 __all__ = [
@@ -10,5 +10,8 @@ __all__ = [
     "MeProfileView",
     "VerifyEmailView",
     "LogoutView",
-    "ResendVerificationEmailView"
+    "ResendVerificationEmailView",
+    "PasswordResetRequestView",
+    "PasswordResetConfirmView",
+    "PasswordResetValidateView"
 ]

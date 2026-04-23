@@ -8,11 +8,11 @@ from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from apps.users.services.token_generator_service import email_verification_token
-from apps.users.services.send_email_service import send_verification_email
+from apps.users.services.send_email_service import send_password_reset_email, send_verification_email, password_reset_token
 from apps.users.services.email_messages_service import EmailMessages
 from apps.users.services.tokens import get_tokens_for_user
 from rest_framework.throttling import AnonRateThrottle
-
+from django.utils.http import urlsafe_base64_decode
 from apps.users.models import User
 from apps.users.serializers import (
     PROFILE_MODELS,
@@ -183,6 +183,17 @@ class MeProfileView(APIView):
         return Response(UserSerializer(user).data)
 
 
+# ============================================================
+#                             Email
+# ============================================================
+
+class EmailVerificationThrottle(AnonRateThrottle):
+    rate = "5/hour"
+
+class PasswordResetThrottle(AnonRateThrottle):
+    rate = "5/hour"
+ 
+ 
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
@@ -209,8 +220,7 @@ class VerifyEmailView(APIView):
         return Response({"detail": EmailMessages.CONFIRMED_SUCCESS}, status=200)
 
 
-class EmailVerificationThrottle(AnonRateThrottle):
-    rate = "5/hour"
+
     
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
@@ -232,3 +242,105 @@ class ResendVerificationEmailView(APIView):
         send_verification_email(user)
         return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
     
+
+
+
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+ 
+    def post(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response(
+                {"detail": "Email is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        try:
+            user = User.all_objects.get(
+                email=email,
+                is_deleted=False,
+                is_blocked=False,
+            )
+            if user.is_email_verified:
+                send_password_reset_email(user)
+        except User.DoesNotExist:
+            pass 
+ 
+        return Response(
+            {"detail": "If the account exists, a password reset email has been sent"},
+            status=status.HTTP_200_OK,
+        )
+ 
+ 
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+ 
+    def post(self, request, uidb64, token):
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.all_objects.get(pk=uid)
+        except (ValueError, User.DoesNotExist):
+            return Response(
+                {"detail": "Invalid or expired password reset link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        if user.is_deleted or user.is_blocked:
+            return Response(
+                {"detail": "Invalid or expired password reset link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        if not password_reset_token.check_token(user, token):
+            return Response(
+                {"detail": "Invalid or expired password reset link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        password = request.data.get("password")
+        if not password or len(password) < 8:
+            return Response(
+                {"detail": "Password must be at least 8 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        user.set_password(password)
+        user.save()
+ 
+        return Response(
+            {"detail": "Password has been successfully changed"},
+            status=status.HTTP_200_OK,
+        )
+ 
+ 
+class PasswordResetValidateView(APIView):
+   
+    permission_classes = [AllowAny]
+ 
+    def get(self, request, uidb64, token):
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.all_objects.get(pk=uid)
+        except (ValueError, User.DoesNotExist):
+            return Response(
+                {"valid": False, "detail": "Invalid or expired password reset link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        if user.is_deleted or user.is_blocked:
+            return Response(
+                {"valid": False, "detail": "Invalid or expired password reset link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        if not password_reset_token.check_token(user, token):
+            return Response(
+                {"valid": False, "detail": "Invalid or expired password reset link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        return Response({"valid": True}, status=status.HTTP_200_OK)
