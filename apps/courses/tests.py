@@ -324,3 +324,117 @@ class CourseViewSetTests(APITestCase):
         self.assertTrue(self.course.is_deleted)
         self.assertEqual(self.course.status, Course.StatusChoices.ARCHIVED)
         self.assertFalse(Course.objects.filter(pk=self.course.pk).exists())
+
+
+class CategoryViewSetTests(APITestCase):
+    def setUp(self):
+        self.category_dev = Category.objects.create(
+            name="Development",
+            slug="development",
+            description="Programming courses",
+        )
+        self.category_design = Category.objects.create(
+            name="Design",
+            slug="design",
+            description="Design courses",
+        )
+
+    def test_list_returns_all_categories(self):
+        response = self.client.get(reverse("categories-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_list_returns_correct_fields(self):
+        response = self.client.get(reverse("categories-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        category = response.data[0]
+        self.assertIn("id", category)
+        self.assertIn("name", category)
+        self.assertIn("slug", category)
+        self.assertIn("description", category)
+
+
+class CourseFilterTests(APITestCase):
+    def setUp(self):
+        teacher_user = User.objects.create_user(
+            email="teacher@example.com",
+            password="pass12345",
+            role="teacher",
+        )
+        self.teacher_profile = TeacherProfile.objects.create(user=teacher_user)
+
+        self.category_dev = Category.objects.create(
+            name="Development",
+            slug="development",
+        )
+        self.category_design = Category.objects.create(
+            name="Design",
+            slug="design",
+        )
+
+        base = dict(
+            short_description="Short",
+            full_description="Full",
+            teacher_profile=self.teacher_profile,
+            level=Course.LevelChoices.BEGINNER,
+            language=Course.LanguageChoices.ENGLISH,
+            mode=Course.ModeChoices.SELF_LEARNING,
+            delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
+            course_type=Course.CourseTypeChoices.KNOWLEDGE,
+            pricing_type=Course.PricingTypeChoices.FREE,
+            price=0,
+            duration_hours=10,
+        )
+        self.course_dev = Course.all_objects.create(
+            title="Django Course",
+            slug="django-course",
+            category=self.category_dev,
+            **base,
+        )
+        self.course_design = Course.all_objects.create(
+            title="Figma Course",
+            slug="figma-course",
+            category=self.category_design,
+            **base,
+        )
+        self.course_no_category = Course.all_objects.create(
+            title="No Category Course",
+            slug="no-category-course",
+            category=None,
+            **base,
+        )
+
+    def test_filter_by_category_slug_returns_matching_courses(self):
+        response = self.client.get(
+            reverse("courses-list"), {"category": "development"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["slug"], "django-course")
+
+    def test_filter_by_category_slug_excludes_other_categories(self):
+        response = self.client.get(
+            reverse("courses-list"), {"category": "design"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        slugs = [c["slug"] for c in response.data]
+        self.assertIn("figma-course", slugs)
+        self.assertNotIn("django-course", slugs)
+
+    def test_filter_by_nonexistent_slug_returns_empty_list(self):
+        response = self.client.get(
+            reverse("courses-list"), {"category": "nonexistent-category"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+    def test_no_filter_returns_all_courses(self):
+        response = self.client.get(reverse("courses-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)
