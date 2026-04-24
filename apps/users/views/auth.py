@@ -1,3 +1,5 @@
+from rest_framework.exceptions import ValidationError
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -5,14 +7,9 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
-from django.utils.http import urlsafe_base64_decode
-from django.utils.encoding import force_str
-from apps.users.services.token_generator_service import email_verification_token
-from apps.users.services.send_email_service import send_password_reset_email, send_verification_email, password_reset_token
 from apps.users.services.email_messages_service import EmailMessages
 from apps.users.services.tokens import get_tokens_for_user
 from rest_framework.throttling import AnonRateThrottle
-from django.utils.http import urlsafe_base64_decode
 from apps.users.models import User
 from apps.users.serializers import (
     PROFILE_MODELS,
@@ -21,6 +18,7 @@ from apps.users.serializers import (
     UserSerializer,
     UserUpdateSerializer,
 )
+from apps.users.services.email_service import EmailService
 
 
 class RegisterView(APIView):
@@ -30,7 +28,7 @@ class RegisterView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        send_verification_email(user)
+        EmailService.send_verification_email(user)
         return Response(
             {"detail": "Registration successful. Check your email for confirmation"},
             status=status.HTTP_201_CREATED,
@@ -200,25 +198,11 @@ class VerifyEmailView(APIView):
 
     def get(self, request, uidb64, token):
         try:
-            uid = force_str(urlsafe_base64_decode(uidb64))
-            user = User.all_objects.get(pk=uid)
-        except (ValueError, User.DoesNotExist):
-            return Response({"detail": EmailMessages.INVALID_LINK}, status=400)
+            EmailService.verify_email(uidb64, token)
+        except ValidationError as e:
+            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user.is_deleted or user.is_blocked:
-            return Response({"detail": EmailMessages.INVALID_LINK}, status=400)
-        
-
-        if not email_verification_token.check_token(user, token):
-            return Response({"detail": EmailMessages.INVALID_LINK}, status=400)
-
-        
-       
-        user.is_email_verified = True
-        user.save()
-
-        return Response({"detail": EmailMessages.CONFIRMED_SUCCESS}, status=200)
-
+        return Response({"detail": EmailMessages.CONFIRMED_SUCCESS}, status=status.HTTP_200_OK)
 
 
     
@@ -228,23 +212,12 @@ class ResendVerificationEmailView(APIView):
 
     def post(self, request):
         email = request.data.get("email")
-        if not email:
-            return Response({"detail": EmailMessages.EMAIL_REQUIRED}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            user = User.all_objects.get(email=email, is_deleted=False, is_blocked=False)
-        except User.DoesNotExist:
-            return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
+            EmailService.resend_verification_email(email)
+        except ValidationError as e:
+            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user.is_email_verified:
-            return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
-
-        send_verification_email(user)
         return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
-    
-
-
-
 
 
 class PasswordResetRequestView(APIView):
@@ -253,66 +226,28 @@ class PasswordResetRequestView(APIView):
  
     def post(self, request):
         email = request.data.get("email")
-        if not email:
-            return Response(
-                {"detail": "Email is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
- 
         try:
-            user = User.all_objects.get(
-                email=email,
-                is_deleted=False,
-                is_blocked=False,
-            )
-            if user.is_email_verified:
-                send_password_reset_email(user)
-        except User.DoesNotExist:
-            pass 
- 
+            EmailService.request_password_reset(email)
+        except ValidationError as e:
+            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response(
-            {"detail": "If the account exists, a password reset email has been sent"},
+            {"detail": EmailMessages.PASSWORD_RESET_SENT},
             status=status.HTTP_200_OK,
         )
- 
  
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
  
     def post(self, request, uidb64, token):
-        try:
-            uid = force_str(urlsafe_base64_decode(uidb64))
-            user = User.all_objects.get(pk=uid)
-        except (ValueError, User.DoesNotExist):
-            return Response(
-                {"detail": "Invalid or expired password reset link"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
- 
-        if user.is_deleted or user.is_blocked:
-            return Response(
-                {"detail": "Invalid or expired password reset link"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
- 
-        if not password_reset_token.check_token(user, token):
-            return Response(
-                {"detail": "Invalid or expired password reset link"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
- 
         password = request.data.get("password")
-        if not password or len(password) < 8:
-            return Response(
-                {"detail": "Password must be at least 8 characters."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
- 
-        user.set_password(password)
-        user.save()
- 
+        try:
+            EmailService.confirm_password_reset(uidb64, token, password)
+        except ValidationError as e:
+            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response(
-            {"detail": "Password has been successfully changed"},
+            {"detail": EmailMessages.PASSWORD_RESET_SUCCESS},
             status=status.HTTP_200_OK,
         )
  
@@ -323,24 +258,11 @@ class PasswordResetValidateView(APIView):
  
     def get(self, request, uidb64, token):
         try:
-            uid = force_str(urlsafe_base64_decode(uidb64))
-            user = User.all_objects.get(pk=uid)
-        except (ValueError, User.DoesNotExist):
+            EmailService.validate_password_reset(uidb64, token)
+        except ValidationError as e:
             return Response(
-                {"valid": False, "detail": "Invalid or expired password reset link"},
+                {"valid": False, "detail": e.detail},
                 status=status.HTTP_400_BAD_REQUEST,
             )
- 
-        if user.is_deleted or user.is_blocked:
-            return Response(
-                {"valid": False, "detail": "Invalid or expired password reset link"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
- 
-        if not password_reset_token.check_token(user, token):
-            return Response(
-                {"valid": False, "detail": "Invalid or expired password reset link"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
- 
+
         return Response({"valid": True}, status=status.HTTP_200_OK)
