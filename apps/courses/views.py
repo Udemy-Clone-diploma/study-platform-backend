@@ -1,6 +1,7 @@
 from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
-
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from apps.courses.models import Course
 from apps.courses.services.course_service import CourseService
 
@@ -46,3 +47,28 @@ class CourseViewSet(
         course = self.get_object()
         CourseService.soft_delete_course(course)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+class NewCoursesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        courses = CourseService.get_new_courses()
+        return Response(courses)
+
+
+class PopularCoursesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        courses = CourseService.get_popular_courses()
+        return Response(courses)
+
+
+class CategoriesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        categories = CourseService.get_categories()
+        return Response(categories)

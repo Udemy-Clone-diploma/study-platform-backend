@@ -4,8 +4,9 @@ from django.utils.text import slugify
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
-from apps.courses.models import Course
+from apps.courses.models import Category, Course
 from apps.courses.serializers import (
+    CategorySerializer,
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
     CourseListSerializer,
@@ -198,3 +199,23 @@ class CourseService:
         course.is_deleted = True
         course.status = Course.StatusChoices.ARCHIVED
         course.save(update_fields=["is_deleted", "status"])
+
+    @staticmethod
+    def get_new_courses(limit: int = 8) -> list[dict]:
+        courses = Course.objects.filter(
+            status=Course.StatusChoices.PUBLISHED, is_deleted=False
+        ).order_by('-published_at')[:limit]
+        return CourseListSerializer(courses, many=True).data
+
+    @staticmethod
+    def get_popular_courses(limit: int = 8) -> list[dict]:
+        courses = Course.objects.filter(
+            status=Course.StatusChoices.PUBLISHED, is_deleted=False
+        ).order_by('-rating_avg')[:limit]
+        return CourseListSerializer(courses, many=True).data
+
+    @staticmethod
+    def get_categories(limit: int = 6) -> list[dict]:
+        categories = Category.objects.all()[:limit]
+        return CategorySerializer(categories, many=True).data
+
