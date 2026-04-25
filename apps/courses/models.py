@@ -60,7 +60,6 @@ class Course(models.Model):
         KNOWLEDGE = "knowledge", "Knowledge"
 
     class PricingTypeChoices(models.TextChoices):
-        # Подумать, как сделать несколько вариантов оплаты для одного курса (например, и бесплатный, и платный)
         FREE = "free", "Free"
         FULL_PAYMENT = "full_payment", "Full Payment"
         INSTALLMENT = "installment", "Installment"

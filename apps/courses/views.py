@@ -2,8 +2,16 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
-from apps.courses.models import Course
+
+from apps.courses.filters import CourseFilter
+from apps.courses.models import Category, Course
+from apps.courses.serializers import CategorySerializer
 from apps.courses.services.course_service import CourseService
+
+
+class CategoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
 
 
 class CourseViewSet(
@@ -20,6 +28,7 @@ class CourseViewSet(
         "category",
     ).prefetch_related("tags")
     http_method_names = ["get", "post", "patch", "delete"]
+    filterset_class = CourseFilter
 
     def get_serializer_class(self):
         return CourseService.get_serializer_class(self.action)

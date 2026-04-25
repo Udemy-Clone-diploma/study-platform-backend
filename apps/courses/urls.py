@@ -1,10 +1,17 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from apps.courses.views import CourseViewSet, NewCoursesView, PopularCoursesView, CategoriesView
+from apps.courses.views import (
+    CategoryViewSet,
+    CourseViewSet,
+    NewCoursesView,
+    PopularCoursesView,
+    CategoriesView,
+)
 
 router = DefaultRouter()
 router.register(r"courses", CourseViewSet, basename="courses")
+router.register(r"categories", CategoryViewSet, basename="categories")
 
 urlpatterns = [
     path("courses/new-courses/", NewCoursesView.as_view(), name="new-courses"),
