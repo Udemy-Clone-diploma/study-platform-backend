@@ -71,7 +71,7 @@ class Course(models.Model):
         PUBLISHED = "published", "Published"
         ARCHIVED = "archived", "Archived"
 
-    title = models.CharField(max_length=255, unique=True)
+    title = models.CharField(max_length=255)
 
     short_description = models.CharField(
         max_length=500
@@ -141,6 +141,18 @@ class Course(models.Model):
         max_digits=10,
         decimal_places=2,
         default=0.00 #type: ignore
+    )
+
+    installment_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    installment_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
     )
 
     duration_hours = models.PositiveIntegerField()

@@ -145,7 +145,8 @@ class CourseService:
 
         if pricing_type == Course.PricingTypeChoices.FREE:
             validated_data["price"] = Decimal("0.00")
-
+            validated_data["installment_count"] = None
+            validated_data["installment_amount"] = None
             return validated_data
 
         if pricing_type == Course.PricingTypeChoices.FULL_PAYMENT:
@@ -153,7 +154,8 @@ class CourseService:
                 raise ValidationError(
                     {"price": "Price must be greater than 0 for fully paid courses."}
                 )
-
+            validated_data["installment_count"] = None
+            validated_data["installment_amount"] = None
             return validated_data
 
 
