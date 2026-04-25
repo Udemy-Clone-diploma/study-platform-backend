@@ -51,6 +51,7 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "corsheaders",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -151,7 +152,15 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/day",
         "email_verification": "5/hour",
-    }
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Study Platform API",
+    "DESCRIPTION": "REST API for the Study Platform e-learning application.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 SIMPLE_JWT = {

@@ -12,11 +12,6 @@ class EmailVerificationTokenGenerator(PasswordResetTokenGenerator):
 email_verification_token = EmailVerificationTokenGenerator()
 
 class PasswordResetTokenGen(PasswordResetTokenGenerator):
-    """
-    Токен для скидання пароля.
-    Хеш включає поточний пароль — тому після зміни пароля
-    посилання автоматично стає недійсним.
-    """
  
     def _make_hash_value(self, user, timestamp):
         return f"{user.pk}{timestamp}{user.password}"
