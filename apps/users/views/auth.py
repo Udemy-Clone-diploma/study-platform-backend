@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.settings import api_settings as jwt_settings
 
 from apps.users.models import User
 from apps.users.serializers import (
@@ -22,6 +24,7 @@ from apps.users.services.auth_service import (
 )
 from apps.users.services.email_messages_service import EmailMessages
 from apps.users.services.send_email_service import send_verification_email
+from apps.users.services.tokens import get_tokens_for_user
 
 
 class RegisterView(APIView):
@@ -33,7 +36,7 @@ class RegisterView(APIView):
         user = serializer.save()
         send_verification_email(user)
         return Response(
-            {"detail": "Registration successful. Check your email for confirmation"},
+            UserSerializer(user).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -77,7 +80,7 @@ class LogoutView(APIView):
 
         try:
             AuthService.logout(refresh_token)
-        except TokenError:
+        except (TokenError, InvalidTokenError):
             return Response(
                 {"detail": "Invalid or expired refresh token."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -102,15 +105,13 @@ class TokenRefreshView(APIView):
             )
 
         try:
-            access = AuthService.refresh_access_token(refresh_token)
+            access_token = AuthService.refresh_access_token(refresh_token)
         except TokenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-        except (User.DoesNotExist, KeyError):
-            return Response({"detail": "Invalid token."}, status=status.HTTP_401_UNAUTHORIZED)
-        except AccountForbiddenError as e:
+        except (InvalidTokenError, AccountForbiddenError) as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response({"access": access}, status=status.HTTP_200_OK)
+        return Response({"access": access_token}, status=status.HTTP_200_OK)
 
 
 class MeView(APIView):
@@ -147,6 +148,11 @@ class MeProfileView(APIView):
         return Response(UserSerializer(user).data)
 
 
+# ============================================================
+#                             Email
+# ============================================================
+
+
 class EmailVerificationThrottle(AnonRateThrottle):
     rate = "5/hour"
 
@@ -162,9 +168,15 @@ class VerifyEmailView(APIView):
         try:
             AuthService.verify_email(uidb64, token)
         except InvalidTokenError:
-            return Response({"detail": EmailMessages.INVALID_LINK}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": EmailMessages.INVALID_LINK},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        return Response({"detail": EmailMessages.CONFIRMED_SUCCESS}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": EmailMessages.CONFIRMED_SUCCESS},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ResendVerificationEmailView(APIView):
@@ -180,7 +192,10 @@ class ResendVerificationEmailView(APIView):
             )
 
         AuthService.resend_verification_email(email)
-        return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": EmailMessages.RESEND_SUCCESS},
+            status=status.HTTP_200_OK,
+        )
 
 
 class PasswordResetRequestView(APIView):
@@ -200,21 +215,6 @@ class PasswordResetRequestView(APIView):
             {"detail": "If the account exists, a password reset email has been sent"},
             status=status.HTTP_200_OK,
         )
-
-
-class PasswordResetValidateView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request, uidb64, token):
-        try:
-            AuthService.validate_password_reset_token(uidb64, token)
-        except InvalidTokenError:
-            return Response(
-                {"valid": False, "detail": "Invalid or expired password reset link"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        return Response({"valid": True}, status=status.HTTP_200_OK)
 
 
 class PasswordResetConfirmView(APIView):
@@ -241,3 +241,17 @@ class PasswordResetConfirmView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
+class PasswordResetValidateView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, uidb64, token):
+        try:
+            AuthService.validate_password_reset_token(uidb64, token)
+        except InvalidTokenError:
+            return Response(
+                {"valid": False, "detail": "Invalid or expired password reset link"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"valid": True}, status=status.HTTP_200_OK)
