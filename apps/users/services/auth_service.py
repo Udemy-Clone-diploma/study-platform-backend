@@ -4,14 +4,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
 
 from apps.users.models import User
-from apps.users.services.send_email_service import (
-    password_reset_token,
-    send_password_reset_email,
-    send_verification_email,
-)
-from apps.users.services.token_generator_service import email_verification_token
+from apps.users.services.token_generator_service import email_verification_token, password_reset_token
 from apps.users.services.tokens import get_tokens_for_user
-
+from apps.users.services.email_service import EmailService
 
 class AuthenticationError(Exception):
     pass
@@ -102,7 +97,7 @@ class AuthService:
             return
 
         if not user.is_email_verified:
-            send_verification_email(user)
+            EmailService.send_verification_email(user)
 
     @staticmethod
     def request_password_reset(email: str) -> None:
@@ -110,7 +105,7 @@ class AuthService:
         try:
             user = User.all_objects.get(email=email, is_deleted=False, is_blocked=False)
             if user.is_email_verified:
-                send_password_reset_email(user)
+                EmailService.send_password_reset_email(user)
         except User.DoesNotExist:
             pass
 
