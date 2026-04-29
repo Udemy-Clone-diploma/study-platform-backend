@@ -23,8 +23,8 @@ from apps.users.services.auth_service import (
     InvalidTokenError,
 )
 from apps.users.services.email_messages_service import EmailMessages
-from apps.users.services.send_email_service import send_verification_email
 from apps.users.services.tokens import get_tokens_for_user
+from apps.users.services.email_service import EmailService
 
 
 class RegisterView(APIView):
@@ -34,7 +34,7 @@ class RegisterView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        send_verification_email(user)
+        EmailService.send_verification_email(user)
         return Response(
             UserSerializer(user).data,
             status=status.HTTP_201_CREATED,
