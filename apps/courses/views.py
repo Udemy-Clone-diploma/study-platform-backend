@@ -1,7 +1,8 @@
-from rest_framework import mixins, status, viewsets
+from rest_framework import filters, mixins, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.courses.filters import CourseFilter
 from apps.courses.models import Category, Course
@@ -28,7 +29,12 @@ class CourseViewSet(
         "category",
     ).prefetch_related("tags")
     http_method_names = ["get", "post", "patch", "delete"]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = CourseFilter
+    ordering_fields = ["price", "students_count", "rating_avg", "created_at"]
+    ordering = ["-created_at"]
+
+
 
     def get_serializer_class(self):
         return CourseService.get_serializer_class(self.action)
