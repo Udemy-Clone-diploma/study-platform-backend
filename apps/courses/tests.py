@@ -610,8 +610,113 @@ class TopNEndpointsAreNotPaginatedTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, list)
 
-    def test_categories_top_endpoint_returns_list(self):
-        response = self.client.get(reverse("categories"))
+    def test_featured_categories_endpoint_returns_list(self):
+        response = self.client.get(reverse("categories-featured"))
 
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+
+
+class TopNLimitParamTests(APITestCase):
+    """The top-N endpoints accept ?limit=N (capped at MAX_TOP_N_LIMIT)."""
+
+    DEFAULT_NEW = 8
+    DEFAULT_POPULAR = 8
+    DEFAULT_FEATURED = 6
+    MAX_LIMIT = 50
+
+    @classmethod
+    def setUpTestData(cls):
+        teacher_user = User.objects.create_user(
+            email="teacher@example.com",
+            password="pass12345",
+            role="teacher",
+        )
+        cls.teacher_profile = TeacherProfile.objects.create(user=teacher_user)
+
+        base = dict(
+            short_description="Short",
+            full_description="Full",
+            teacher_profile=cls.teacher_profile,
+            level=Course.LevelChoices.BEGINNER,
+            language=Course.LanguageChoices.ENGLISH,
+            mode=Course.ModeChoices.SELF_LEARNING,
+            delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
+            course_type=Course.CourseTypeChoices.KNOWLEDGE,
+            pricing_type=Course.PricingTypeChoices.FREE,
+            price=0,
+            duration_hours=10,
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        # 60 published courses to verify capping behavior
+        for i in range(60):
+            Course.all_objects.create(
+                title=f"Top-N Course {i:02d}",
+                slug=f"top-n-course-{i:02d}",
+                **base,
+            )
+        for i in range(15):
+            Category.objects.create(name=f"Cat {i:02d}", slug=f"cat-{i:02d}")
+
+    def test_new_courses_default_limit(self):
+        response = self.client.get(reverse("new-courses"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), self.DEFAULT_NEW)
+
+    def test_new_courses_explicit_limit(self):
+        response = self.client.get(reverse("new-courses"), {"limit": 3})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)
+
+    def test_new_courses_limit_capped_at_max(self):
+        response = self.client.get(reverse("new-courses"), {"limit": 999})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), self.MAX_LIMIT)
+
+    def test_popular_courses_explicit_limit(self):
+        response = self.client.get(reverse("popular-courses"), {"limit": 5})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 5)
+
+    def test_featured_categories_default_limit(self):
+        response = self.client.get(reverse("categories-featured"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), self.DEFAULT_FEATURED)
+
+    def test_featured_categories_explicit_limit(self):
+        response = self.client.get(reverse("categories-featured"), {"limit": 10})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 10)
+
+    def test_invalid_limit_returns_400(self):
+        for bad_value in ("abc", "0", "-3", "1.5"):
+            with self.subTest(value=bad_value):
+                response = self.client.get(
+                    reverse("new-courses"), {"limit": bad_value}
+                )
+                self.assertEqual(
+                    response.status_code, status.HTTP_400_BAD_REQUEST
+                )
+                self.assertIn("limit", response.data)
+
+
+class FeaturedCategoriesUrlTests(APITestCase):
+    """The home-page categories endpoint moved from /courses/categories/ to /categories/featured/."""
+
+    def test_old_url_no_longer_returns_featured_list(self):
+        # /api/v1/courses/categories/ used to return the top-6 list. It now
+        # either 404s or routes to the paginated CategoryViewSet detail (which
+        # would 404 because "categories" is not a valid pk).
+        response = self.client.get("/api/v1/courses/categories/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_new_url_works(self):
+        response = self.client.get(reverse("categories-featured"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, list)
