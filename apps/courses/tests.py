@@ -55,9 +55,10 @@ class CourseViewSetTests(APITestCase):
         response = self.client.get(reverse("courses-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data[0]["slug"], self.course.slug)
-        self.assertNotIn("full_description", response.data[0])
-        self.assertEqual(response.data[0]["teacher_name"], "")
+        results = response.data["results"]
+        self.assertEqual(results[0]["slug"], self.course.slug)
+        self.assertNotIn("full_description", results[0])
+        self.assertEqual(results[0]["teacher_name"], "")
 
     def test_retrieve_uses_detail_serializer(self):
         response = self.client.get(reverse("courses-detail", args=[self.course.pk]))
@@ -343,13 +344,14 @@ class CategoryViewSetTests(APITestCase):
         response = self.client.get(reverse("categories-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(len(response.data["results"]), 2)
 
     def test_list_returns_correct_fields(self):
         response = self.client.get(reverse("categories-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        category = response.data[0]
+        category = response.data["results"][0]
         self.assertIn("id", category)
         self.assertIn("name", category)
         self.assertIn("slug", category)
@@ -412,8 +414,8 @@ class CourseFilterTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["slug"], "django-course")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["slug"], "django-course")
 
     def test_filter_by_category_slug_excludes_other_categories(self):
         response = self.client.get(
@@ -421,7 +423,7 @@ class CourseFilterTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        slugs = [c["slug"] for c in response.data]
+        slugs = [c["slug"] for c in response.data["results"]]
         self.assertIn("figma-course", slugs)
         self.assertNotIn("django-course", slugs)
 
@@ -431,10 +433,185 @@ class CourseFilterTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
 
     def test_no_filter_returns_all_courses(self):
         response = self.client.get(reverse("courses-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 3)
+        self.assertEqual(response.data["count"], 3)
+        self.assertEqual(len(response.data["results"]), 3)
+
+
+class CoursePaginationTests(APITestCase):
+    DEFAULT_PAGE_SIZE = 20
+    MAX_PAGE_SIZE = 100
+
+    @classmethod
+    def setUpTestData(cls):
+        teacher_user = User.objects.create_user(
+            email="teacher@example.com",
+            password="pass12345",
+            role="teacher",
+        )
+        cls.teacher_profile = TeacherProfile.objects.create(user=teacher_user)
+        cls.category = Category.objects.create(name="Development", slug="development")
+        cls.other_category = Category.objects.create(name="Design", slug="design")
+
+        base = dict(
+            short_description="Short",
+            full_description="Full",
+            teacher_profile=cls.teacher_profile,
+            level=Course.LevelChoices.BEGINNER,
+            language=Course.LanguageChoices.ENGLISH,
+            mode=Course.ModeChoices.SELF_LEARNING,
+            delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
+            course_type=Course.CourseTypeChoices.KNOWLEDGE,
+            pricing_type=Course.PricingTypeChoices.FREE,
+            price=0,
+            duration_hours=10,
+        )
+        # 25 dev courses with varied prices to enable ordering checks
+        for i in range(25):
+            Course.all_objects.create(
+                title=f"Dev Course {i:02d}",
+                slug=f"dev-course-{i:02d}",
+                category=cls.category,
+                **{**base, "price": i},
+            )
+        # 3 design courses to verify pagination composes with filters
+        for i in range(3):
+            Course.all_objects.create(
+                title=f"Design Course {i}",
+                slug=f"design-course-{i}",
+                category=cls.other_category,
+                **base,
+            )
+
+    def test_default_response_has_pagination_envelope(self):
+        response = self.client.get(reverse("courses-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key in ("count", "next", "previous", "results"):
+            self.assertIn(key, response.data)
+        self.assertEqual(response.data["count"], 28)
+        self.assertEqual(len(response.data["results"]), self.DEFAULT_PAGE_SIZE)
+        self.assertIsNone(response.data["previous"])
+        self.assertIsNotNone(response.data["next"])
+
+    def test_page_param_returns_next_page(self):
+        response = self.client.get(reverse("courses-list"), {"page": 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # 28 total, page_size 20 → page 2 has 8 items
+        self.assertEqual(len(response.data["results"]), 8)
+        self.assertIsNone(response.data["next"])
+        self.assertIsNotNone(response.data["previous"])
+
+    def test_page_size_query_param_overrides_default(self):
+        response = self.client.get(reverse("courses-list"), {"page_size": 5})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 5)
+        self.assertEqual(response.data["count"], 28)
+
+    def test_page_size_capped_at_max(self):
+        response = self.client.get(
+            reverse("courses-list"), {"page_size": self.MAX_PAGE_SIZE + 50}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # only 28 courses exist, but cap means even with a huge request
+        # the page can not exceed MAX_PAGE_SIZE
+        self.assertLessEqual(len(response.data["results"]), self.MAX_PAGE_SIZE)
+        self.assertEqual(len(response.data["results"]), 28)
+
+    def test_invalid_page_returns_404(self):
+        response = self.client.get(reverse("courses-list"), {"page": 999})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_pagination_composes_with_filter(self):
+        response = self.client.get(
+            reverse("courses-list"),
+            {"category": "design", "page_size": 2},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+        self.assertEqual(len(response.data["results"]), 2)
+        for course in response.data["results"]:
+            self.assertTrue(course["slug"].startswith("design-course-"))
+
+    def test_pagination_composes_with_ordering(self):
+        response = self.client.get(
+            reverse("courses-list"),
+            {"category": "development", "ordering": "price", "page_size": 5},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        prices = [c["price"] for c in response.data["results"]]
+        self.assertEqual(prices, sorted(prices))
+        self.assertEqual(len(prices), 5)
+
+    def test_results_do_not_overlap_between_pages(self):
+        first = self.client.get(reverse("courses-list"), {"page": 1, "page_size": 10})
+        second = self.client.get(reverse("courses-list"), {"page": 2, "page_size": 10})
+
+        first_ids = {c["id"] for c in first.data["results"]}
+        second_ids = {c["id"] for c in second.data["results"]}
+        self.assertEqual(first_ids & second_ids, set())
+
+
+class CategoryPaginationTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        for i in range(25):
+            Category.objects.create(name=f"Category {i:02d}", slug=f"cat-{i:02d}")
+
+    def test_categories_list_is_paginated(self):
+        response = self.client.get(reverse("categories-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        self.assertEqual(response.data["count"], 25)
+        self.assertEqual(len(response.data["results"]), 20)
+
+    def test_categories_list_respects_page_size(self):
+        response = self.client.get(reverse("categories-list"), {"page_size": 7})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 7)
+
+
+class TopNEndpointsAreNotPaginatedTests(APITestCase):
+    """The home-page top-N endpoints return a raw list, not the paginated envelope."""
+
+    @classmethod
+    def setUpTestData(cls):
+        teacher_user = User.objects.create_user(
+            email="teacher@example.com",
+            password="pass12345",
+            role="teacher",
+        )
+        cls.teacher_profile = TeacherProfile.objects.create(user=teacher_user)
+        Category.objects.create(name="A", slug="a")
+
+    def test_new_courses_endpoint_returns_list(self):
+        response = self.client.get(reverse("new-courses"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+
+    def test_popular_courses_endpoint_returns_list(self):
+        response = self.client.get(reverse("popular-courses"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+
+    def test_categories_top_endpoint_returns_list(self):
+        response = self.client.get(reverse("categories"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
