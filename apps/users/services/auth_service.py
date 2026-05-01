@@ -1,32 +1,37 @@
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
+from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.users.exceptions import (
+    AccountForbiddenError,
+    AuthenticationError,
+    EmailNotVerifiedError,
+    InvalidTokenError,
+)
 from apps.users.models import User
-from apps.users.services.token_generator_service import email_verification_token, password_reset_token
-from apps.users.services.tokens import get_tokens_for_user
 from apps.users.services.email_service import EmailService
-
-class AuthenticationError(Exception):
-    pass
-
-
-class EmailNotVerifiedError(Exception):
-    pass
-
-
-class AccountForbiddenError(Exception):
-    pass
-
-
-class InvalidTokenError(Exception):
-    pass
+from apps.users.tokens import email_verification_token, password_reset_token
 
 
 class AuthService:
     @staticmethod
-    def login(email: str, password: str) -> dict:
+    def _issue_jwt_pair(user: User) -> dict:
+        refresh = RefreshToken.for_user(user)
+        refresh["role"] = user.role
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+    @staticmethod
+    def register(user: User) -> User:
+        """Triggers post-registration side effects after the user has been created."""
+        EmailService.send_verification_email(user)
+        return user
+
+    @classmethod
+    def login(cls, email: str, password: str) -> dict:
         """Validates credentials and user state. Returns JWT token pair."""
         try:
             user = User.all_objects.get(email=email)
@@ -45,7 +50,7 @@ class AuthService:
         if user.is_blocked:
             raise AccountForbiddenError("This account has been blocked.")
 
-        return get_tokens_for_user(user)
+        return cls._issue_jwt_pair(user)
 
     @staticmethod
     def logout(refresh_token_str: str) -> None:
