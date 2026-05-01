@@ -1,7 +1,7 @@
 name: Build and Push image to Amazon ECR
 
 on:
-  workflow_dispatch
+  workflow_dispatch: 
 
 jobs:
   build:
