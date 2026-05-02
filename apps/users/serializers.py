@@ -91,3 +91,25 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists(): # type: ignore
             raise serializers.ValidationError("A user with this email already exists.")
         return value
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+
+
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh = serializers.CharField(required=True)
+
+
+class EmailRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        min_length=8,
+        validators=[validate_password],
+    )

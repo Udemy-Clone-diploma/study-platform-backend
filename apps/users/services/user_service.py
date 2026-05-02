@@ -1,8 +1,8 @@
 from django.db import transaction
-from rest_framework.exceptions import ValidationError
 
-from apps.users.serializers import PROFILE_MODELS, PROFILE_SERIALIZERS
+from apps.users.exceptions import ProfileNotAvailableError
 from apps.users.models import User
+from apps.users.serializers import PROFILE_MODELS, PROFILE_SERIALIZERS
 
 
 class UserService:
@@ -28,8 +28,8 @@ class UserService:
         profile_model = PROFILE_MODELS.get(user.role)
 
         if not serializer_class or not profile_model:
-            raise ValidationError(
-                {"detail": "Profile is not available for this role."}
+            raise ProfileNotAvailableError(
+                "Profile is not available for this role."
             )
 
         profile, _ = profile_model.objects.get_or_create(user=user)

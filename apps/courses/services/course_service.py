@@ -2,8 +2,8 @@ from decimal import Decimal
 
 from django.utils.text import slugify
 from django.db import transaction
-from rest_framework.exceptions import ValidationError
 
+from apps.courses.exceptions import InvalidPricingError
 from apps.courses.models import Category, Course
 from apps.courses.serializers import (
     CategorySerializer,
@@ -14,14 +14,6 @@ from apps.courses.serializers import (
 
 
 class CourseService:
-    @staticmethod
-    def get_serializer_class(action: str):
-        if action == "list":
-            return CourseListSerializer
-        if action in {"create", "partial_update"}:
-            return CourseCreateUpdateSerializer
-        return CourseDetailSerializer
-
     @staticmethod
     def validate_course_data(
         data: dict,
@@ -150,8 +142,8 @@ class CourseService:
 
         if pricing_type == Course.PricingTypeChoices.FULL_PAYMENT:
             if price is None or price <= 0:
-                raise ValidationError(
-                    {"price": "Price must be greater than 0 for fully paid courses."}
+                raise InvalidPricingError(
+                    "Price must be greater than 0 for fully paid courses."
                 )
 
             return validated_data
