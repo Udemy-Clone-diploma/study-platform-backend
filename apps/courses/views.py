@@ -1,10 +1,17 @@
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
-from apps.courses.exceptions import InvalidPricingError
+from apps.courses.constants import (
+    DEFAULT_FEATURED_CATEGORIES_LIMIT,
+    DEFAULT_NEW_COURSES_LIMIT,
+    DEFAULT_POPULAR_COURSES_LIMIT,
+    MAX_TOP_N_LIMIT,
+)
+from apps.courses.exceptions import InvalidLimitError, InvalidPricingError
 from apps.courses.filters import CourseFilter
 from apps.courses.models import Category, Course
 from apps.courses.serializers import (
@@ -14,6 +21,19 @@ from apps.courses.serializers import (
     CourseListSerializer,
 )
 from apps.courses.services.course_service import CourseService
+
+
+def _parse_limit(request: Request, default: int) -> int:
+    raw = request.query_params.get("limit")
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise InvalidLimitError("limit must be a positive integer")
+    if value <= 0:
+        raise InvalidLimitError("limit must be a positive integer")
+    return min(value, MAX_TOP_N_LIMIT)
 
 
 class CategoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -81,7 +101,11 @@ class NewCoursesView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        courses = CourseService.get_new_courses()
+        try:
+            limit = _parse_limit(request, default=DEFAULT_NEW_COURSES_LIMIT)
+        except InvalidLimitError as e:
+            return Response({"limit": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        courses = CourseService.get_new_courses(limit=limit)
         return Response(courses)
 
 
@@ -89,13 +113,21 @@ class PopularCoursesView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        courses = CourseService.get_popular_courses()
+        try:
+            limit = _parse_limit(request, default=DEFAULT_POPULAR_COURSES_LIMIT)
+        except InvalidLimitError as e:
+            return Response({"limit": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        courses = CourseService.get_popular_courses(limit=limit)
         return Response(courses)
 
 
-class CategoriesView(APIView):
+class FeaturedCategoriesView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        categories = CourseService.get_categories()
+        try:
+            limit = _parse_limit(request, default=DEFAULT_FEATURED_CATEGORIES_LIMIT)
+        except InvalidLimitError as e:
+            return Response({"limit": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        categories = CourseService.get_categories(limit=limit)
         return Response(categories)

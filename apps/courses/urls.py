@@ -4,9 +4,9 @@ from rest_framework.routers import DefaultRouter
 from apps.courses.views import (
     CategoryViewSet,
     CourseViewSet,
+    FeaturedCategoriesView,
     NewCoursesView,
     PopularCoursesView,
-    CategoriesView,
 )
 
 router = DefaultRouter()
@@ -16,6 +16,10 @@ router.register(r"categories", CategoryViewSet, basename="categories")
 urlpatterns = [
     path("courses/new-courses/", NewCoursesView.as_view(), name="new-courses"),
     path("courses/popular-courses/", PopularCoursesView.as_view(), name="popular-courses"),
-    path("courses/categories/", CategoriesView.as_view(), name="categories"),
+    path(
+        "categories/featured/",
+        FeaturedCategoriesView.as_view(),
+        name="categories-featured",
+    ),
     path("", include(router.urls)),
 ]

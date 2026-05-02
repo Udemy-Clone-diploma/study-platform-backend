@@ -3,6 +3,11 @@ from decimal import Decimal
 from django.utils.text import slugify
 from django.db import transaction
 
+from apps.courses.constants import (
+    DEFAULT_FEATURED_CATEGORIES_LIMIT,
+    DEFAULT_NEW_COURSES_LIMIT,
+    DEFAULT_POPULAR_COURSES_LIMIT,
+)
 from apps.courses.exceptions import InvalidPricingError
 from apps.courses.models import Category, Course
 from apps.courses.serializers import (
@@ -193,21 +198,21 @@ class CourseService:
         course.save(update_fields=["is_deleted", "status"])
 
     @staticmethod
-    def get_new_courses(limit: int = 8) -> list[dict]:
+    def get_new_courses(limit: int = DEFAULT_NEW_COURSES_LIMIT) -> list[dict]:
         courses = Course.objects.filter(
             status=Course.StatusChoices.PUBLISHED, is_deleted=False
         ).order_by('-published_at')[:limit]
         return CourseListSerializer(courses, many=True).data
 
     @staticmethod
-    def get_popular_courses(limit: int = 8) -> list[dict]:
+    def get_popular_courses(limit: int = DEFAULT_POPULAR_COURSES_LIMIT) -> list[dict]:
         courses = Course.objects.filter(
             status=Course.StatusChoices.PUBLISHED, is_deleted=False
         ).order_by('-rating_avg')[:limit]
         return CourseListSerializer(courses, many=True).data
 
     @staticmethod
-    def get_categories(limit: int = 6) -> list[dict]:
+    def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:
         categories = Category.objects.all()[:limit]
         return CategorySerializer(categories, many=True).data
 
