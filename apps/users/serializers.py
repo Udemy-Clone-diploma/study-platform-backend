@@ -37,22 +37,23 @@ PROFILE_MODELS = {
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True, min_length=8)
+    date_of_birth = serializers.DateField(write_only=True)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "password_confirm", "first_name", "last_name", "role", "language"]
+        fields = ["id", "email", "password", "password_confirm", "first_name", "last_name", "date_of_birth", "role", "language"]
 
     def create(self, validated_data):
         password = validated_data.pop("password")
+        date_of_birth = validated_data.pop("date_of_birth")
         validated_data.pop('password_confirm')
+        validated_data["role"] = "student"
         user = User(**validated_data)
         user.set_password(password)
         user.save()
-        profile_model = PROFILE_MODELS.get(user.role)
-        if profile_model:
-            profile_model.objects.create(user=user)
+        StudentProfile.objects.create(user=user, date_of_birth=date_of_birth)
         return user
 
     def validate(self, attrs):
