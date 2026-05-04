@@ -39,6 +39,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True, min_length=8, validators=[validate_password]
     )
+    date_of_birth = serializers.DateField(write_only=True, required=False)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
 
@@ -48,6 +49,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             "id",
             "email",
             "password",
+            "date_of_birth",
             "first_name",
             "last_name",
             "role",
@@ -56,12 +58,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password")
+        date_of_birth = validated_data.pop("date_of_birth", None)
+        validated_data["role"] = "student"
         user = User(**validated_data)
         user.set_password(password)
         user.save()
-        profile_model = PROFILE_MODELS.get(user.role)
-        if profile_model:
-            profile_model.objects.create(user=user)
+        StudentProfile.objects.create(user=user, date_of_birth=date_of_birth)
         return user
 
 
@@ -104,3 +106,25 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():  # type: ignore
             raise serializers.ValidationError("A user with this email already exists.")
         return value
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+
+
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh = serializers.CharField(required=True)
+
+
+class EmailRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        min_length=8,
+        validators=[validate_password],
+    )

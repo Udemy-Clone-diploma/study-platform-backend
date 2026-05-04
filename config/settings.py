@@ -42,12 +42,14 @@ DJANGO_APPS = [
 ]
 
 LOCAL_APPS = [
+    "apps.common",
     "apps.users",
     "apps.courses",
 ]
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "django_filters",
     "corsheaders",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
@@ -144,12 +146,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+    ],
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/day",
         "email_verification": "5/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
+    "PAGE_SIZE": 20,
 }
 
 SPECTACULAR_SETTINGS = {

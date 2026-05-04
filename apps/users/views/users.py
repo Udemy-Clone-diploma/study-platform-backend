@@ -2,6 +2,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.users.exceptions import ProfileNotAvailableError
 from apps.users.models import User
 from apps.users.serializers import (
     UserRegistrationSerializer,
@@ -30,15 +31,15 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
-        UserService.soft_delete_user(user) # Мягкое удаление через сервис
+        UserService.soft_delete_user(user)
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
     @action(detail=True, methods=["patch"], url_path="block")
     def block(self, request, pk=None):
         user = self.get_object()
         is_blocked = request.data.get("is_blocked", True)
 
-        user = UserService.set_block_status(user, is_blocked=is_blocked) # Ставим блок через сервис
+        user = UserService.set_block_status(user, is_blocked=is_blocked)
 
         return Response(UserSerializer(user).data)
 
@@ -46,10 +47,12 @@ class UserViewSet(viewsets.ModelViewSet):
     def profile(self, request, pk=None):
         user = self.get_object()
 
-        user = UserService.update_profile( # Обновляем профиль через сервис
-            user=user,
-            data=request.data,
-            partial=True,
-        )
+        try:
+            user = UserService.update_profile(user, request.data)
+        except ProfileNotAvailableError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(UserSerializer(user).data)

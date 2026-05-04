@@ -1,24 +1,29 @@
-from rest_framework.exceptions import ValidationError
-
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.settings import api_settings as jwt_settings
-from apps.users.services.email_messages_service import EmailMessages
-from apps.users.services.tokens import get_tokens_for_user
-from rest_framework.throttling import AnonRateThrottle
-from apps.users.models import User
+
+from apps.users.exceptions import (
+    AccountForbiddenError,
+    AuthenticationError,
+    EmailNotVerifiedError,
+    InvalidTokenError,
+    ProfileNotAvailableError,
+)
+from apps.users.messages import EmailMessages
 from apps.users.serializers import (
-    PROFILE_MODELS,
-    PROFILE_SERIALIZERS,
+    EmailRequestSerializer,
+    LoginSerializer,
+    PasswordResetConfirmSerializer,
+    RefreshTokenSerializer,
     UserRegistrationSerializer,
     UserSerializer,
     UserUpdateSerializer,
 )
-from apps.users.services.email_service import EmailService
+from apps.users.services.auth_service import AuthService
+from apps.users.services.user_service import UserService
 
 
 class RegisterView(APIView):
@@ -28,9 +33,9 @@ class RegisterView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        EmailService.send_verification_email(user)
+        AuthService.register(user)
         return Response(
-            {"detail": "Registration successful. Check your email for confirmation"},
+            UserSerializer(user).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -39,74 +44,37 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get("email")
-        password = request.data.get("password")
-
-        if not email or not password:
-            return Response(
-                {"detail": "Email and password are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         try:
-            user = User.all_objects.get(email=email)
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "Invalid email or password."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            tokens = AuthService.login(**serializer.validated_data)
+        except AuthenticationError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        except (EmailNotVerifiedError, AccountForbiddenError) as e:
+            return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
-        if not user.check_password(password):
-            return Response(
-                {"detail": "Invalid email or password."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-        
-        if not user.is_email_verified:
-            return Response(
-                {"detail": "Please confirm your email before logging in"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if user.is_deleted:
-            return Response(
-                {"detail": "This account has been deleted."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if user.is_blocked:
-            return Response(
-                {"detail": "This account has been blocked."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        return Response(get_tokens_for_user(user), status=status.HTTP_200_OK)
+        return Response(tokens, status=status.HTTP_200_OK)
 
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        refresh_token = request.data.get("refresh")
-
-        if not refresh_token:
-            return Response(
-                {"detail": "Refresh token is required."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer = RefreshTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         try:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-        except TokenError:
+            AuthService.logout(serializer.validated_data["refresh"])
+        except (TokenError, InvalidTokenError):
             return Response(
                 {"detail": "Invalid or expired refresh token."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         return Response(
             {"detail": "Logged out successfully."},
-            status=status.HTTP_205_RESET_CONTENT
+            status=status.HTTP_205_RESET_CONTENT,
         )
 
 
@@ -114,37 +82,19 @@ class TokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_token = request.data.get("refresh")
-
-        if not refresh_token:
-            return Response(
-                {"detail": "Refresh token is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = RefreshTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         try:
-            token = RefreshToken(refresh_token)
-            user_id = token[jwt_settings.USER_ID_CLAIM] # type: ignore
-            user = User.all_objects.get(pk=user_id)
+            access_token = AuthService.refresh_access_token(
+                serializer.validated_data["refresh"]
+            )
         except TokenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-        except (User.DoesNotExist, KeyError):
-            return Response({"detail": "Invalid token."}, status=status.HTTP_401_UNAUTHORIZED)
+        except (InvalidTokenError, AccountForbiddenError) as e:
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if user.is_deleted:
-            return Response(
-                {"detail": "This account has been deleted."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-        if user.is_blocked:
-            return Response(
-                {"detail": "This account has been blocked."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        access = token.access_token
-        access["role"] = user.role
-        return Response({"access": str(access)}, status=status.HTTP_200_OK)
+        return Response({"access": access_token}, status=status.HTTP_200_OK)
 
 
 class MeView(APIView):
@@ -164,104 +114,107 @@ class MeProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request):
-        user = request.user
-        serializer_class = PROFILE_SERIALIZERS.get(user.role)
-        profile_model = PROFILE_MODELS.get(user.role)
-
-        if not serializer_class or not profile_model:
+        try:
+            user = UserService.update_profile(request.user, request.data)
+        except ProfileNotAvailableError as e:
             return Response(
-                {"detail": "Profile is not available for this role."},
+                {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        profile, _ = profile_model.objects.get_or_create(user=user)
-        serializer = serializer_class(profile, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
         return Response(UserSerializer(user).data)
 
-
-# ============================================================
-#                             Email
-# ============================================================
 
 class EmailVerificationThrottle(AnonRateThrottle):
     rate = "5/hour"
 
+
 class PasswordResetThrottle(AnonRateThrottle):
     rate = "5/hour"
- 
- 
+
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, uidb64, token):
         try:
-            EmailService.verify_email(uidb64, token)
-        except ValidationError as e:
-            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+            AuthService.verify_email(uidb64, token)
+        except InvalidTokenError:
+            return Response(
+                {"detail": EmailMessages.INVALID_LINK},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        return Response({"detail": EmailMessages.CONFIRMED_SUCCESS}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": EmailMessages.CONFIRMED_SUCCESS},
+            status=status.HTTP_200_OK,
+        )
 
 
-    
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [EmailVerificationThrottle]
 
     def post(self, request):
-        email = request.data.get("email")
-        try:
-            EmailService.resend_verification_email(email)
-        except ValidationError as e:
-            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = EmailRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        return Response({"detail": EmailMessages.RESEND_SUCCESS}, status=status.HTTP_200_OK)
+        AuthService.resend_verification_email(serializer.validated_data["email"])
+        return Response(
+            {"detail": EmailMessages.RESEND_SUCCESS},
+            status=status.HTTP_200_OK,
+        )
 
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [PasswordResetThrottle]
- 
-    def post(self, request):
-        email = request.data.get("email")
-        try:
-            EmailService.request_password_reset(email)
-        except ValidationError as e:
-            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
+    def post(self, request):
+        serializer = EmailRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        AuthService.request_password_reset(serializer.validated_data["email"])
         return Response(
             {"detail": EmailMessages.PASSWORD_RESET_SENT},
             status=status.HTTP_200_OK,
         )
- 
+
+
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
- 
+
     def post(self, request, uidb64, token):
-        password = request.data.get("password")
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         try:
-            EmailService.confirm_password_reset(uidb64, token, password)
-        except ValidationError as e:
-            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+            AuthService.confirm_password_reset(
+                uidb64,
+                token,
+                serializer.validated_data["password"],
+            )
+        except InvalidTokenError:
+            return Response(
+                {"detail": EmailMessages.PASSWORD_RESET_INVALID},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {"detail": EmailMessages.PASSWORD_RESET_SUCCESS},
             status=status.HTTP_200_OK,
         )
- 
- 
+
+
 class PasswordResetValidateView(APIView):
-   
     permission_classes = [AllowAny]
- 
+
     def get(self, request, uidb64, token):
         try:
-            EmailService.validate_password_reset(uidb64, token)
-        except ValidationError as e:
+            AuthService.validate_password_reset_token(uidb64, token)
+        except InvalidTokenError:
             return Response(
-                {"valid": False, "detail": e.detail},
+                {"valid": False, "detail": EmailMessages.PASSWORD_RESET_INVALID},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
