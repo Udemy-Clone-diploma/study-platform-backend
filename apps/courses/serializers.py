@@ -46,7 +46,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "short_description", "full_description", "slug", "teacher_id",
             "teacher_name", "moderator_id", "category", "level", "language", "mode",
-            "delivery_type", "course_type", "pricing_type", "price", "duration_hours", "lessons_count", 
+            "delivery_type", "course_type", "pricing_type", "price", "installment_count",
+            "installment_amount", "duration_hours", "lessons_count",
             "with_certificate", "is_on_sale", "rating_avg", "students_count", "status", "created_at",
             "updated_at", "published_at", "tags",
         ]
@@ -77,8 +78,9 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         model = Course
         fields = [
             "title", "short_description", "full_description", "teacher_profile",
-            "moderator_profile", "category_id", "level","language", "mode", "delivery_type", 
-            "course_type", "pricing_type", "price", "duration_hours", "lessons_count", "with_certificate", 
+            "moderator_profile", "category_id", "level", "language", "mode", "delivery_type",
+            "course_type", "pricing_type", "price", "installment_count", "installment_amount",
+            "duration_hours", "lessons_count", "with_certificate",
             "is_on_sale", "status", "tag_ids",
         ]
 
@@ -114,5 +116,15 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
                     )
                 }
             )
+
+        pricing_type = attrs.get("pricing_type", getattr(self.instance, "pricing_type", None))
+        errors = {}
+        if pricing_type == Course.PricingTypeChoices.INSTALLMENT:
+            if not attrs.get("installment_count") and not getattr(self.instance, "installment_count", None):
+                errors["installment_count"] = "installment_count is required for installment pricing."
+            if not attrs.get("installment_amount") and not getattr(self.instance, "installment_amount", None):
+                errors["installment_amount"] = "installment_amount is required for installment pricing."
+        if errors:
+            raise serializers.ValidationError(errors)
 
         return attrs

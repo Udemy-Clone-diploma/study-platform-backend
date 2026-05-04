@@ -3,6 +3,7 @@ from rest_framework import serializers
 from apps.users.models import ModeratorProfile, StudentProfile, TeacherProfile, User
 from django.contrib.auth.password_validation import validate_password
 
+
 class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
@@ -35,20 +36,29 @@ PROFILE_MODELS = {
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8, validators=[validate_password])
-    password_confirm = serializers.CharField(write_only=True, min_length=8)
-    date_of_birth = serializers.DateField(write_only=True)
+    password = serializers.CharField(
+        write_only=True, min_length=8, validators=[validate_password]
+    )
+    date_of_birth = serializers.DateField(write_only=True, required=False)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "password_confirm", "first_name", "last_name", "date_of_birth", "role", "language"]
+        fields = [
+            "id",
+            "email",
+            "password",
+            "date_of_birth",
+            "first_name",
+            "last_name",
+            "role",
+            "language",
+        ]
 
     def create(self, validated_data):
         password = validated_data.pop("password")
-        date_of_birth = validated_data.pop("date_of_birth")
-        validated_data.pop('password_confirm')
+        date_of_birth = validated_data.pop("date_of_birth", None)
         validated_data["role"] = "student"
         user = User(**validated_data)
         user.set_password(password)
@@ -56,10 +66,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         StudentProfile.objects.create(user=user, date_of_birth=date_of_birth)
         return user
 
-    def validate(self, attrs):
-        if attrs["password"] != attrs["password_confirm"]:
-            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
-        return attrs
 
 class UserSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()
@@ -67,8 +73,17 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id", "email", "first_name", "last_name", "role", "status",
-            "avatar", "language", "is_blocked", "date_joined", "profile",
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "status",
+            "avatar",
+            "language",
+            "is_blocked",
+            "date_joined",
+            "profile",
         ]
         read_only_fields = ["id", "date_joined"]
 
@@ -88,7 +103,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = ["first_name", "last_name", "email", "avatar", "language"]
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists(): # type: ignore
+        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():  # type: ignore
             raise serializers.ValidationError("A user with this email already exists.")
         return value
 
