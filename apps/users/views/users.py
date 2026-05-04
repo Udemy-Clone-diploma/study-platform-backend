@@ -4,6 +4,7 @@ from rest_framework.response import Response
 
 from apps.users.exceptions import ProfileNotAvailableError
 from apps.users.models import User
+from apps.users.permissions import IsAdmin
 from apps.users.serializers import (
     UserRegistrationSerializer,
     UserSerializer,
@@ -15,6 +16,7 @@ from apps.users.services.user_service import UserService
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     http_method_names = ["get", "post", "patch", "delete"]
+    permission_classes = [IsAdmin]
 
     def get_serializer_class(self):
         if self.action == "create":

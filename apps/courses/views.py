@@ -1,5 +1,5 @@
 from rest_framework import filters, mixins, status, viewsets
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,6 +14,7 @@ from apps.courses.constants import (
 from apps.courses.exceptions import InvalidLimitError, InvalidPricingError
 from apps.courses.filters import CourseFilter
 from apps.courses.models import Category, Course
+from apps.courses.permissions import IsCourseOwnerOrAdmin
 from apps.courses.serializers import (
     CategorySerializer,
     CourseCreateUpdateSerializer,
@@ -39,6 +40,7 @@ def _parse_limit(request: Request, default: int) -> int:
 class CategoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    permission_classes = [AllowAny]
 
 
 class CourseViewSet(
@@ -59,6 +61,13 @@ class CourseViewSet(
     filterset_class = CourseFilter
     ordering_fields = ["price", "students_count", "rating_avg", "created_at"]
     ordering = ["-created_at"]
+
+    def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [AllowAny()]
+        if self.action in {"partial_update", "destroy"}:
+            return [IsCourseOwnerOrAdmin()]
+        return [IsAuthenticated()]
 
     def get_serializer_class(self):
         if self.action == "list":
