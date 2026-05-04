@@ -24,6 +24,7 @@ class CourseViewSetTests(APITestCase):
             user=moderator_user,
             level="senior",
         )
+        self.client.force_authenticate(user=teacher_user)
         self.category = Category.objects.create(
             name="Development",
             slug="development",
