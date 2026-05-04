@@ -42,6 +42,7 @@ DJANGO_APPS = [
 ]
 
 LOCAL_APPS = [
+    "apps.common",
     "apps.users",
     "apps.courses",
 ]
@@ -154,6 +155,8 @@ REST_FRAMEWORK = {
         "email_verification": "5/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
+    "PAGE_SIZE": 20,
 }
 
 SPECTACULAR_SETTINGS = {
