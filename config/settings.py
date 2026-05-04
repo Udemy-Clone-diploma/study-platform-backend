@@ -28,7 +28,11 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",") # type: ignore
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="localhost,127.0.0.1",
+    cast=lambda v: [s.strip() for s in v.split(",")],
+)
 
 
 # Application definition   
@@ -151,8 +155,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",
         "email_verification": "5/hour",
+        "password_reset": "5/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
@@ -179,7 +183,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 STATIC_URL = "static/"
 
-EMAIL_VERIFICATION_TIMEOUT = 60 * 60 * 24 * 2
+EMAIL_VERIFICATION_TIMEOUT = int(timedelta(days=2).total_seconds())
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 

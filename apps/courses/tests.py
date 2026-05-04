@@ -440,14 +440,14 @@ class CourseFilterTests(APITestCase):
         response = self.client.get(reverse("courses-list"), {"search": "django"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        slugs = [c["slug"] for c in response.data]
+        slugs = [c["slug"] for c in response.data["results"]]
         self.assertEqual(slugs, ["django-course"])
 
     def test_search_returns_courses_matching_category(self):
         response = self.client.get(reverse("courses-list"), {"search": "design"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        slugs = [c["slug"] for c in response.data]
+        slugs = [c["slug"] for c in response.data["results"]]
         self.assertIn("figma-course", slugs)
         self.assertNotIn("django-course", slugs)
 
@@ -458,7 +458,7 @@ class CourseFilterTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(response.data["count"], 0)
 
     def test_no_filter_returns_all_courses(self):
         response = self.client.get(reverse("courses-list"))

@@ -1,36 +1,13 @@
+from decimal import Decimal
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.users.models import ModeratorProfile, TeacherProfile
 
-
-class ActiveCourseManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(is_deleted=False)
-
-
-class Tag(models.Model):
-    name = models.CharField(max_length=50, unique=True)
-
-    class Meta:
-        db_table = "tags"
-        ordering = ["name"]
-
-    def __str__(self):
-        return self.name
-
-
-class Category(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(unique=True)
-    description = models.TextField(blank=True)
-
-    class Meta:
-        db_table = "categories"
-        ordering = ["name"]
-
-    def __str__(self):
-        return self.name
+from .ActiveCourseManager import ActiveCourseManager
+from .Category import Category
+from .Tag import Tag
 
 
 class Course(models.Model):
@@ -50,7 +27,7 @@ class Course(models.Model):
 
     class DeliveryTypeChoices(models.TextChoices):
         SELF_PACED = "self_paced", "Self-paced"
-        SCHEDULED = "scheduled", "Scheduled" # додатково
+        SCHEDULED = "scheduled", "Scheduled"
         INDIVIDUAL = "individual", "Individual"
         GROUP = "group", "Group"
 
@@ -72,20 +49,16 @@ class Course(models.Model):
 
     title = models.CharField(max_length=255)
 
-    short_description = models.CharField(
-        max_length=500
-    )
+    short_description = models.CharField(max_length=500)
 
     full_description = models.TextField()
 
-    slug = models.SlugField(
-        unique=True
-    )
+    slug = models.SlugField(unique=True)
 
     teacher_profile = models.ForeignKey(
         TeacherProfile,
         on_delete=models.CASCADE,
-        related_name="courses"
+        related_name="courses",
     )
 
     moderator_profile = models.ForeignKey(
@@ -93,7 +66,7 @@ class Course(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="moderated_courses"
+        related_name="moderated_courses",
     )
 
     category = models.ForeignKey(
@@ -101,51 +74,42 @@ class Course(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="courses"
+        related_name="courses",
     )
 
-    level = models.CharField(
-        max_length=20,
-        choices=LevelChoices.choices
-    )
+    level = models.CharField(max_length=20, choices=LevelChoices.choices)
 
     language = models.CharField(
         max_length=20,
         choices=LanguageChoices.choices,
-        default=LanguageChoices.ENGLISH
+        default=LanguageChoices.UKRAINIAN,
     )
 
-    mode = models.CharField(
-        max_length=20,
-        choices=ModeChoices.choices
-    )
+    mode = models.CharField(max_length=20, choices=ModeChoices.choices)
 
     delivery_type = models.CharField(
         max_length=20,
-        choices=DeliveryTypeChoices.choices
+        choices=DeliveryTypeChoices.choices,
     )
 
     course_type = models.CharField(
         max_length=30,
-        choices=CourseTypeChoices.choices
+        choices=CourseTypeChoices.choices,
     )
 
     pricing_type = models.CharField(
         max_length=20,
         choices=PricingTypeChoices.choices,
-        default=PricingTypeChoices.FREE
+        default=PricingTypeChoices.FREE,
     )
 
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=0.00 #type: ignore
+        default=Decimal("0.00"),
     )
 
-    installment_count = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-    )
+    installment_count = models.PositiveIntegerField(null=True, blank=True)
 
     installment_amount = models.DecimalField(
         max_digits=10,
@@ -156,60 +120,36 @@ class Course(models.Model):
 
     duration_hours = models.PositiveIntegerField()
 
-    lessons_count = models.PositiveIntegerField(
-        default=0
-    )
+    lessons_count = models.PositiveIntegerField(default=0)
 
-    with_certificate = models.BooleanField(
-        default=False
-    )
+    with_certificate = models.BooleanField(default=False)
 
-    is_on_sale = models.BooleanField(
-        default=False
-    )
+    is_on_sale = models.BooleanField(default=False)
 
     rating_avg = models.DecimalField(
         max_digits=3,
         decimal_places=2,
-        default=0.00, #type: ignore
-        validators=[
-            MinValueValidator(0),
-            MaxValueValidator(5),
-        ]
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(0), MaxValueValidator(5)],
     )
 
-    students_count = models.PositiveIntegerField(
-        default=0
-    )
+    students_count = models.PositiveIntegerField(default=0)
 
     status = models.CharField(
         max_length=20,
         choices=StatusChoices.choices,
-        default=StatusChoices.DRAFT
+        default=StatusChoices.DRAFT,
     )
 
-    is_deleted = models.BooleanField(
-        default=False
-    )
+    is_deleted = models.BooleanField(default=False)
 
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    updated_at = models.DateTimeField(
-        auto_now=True
-    )
+    updated_at = models.DateTimeField(auto_now=True)
 
-    published_at = models.DateTimeField(
-        null=True,
-        blank=True
-    )
+    published_at = models.DateTimeField(null=True, blank=True)
 
-    tags = models.ManyToManyField(
-        Tag,
-        blank=True,
-        related_name="courses"
-    )
+    tags = models.ManyToManyField(Tag, blank=True, related_name="courses")
 
     objects = ActiveCourseManager()
     all_objects = models.Manager()
