@@ -13,6 +13,7 @@ from apps.courses.serializers import (
     CourseListSerializer,
 )
 from apps.courses.services.course_service import CourseService
+from apps.users.permissions import IsTeacherOrAdmin
 
 
 class CourseViewSet(
@@ -37,6 +38,8 @@ class CourseViewSet(
     def get_permissions(self):
         if self.action in {"list", "retrieve"}:
             return [AllowAny()]
+        if self.action == "create":
+            return [IsTeacherOrAdmin()]
         if self.action in {"partial_update", "destroy"}:
             return [IsCourseOwnerOrAdmin()]
         return [IsAuthenticated()]
