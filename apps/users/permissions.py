@@ -29,6 +29,10 @@ class IsTeacher(RolePermission):
     allowed_roles = ("teacher",)
 
 
+class IsTeacherOrAdmin(RolePermission):
+    allowed_roles = ("teacher", "administrator")
+
+
 class IsStudent(RolePermission):
     allowed_roles = ("student",)
 

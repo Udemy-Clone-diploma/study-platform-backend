@@ -16,6 +16,7 @@ from apps.courses.serializers import (
     CourseDetailSerializer,
     CourseListSerializer,
 )
+from apps.users.models import User
 
 
 class CourseService:
@@ -48,8 +49,9 @@ class CourseService:
         data: dict,
         context: dict | None = None,
     ) -> dict:
+        context = context or {}
         validated_data = cls.validate_course_data(data, context=context)
-        course = cls.create_course(validated_data)
+        course = cls.create_course(validated_data, request_user=context["request"].user)
         return cls.serialize_course_detail(course, context=context)
 
     @classmethod
@@ -60,13 +62,18 @@ class CourseService:
         partial: bool = True,
         context: dict | None = None,
     ) -> dict:
+        context = context or {}
         validated_data = cls.validate_course_data(
             data,
             course=course,
             partial=partial,
             context=context,
         )
-        course = cls.update_course(course, validated_data)
+        course = cls.update_course(
+            course,
+            validated_data,
+            request_user=context["request"].user,
+        )
         return cls.serialize_course_detail(course, context=context)
 
     # data validation
@@ -121,6 +128,22 @@ class CourseService:
 
         return validated_data
 
+    @staticmethod
+    def _apply_teacher_profile_rules(
+        validated_data: dict,
+        request_user: User,
+        course: Course | None = None,
+    ) -> dict:
+        if request_user.role == User.RoleChoices.ADMINISTRATOR:
+            return validated_data
+
+        if course is None:
+            validated_data["teacher_profile"] = request_user.teacherprofile
+        else:
+            validated_data.pop("teacher_profile", None)
+
+        return validated_data
+
     @classmethod
     def _apply_pricing_rules(
         cls,
@@ -160,8 +183,12 @@ class CourseService:
 
     @staticmethod
     @transaction.atomic
-    def create_course(validated_data: dict) -> Course:
-        validated_data = CourseService._apply_slug_rules(dict(validated_data))
+    def create_course(validated_data: dict, request_user: User) -> Course:
+        validated_data = CourseService._apply_teacher_profile_rules(
+            dict(validated_data),
+            request_user,
+        )
+        validated_data = CourseService._apply_slug_rules(validated_data)
         validated_data = CourseService._apply_pricing_rules(validated_data)
         tags = validated_data.pop("tags", [])
         course = Course.all_objects.create(**validated_data)
@@ -171,9 +198,18 @@ class CourseService:
 
     @staticmethod
     @transaction.atomic
-    def update_course(course: Course, validated_data: dict) -> Course:
-        validated_data = CourseService._apply_slug_rules(
+    def update_course(
+        course: Course,
+        validated_data: dict,
+        request_user: User,
+    ) -> Course:
+        validated_data = CourseService._apply_teacher_profile_rules(
             dict(validated_data),
+            request_user,
+            course=course,
+        )
+        validated_data = CourseService._apply_slug_rules(
+            validated_data,
             course=course,
         )
         validated_data = CourseService._apply_pricing_rules(
