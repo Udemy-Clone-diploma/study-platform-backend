@@ -38,6 +38,12 @@ class CourseViewSet(
     ordering_fields = ["price", "students_count", "rating_avg", "created_at"]
     ordering = ["-created_at"]
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.action == "retrieve":
+            queryset = queryset.prefetch_related("modules")
+        return queryset
+
     def get_permissions(self):
         if self.action in {"list", "retrieve"}:
             return [AllowAny()]
