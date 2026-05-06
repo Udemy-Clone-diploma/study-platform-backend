@@ -47,6 +47,8 @@ class Course(models.Model):
         PUBLISHED = "published", "Published"
         ARCHIVED = "archived", "Archived"
 
+    image = models.ImageField(upload_to="courses/", null=True, blank=True)
+
     title = models.CharField(max_length=255)
 
     short_description = models.CharField(max_length=500)

@@ -236,18 +236,18 @@ class CourseService:
         course.save(update_fields=["is_deleted", "status"])
 
     @staticmethod
-    def get_new_courses(limit: int = DEFAULT_NEW_COURSES_LIMIT) -> list[dict]:
+    def get_new_courses(limit: int = DEFAULT_NEW_COURSES_LIMIT, context: dict | None = None) -> list[dict]:
         courses = Course.objects.filter(
             status=Course.StatusChoices.PUBLISHED, is_deleted=False
         ).order_by('-published_at')[:limit]
-        return CourseListSerializer(courses, many=True).data
+        return CourseListSerializer(courses, many=True, context=context or {}).data
 
     @staticmethod
-    def get_popular_courses(limit: int = DEFAULT_POPULAR_COURSES_LIMIT) -> list[dict]:
+    def get_popular_courses(limit: int = DEFAULT_POPULAR_COURSES_LIMIT, context: dict | None = None) -> list[dict]:
         courses = Course.objects.filter(
             status=Course.StatusChoices.PUBLISHED, is_deleted=False
         ).order_by('-rating_avg')[:limit]
-        return CourseListSerializer(courses, many=True).data
+        return CourseListSerializer(courses, many=True, context=context or {}).data
 
     @staticmethod
     def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:

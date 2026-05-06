@@ -18,5 +18,5 @@ class NewCoursesView(APIView):
             limit = parse_limit(request, default=DEFAULT_NEW_COURSES_LIMIT)
         except InvalidLimitError as e:
             return Response({"limit": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        courses = CourseService.get_new_courses(limit=limit)
+        courses = CourseService.get_new_courses(limit=limit, context={"request": request})
         return Response(courses)
