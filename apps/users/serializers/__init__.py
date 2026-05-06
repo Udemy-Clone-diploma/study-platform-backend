@@ -10,6 +10,7 @@ from .TeacherProfileSerializer import TeacherProfileSerializer
 from .UserRegistrationSerializer import UserRegistrationSerializer
 from .UserSerializer import PROFILE_SERIALIZERS, UserSerializer
 from .UserUpdateSerializer import UserUpdateSerializer
+from .TopTeacherSerializer import TopTeacherSerializer
 
 PROFILE_MODELS = {
     "student": StudentProfile,
@@ -30,4 +31,5 @@ __all__ = [
     "UserRegistrationSerializer",
     "UserSerializer",
     "UserUpdateSerializer",
+    "TopTeacherSerializer",
 ]

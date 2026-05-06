@@ -1,9 +1,11 @@
 from django.db import transaction
 
 from apps.users.exceptions import ProfileNotAvailableError
-from apps.users.models import User
+from apps.users.models import TeacherProfile, User
 from apps.users.serializers import PROFILE_MODELS, PROFILE_SERIALIZERS
 
+DEFAULT_TOP_TEACHERS_LIMIT = 4
+MAX_TOP_TEACHERS_LIMIT = 50
 
 class UserService:
     @staticmethod
@@ -39,3 +41,16 @@ class UserService:
         serializer.save()
 
         return user
+
+    @staticmethod
+    def get_top_teachers(limit: int = DEFAULT_TOP_TEACHERS_LIMIT, request=None) -> list[dict]:
+        from apps.users.serializers import TopTeacherSerializer
+
+        limit = min(limit, MAX_TOP_TEACHERS_LIMIT)
+        teachers = (
+            TeacherProfile.objects.select_related("user")
+            .filter(user__is_deleted=False, user__is_blocked=False)
+            .order_by("-rating")[:limit]
+        )
+        context = {"request": request} if request else {}
+        return TopTeacherSerializer(teachers, many=True, context=context).data

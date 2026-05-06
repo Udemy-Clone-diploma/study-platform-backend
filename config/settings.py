@@ -59,7 +59,7 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
 ]
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS + ["django_cleanup.apps.CleanupConfig"]
 
 
 MIDDLEWARE = [
