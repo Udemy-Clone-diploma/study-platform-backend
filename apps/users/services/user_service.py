@@ -52,7 +52,12 @@ class UserService:
     ) -> list[dict]:
         teachers = (
             TeacherProfile.objects.select_related("user")
-            .filter(user__is_deleted=False, user__is_blocked=False)
-            .order_by("-rating")[:limit]
+            .filter(
+                user__is_deleted=False,
+                user__is_blocked=False,
+                user__is_email_verified=True,
+                user__role=User.RoleChoices.TEACHER,
+            )
+            .order_by("-rating", "-id")[:limit]
         )
         return TopTeacherSerializer(teachers, many=True, context=context or {}).data

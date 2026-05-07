@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
+from apps.common.files import UUIDUploadTo
+
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -52,7 +54,7 @@ class User(AbstractUser):
         choices=StatusChoices.choices,
         default=StatusChoices.ACTIVE,
     )
-    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
+    avatar = models.ImageField(upload_to=UUIDUploadTo("avatars"), blank=True, null=True)
     language = models.CharField(
         max_length=10,
         choices=LanguageChoices.choices,
