@@ -6,8 +6,20 @@ from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from apps.users.models import User
 
 
+def _authenticate_as_admin(client, email="admin_setup@example.com"):
+    admin = User.all_objects.create_user(
+        email=email,
+        password="pass",
+        role=User.RoleChoices.ADMINISTRATOR,
+        is_email_verified=True,
+    )
+    client.force_authenticate(user=admin)
+    return admin
+
+
 class UserRegistrationTests(APITestCase):
     def setUp(self):
+        _authenticate_as_admin(self.client)
         self.url = reverse("users-list")
         self.valid_data = {
             "email": "test@example.com",
@@ -38,6 +50,7 @@ class UserRegistrationTests(APITestCase):
 
 class UserRetrieveTests(APITestCase):
     def setUp(self):
+        _authenticate_as_admin(self.client)
         self.user = User.objects.create_user(
             email="test@example.com",
             password="pass", role="student",
@@ -71,6 +84,7 @@ class UserRetrieveTests(APITestCase):
 
 class UserUpdateTests(APITestCase):
     def setUp(self):
+        _authenticate_as_admin(self.client)
         self.user = User.objects.create_user(
             email="test@example.com",
             password="pass", role="student",
@@ -93,6 +107,7 @@ class UserUpdateTests(APITestCase):
 
 class UserDeleteTests(APITestCase):
     def setUp(self):
+        _authenticate_as_admin(self.client)
         self.user = User.objects.create_user(
             email="test@example.com",
             password="pass", role="student",
@@ -114,6 +129,7 @@ class UserDeleteTests(APITestCase):
 
 class UserBlockTests(APITestCase):
     def setUp(self):
+        _authenticate_as_admin(self.client)
         self.user = User.objects.create_user(
             email="test@example.com",
             password="pass", role="student",
@@ -149,6 +165,7 @@ class UserProfileUpdateTests(APITestCase):
             email="admin@example.com",
             password="pass", role="administrator",
         )
+        self.client.force_authenticate(user=self.admin)
 
     def test_update_student_profile_creates_if_missing(self):
         url = reverse("users-profile", args=[self.student.pk])

@@ -3,6 +3,11 @@ from decimal import Decimal
 from django.utils.text import slugify
 from django.db import transaction
 
+from apps.courses.constants import (
+    DEFAULT_FEATURED_CATEGORIES_LIMIT,
+    DEFAULT_NEW_COURSES_LIMIT,
+    DEFAULT_POPULAR_COURSES_LIMIT,
+)
 from apps.courses.exceptions import InvalidPricingError
 from apps.courses.models import Category, Course
 from apps.courses.serializers import (
@@ -11,6 +16,7 @@ from apps.courses.serializers import (
     CourseDetailSerializer,
     CourseListSerializer,
 )
+from apps.users.models import User
 
 
 class CourseService:
@@ -43,8 +49,9 @@ class CourseService:
         data: dict,
         context: dict | None = None,
     ) -> dict:
+        context = context or {}
         validated_data = cls.validate_course_data(data, context=context)
-        course = cls.create_course(validated_data)
+        course = cls.create_course(validated_data, request_user=context["request"].user)
         return cls.serialize_course_detail(course, context=context)
 
     @classmethod
@@ -55,13 +62,18 @@ class CourseService:
         partial: bool = True,
         context: dict | None = None,
     ) -> dict:
+        context = context or {}
         validated_data = cls.validate_course_data(
             data,
             course=course,
             partial=partial,
             context=context,
         )
-        course = cls.update_course(course, validated_data)
+        course = cls.update_course(
+            course,
+            validated_data,
+            request_user=context["request"].user,
+        )
         return cls.serialize_course_detail(course, context=context)
 
     # data validation
@@ -116,6 +128,22 @@ class CourseService:
 
         return validated_data
 
+    @staticmethod
+    def _apply_teacher_profile_rules(
+        validated_data: dict,
+        request_user: User,
+        course: Course | None = None,
+    ) -> dict:
+        if request_user.role == User.RoleChoices.ADMINISTRATOR:
+            return validated_data
+
+        if course is None:
+            validated_data["teacher_profile"] = request_user.teacherprofile
+        else:
+            validated_data.pop("teacher_profile", None)
+
+        return validated_data
+
     @classmethod
     def _apply_pricing_rules(
         cls,
@@ -137,7 +165,8 @@ class CourseService:
 
         if pricing_type == Course.PricingTypeChoices.FREE:
             validated_data["price"] = Decimal("0.00")
-
+            validated_data["installment_count"] = None
+            validated_data["installment_amount"] = None
             return validated_data
 
         if pricing_type == Course.PricingTypeChoices.FULL_PAYMENT:
@@ -145,7 +174,8 @@ class CourseService:
                 raise InvalidPricingError(
                     "Price must be greater than 0 for fully paid courses."
                 )
-
+            validated_data["installment_count"] = None
+            validated_data["installment_amount"] = None
             return validated_data
 
 
@@ -153,8 +183,12 @@ class CourseService:
 
     @staticmethod
     @transaction.atomic
-    def create_course(validated_data: dict) -> Course:
-        validated_data = CourseService._apply_slug_rules(dict(validated_data))
+    def create_course(validated_data: dict, request_user: User) -> Course:
+        validated_data = CourseService._apply_teacher_profile_rules(
+            dict(validated_data),
+            request_user,
+        )
+        validated_data = CourseService._apply_slug_rules(validated_data)
         validated_data = CourseService._apply_pricing_rules(validated_data)
         tags = validated_data.pop("tags", [])
         course = Course.all_objects.create(**validated_data)
@@ -164,9 +198,18 @@ class CourseService:
 
     @staticmethod
     @transaction.atomic
-    def update_course(course: Course, validated_data: dict) -> Course:
-        validated_data = CourseService._apply_slug_rules(
+    def update_course(
+        course: Course,
+        validated_data: dict,
+        request_user: User,
+    ) -> Course:
+        validated_data = CourseService._apply_teacher_profile_rules(
             dict(validated_data),
+            request_user,
+            course=course,
+        )
+        validated_data = CourseService._apply_slug_rules(
+            validated_data,
             course=course,
         )
         validated_data = CourseService._apply_pricing_rules(
@@ -193,21 +236,21 @@ class CourseService:
         course.save(update_fields=["is_deleted", "status"])
 
     @staticmethod
-    def get_new_courses(limit: int = 8) -> list[dict]:
+    def get_new_courses(limit: int = DEFAULT_NEW_COURSES_LIMIT, context: dict | None = None) -> list[dict]:
         courses = Course.objects.filter(
             status=Course.StatusChoices.PUBLISHED, is_deleted=False
         ).order_by('-published_at')[:limit]
-        return CourseListSerializer(courses, many=True).data
+        return CourseListSerializer(courses, many=True, context=context or {}).data
 
     @staticmethod
-    def get_popular_courses(limit: int = 8) -> list[dict]:
+    def get_popular_courses(limit: int = DEFAULT_POPULAR_COURSES_LIMIT, context: dict | None = None) -> list[dict]:
         courses = Course.objects.filter(
             status=Course.StatusChoices.PUBLISHED, is_deleted=False
         ).order_by('-rating_avg')[:limit]
-        return CourseListSerializer(courses, many=True).data
+        return CourseListSerializer(courses, many=True, context=context or {}).data
 
     @staticmethod
-    def get_categories(limit: int = 6) -> list[dict]:
+    def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:
         categories = Category.objects.all()[:limit]
         return CategorySerializer(categories, many=True).data
 

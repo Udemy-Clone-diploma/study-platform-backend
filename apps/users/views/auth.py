@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -125,14 +125,6 @@ class MeProfileView(APIView):
         return Response(UserSerializer(user).data)
 
 
-class EmailVerificationThrottle(AnonRateThrottle):
-    rate = "5/hour"
-
-
-class PasswordResetThrottle(AnonRateThrottle):
-    rate = "5/hour"
-
-
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 
@@ -153,7 +145,8 @@ class VerifyEmailView(APIView):
 
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [EmailVerificationThrottle]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "email_verification"
 
     def post(self, request):
         serializer = EmailRequestSerializer(data=request.data)
@@ -168,7 +161,8 @@ class ResendVerificationEmailView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [PasswordResetThrottle]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "password_reset"
 
     def post(self, request):
         serializer = EmailRequestSerializer(data=request.data)

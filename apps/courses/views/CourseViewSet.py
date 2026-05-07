@@ -1,24 +1,19 @@
-from rest_framework import filters, mixins, status, viewsets
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, mixins, status, viewsets
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 
 from apps.courses.exceptions import InvalidPricingError
 from apps.courses.filters import CourseFilter
-from apps.courses.models import Category, Course
+from apps.courses.models import Course
+from apps.courses.permissions import IsCourseOwnerOrAdmin
 from apps.courses.serializers import (
-    CategorySerializer,
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
     CourseListSerializer,
 )
 from apps.courses.services.course_service import CourseService
-
-
-class CategoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
+from apps.users.permissions import IsTeacherOrAdmin
 
 
 class CourseViewSet(
@@ -39,6 +34,15 @@ class CourseViewSet(
     filterset_class = CourseFilter
     ordering_fields = ["price", "students_count", "rating_avg", "created_at"]
     ordering = ["-created_at"]
+
+    def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [AllowAny()]
+        if self.action == "create":
+            return [IsTeacherOrAdmin()]
+        if self.action in {"partial_update", "destroy"}:
+            return [IsCourseOwnerOrAdmin()]
+        return [IsAuthenticated()]
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -75,27 +79,3 @@ class CourseViewSet(
         course = self.get_object()
         CourseService.soft_delete_course(course)
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class NewCoursesView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-        courses = CourseService.get_new_courses()
-        return Response(courses)
-
-
-class PopularCoursesView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-        courses = CourseService.get_popular_courses()
-        return Response(courses)
-
-
-class CategoriesView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-        categories = CourseService.get_categories()
-        return Response(categories)

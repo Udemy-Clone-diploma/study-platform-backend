@@ -28,7 +28,11 @@ SECRET_KEY = config("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",") # type: ignore
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="localhost,127.0.0.1",
+    cast=lambda v: [s.strip() for s in v.split(",")],
+)
 
 
 # Application definition   
@@ -42,6 +46,7 @@ DJANGO_APPS = [
 ]
 
 LOCAL_APPS = [
+    "apps.common",
     "apps.users",
     "apps.courses",
 ]
@@ -54,7 +59,7 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
 ]
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS + ["django_cleanup.apps.CleanupConfig"]
 
 
 MIDDLEWARE = [
@@ -143,17 +148,19 @@ REST_FRAMEWORK = {
         "apps.users.authentication.CustomJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",
         "email_verification": "5/hour",
+        "password_reset": "5/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
+    "PAGE_SIZE": 20,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -176,7 +183,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 STATIC_URL = "static/"
 
-EMAIL_VERIFICATION_TIMEOUT = 60 * 60 * 24 * 2
+EMAIL_VERIFICATION_TIMEOUT = int(timedelta(days=2).total_seconds())
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 

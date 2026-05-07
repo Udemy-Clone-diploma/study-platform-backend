@@ -15,7 +15,7 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        extra_fields.setdefault("role", "administrator")
+        extra_fields.setdefault("role", User.RoleChoices.ADMINISTRATOR)
         return self.create_user(email, password, **extra_fields)
 
 
@@ -31,28 +31,33 @@ class User(AbstractUser):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
-    ROLE_CHOICES = [
-        ("student", "Student"),
-        ("teacher", "Teacher"),
-        ("moderator", "Moderator"),
-        ("administrator", "Administrator"),
-    ]
+    class RoleChoices(models.TextChoices):
+        STUDENT = "student", "Student"
+        TEACHER = "teacher", "Teacher"
+        MODERATOR = "moderator", "Moderator"
+        ADMINISTRATOR = "administrator", "Administrator"
 
-    STATUS_CHOICES = [
-        ("active", "Active"),
-        ("inactive", "Inactive"),
-    ]
+    class StatusChoices(models.TextChoices):
+        ACTIVE = "active", "Active"
+        INACTIVE = "inactive", "Inactive"
 
-    LANGUAGE_CHOICES = [
-        ("en", "English"),
-        ("uk", "Ukrainian"),
-    ]
+    class LanguageChoices(models.TextChoices):
+        ENGLISH = "en", "English"
+        UKRAINIAN = "uk", "Ukrainian"
 
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    role = models.CharField(max_length=20, choices=RoleChoices.choices)
+    status = models.CharField(
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.ACTIVE,
+    )
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
-    language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")
+    language = models.CharField(
+        max_length=10,
+        choices=LanguageChoices.choices,
+        default=LanguageChoices.UKRAINIAN,
+    )
     is_blocked = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
