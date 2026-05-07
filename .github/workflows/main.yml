@@ -2,10 +2,7 @@ name: Build and Push image to Amazon ECR
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-
+  
 jobs:
   build:
     runs-on: ubuntu-latest
