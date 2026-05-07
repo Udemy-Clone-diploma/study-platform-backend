@@ -4,6 +4,7 @@ from apps.courses.models import Course
 
 from .CategorySerializer import CategorySerializer
 from .CourseTeacherSerializer import CourseTeacherSerializer
+from .ModuleSerializer import ModuleSerializer
 from .TagSerializer import TagSerializer
 
 
@@ -12,6 +13,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, read_only=True)
     teacher = CourseTeacherSerializer(source="teacher_profile", read_only=True)
     moderator_id = serializers.SerializerMethodField()
+    modules = ModuleSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course
@@ -21,7 +23,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "delivery_type", "course_type", "pricing_type", "price", "installment_count",
             "installment_amount", "duration_hours", "lessons_count",
             "with_certificate", "is_on_sale", "rating_avg", "students_count", "status",
-            "created_at", "updated_at", "published_at", "tags",
+            "created_at", "updated_at", "published_at", "tags", "modules",
         ]
 
     def get_moderator_id(self, obj):
