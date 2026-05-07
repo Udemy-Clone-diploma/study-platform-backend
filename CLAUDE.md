@@ -58,6 +58,8 @@ python manage.py makemigrations --check --dry-run
 
 **Permissions layout**: Role-only checks live in `apps/users/permissions.py` and are reusable across apps. Object-level checks that need a specific model live in that app's own `permissions.py`. Global default is `IsAuthenticated`; public endpoints opt in with explicit `[AllowAny]`.
 
+**Profile lookup**: `UserSerializer.get_profile` and `UserService.update_profile` resolve a user's profile via `user.role` (`f"{role}_profile"` for the reverse accessor, `PROFILE_MODELS[role]`/`PROFILE_SERIALIZERS[role]` for the model and serializer). The `related_name` on each profile model's `OneToOneField` must equal `<role>_profile` exactly; rename one and both lookups break silently.
+
 **Service transform pipeline**: When a service applies multiple business rules before save, encode each as a private `_apply_<name>_rules(validated_data)` that mutates and returns the dict, then chain them in `create_*` / `update_*`.
 
 **Throttling**: Use `ScopedRateThrottle` + `throttle_scope = "<name>"` on the view, with the rate defined under `DEFAULT_THROTTLE_RATES` in settings. Custom `AnonRateThrottle` subclasses only when behavior (not just rate) needs to change.
