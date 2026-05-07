@@ -1,6 +1,7 @@
 from django.db import models
 
-from .ActiveModuleManager import ActiveModuleManager
+from apps.common.managers import ActiveManager
+
 from .Course import Course
 
 
@@ -20,7 +21,7 @@ class Module(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    objects = ActiveModuleManager()
+    objects = ActiveManager()
     all_objects = models.Manager()
 
     class Meta:
