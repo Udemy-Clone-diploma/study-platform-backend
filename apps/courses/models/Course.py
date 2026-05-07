@@ -3,9 +3,9 @@ from decimal import Decimal
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from apps.common.managers import ActiveManager
 from apps.users.models import ModeratorProfile, TeacherProfile
 
-from .ActiveCourseManager import ActiveCourseManager
 from .Category import Category
 from .Tag import Tag
 
@@ -153,7 +153,7 @@ class Course(models.Model):
 
     tags = models.ManyToManyField(Tag, blank=True, related_name="courses")
 
-    objects = ActiveCourseManager()
+    objects = ActiveManager()
     all_objects = models.Manager()
 
     class Meta:

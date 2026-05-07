@@ -1,6 +1,7 @@
 from django.db import models
 
-from .ActiveLessonManager import ActiveLessonManager
+from apps.common.managers import ActiveManager
+
 from .Module import Module
 
 
@@ -20,7 +21,7 @@ class Lesson(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    objects = ActiveLessonManager()
+    objects = ActiveManager()
     all_objects = models.Manager()
 
     class Meta:

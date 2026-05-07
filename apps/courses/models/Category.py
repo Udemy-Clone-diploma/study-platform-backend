@@ -1,6 +1,6 @@
 from django.db import models
 
-from .ActiveCategoryManager import ActiveCategoryManager
+from apps.common.managers import ActiveManager
 
 
 class Category(models.Model):
@@ -9,7 +9,7 @@ class Category(models.Model):
     description = models.TextField(blank=True)
     is_deleted = models.BooleanField(default=False)
 
-    objects = ActiveCategoryManager()
+    objects = ActiveManager()
     all_objects = models.Manager()
 
     class Meta:

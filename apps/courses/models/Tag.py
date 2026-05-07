@@ -1,13 +1,13 @@
 from django.db import models
 
-from .ActiveTagManager import ActiveTagManager
+from apps.common.managers import ActiveManager
 
 
 class Tag(models.Model):
     name = models.CharField(max_length=50, unique=True)
     is_deleted = models.BooleanField(default=False)
 
-    objects = ActiveTagManager()
+    objects = ActiveManager()
     all_objects = models.Manager()
 
     class Meta:
