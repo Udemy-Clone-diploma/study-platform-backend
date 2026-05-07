@@ -41,7 +41,7 @@ class CourseViewSet(
     def get_queryset(self):
         queryset = super().get_queryset()
         if self.action == "retrieve":
-            queryset = queryset.prefetch_related("modules")
+            queryset = queryset.prefetch_related("modules", "modules__lessons")
         return queryset
 
     def get_permissions(self):
