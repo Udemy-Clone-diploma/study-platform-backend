@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.common.files import absolute_media_url
 from apps.users.models import TeacherProfile
 
 
@@ -12,9 +13,4 @@ class CourseTeacherSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "avatar", "bio"]
 
     def get_avatar(self, obj: TeacherProfile) -> str | None:
-        avatar = obj.user.avatar
-        if not avatar:
-            return None
-        request = self.context.get("request")
-        url = avatar.url
-        return request.build_absolute_uri(url) if request else url
+        return absolute_media_url(obj.user.avatar, self.context.get("request"))
