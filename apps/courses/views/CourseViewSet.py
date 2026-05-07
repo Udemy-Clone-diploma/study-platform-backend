@@ -1,5 +1,6 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -13,6 +14,7 @@ from apps.courses.serializers import (
     CourseListSerializer,
 )
 from apps.courses.services.course_service import CourseService
+from apps.users.models import User
 from apps.users.permissions import IsTeacherOrAdmin
 
 
@@ -29,6 +31,7 @@ class CourseViewSet(
         "moderator_profile",
         "category",
     ).prefetch_related("tags")
+    lookup_field = "slug"
     http_method_names = ["get", "post", "patch", "delete"]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = CourseFilter
@@ -50,6 +53,25 @@ class CourseViewSet(
         if self.action in {"create", "partial_update"}:
             return CourseCreateUpdateSerializer
         return CourseDetailSerializer
+
+    def get_object(self):
+        obj = super().get_object()
+        if self.action == "retrieve" and not self._can_view_course(obj):
+            raise NotFound()
+        return obj
+
+    def _can_view_course(self, course: Course) -> bool:
+        if course.status == Course.StatusChoices.PUBLISHED:
+            return True
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return False
+        if user.role in (
+            User.RoleChoices.ADMINISTRATOR,
+            User.RoleChoices.MODERATOR,
+        ):
+            return True
+        return course.teacher_profile.user_id == user.id
 
     def create(self, request, *args, **kwargs):
         try:

@@ -62,11 +62,11 @@ class CourseViewSetTests(APITestCase):
         self.assertEqual(results[0]["teacher_name"], "")
 
     def test_retrieve_uses_detail_serializer(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.pk]))
+        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["full_description"], self.course.full_description)
-        self.assertEqual(response.data["teacher_id"], self.teacher_profile.pk)
+        self.assertEqual(response.data["teacher"]["id"], self.teacher_profile.pk)
         self.assertEqual(response.data["moderator_id"], self.moderator_profile.pk)
 
     def test_create_course(self):
@@ -163,7 +163,7 @@ class CourseViewSetTests(APITestCase):
 
     def test_partial_update_course(self):
         response = self.client.patch(
-            reverse("courses-detail", args=[self.course.pk]),
+            reverse("courses-detail", args=[self.course.slug]),
             {
                 "title": "Backend Engineering Pro",
                 "tag_ids": [],
@@ -231,7 +231,7 @@ class CourseViewSetTests(APITestCase):
         )
 
         response = self.client.patch(
-            reverse("courses-detail", args=[installment_course.pk]),
+            reverse("courses-detail", args=[installment_course.slug]),
             {
                 "pricing_type": Course.PricingTypeChoices.FULL_PAYMENT,
                 "price": "300.00",
@@ -280,7 +280,7 @@ class CourseViewSetTests(APITestCase):
         self.course.save(update_fields=["status"])
 
         response = self.client.patch(
-            reverse("courses-detail", args=[self.course.pk]),
+            reverse("courses-detail", args=[self.course.slug]),
             {
                 "title": "Backend Engineering Updated",
                 "slug": "teacher-edited-slug",
@@ -293,7 +293,7 @@ class CourseViewSetTests(APITestCase):
 
     def test_partial_update_regenerates_slug_for_draft_when_title_changes(self):
         response = self.client.patch(
-            reverse("courses-detail", args=[self.course.pk]),
+            reverse("courses-detail", args=[self.course.slug]),
             {
                 "title": "Backend Engineering Intensive",
             },
@@ -308,7 +308,7 @@ class CourseViewSetTests(APITestCase):
         self.course.save(update_fields=["status"])
 
         response = self.client.patch(
-            reverse("courses-detail", args=[self.course.pk]),
+            reverse("courses-detail", args=[self.course.slug]),
             {
                 "title": "Backend Engineering Intensive",
             },
@@ -319,7 +319,7 @@ class CourseViewSetTests(APITestCase):
         self.assertEqual(response.data["slug"], "backend-engineering")
 
     def test_soft_delete_course(self):
-        response = self.client.delete(reverse("courses-detail", args=[self.course.pk]))
+        response = self.client.delete(reverse("courses-detail", args=[self.course.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.course.refresh_from_db()
