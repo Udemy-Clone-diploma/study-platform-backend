@@ -5,7 +5,11 @@ from .User import User
 
 
 class StudentProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="student_profile",
+    )
     date_of_birth = models.DateField(null=True, blank=True)
     learning_goals = models.TextField(blank=True)
     education_level = models.CharField(max_length=100, blank=True)

@@ -44,12 +44,7 @@ class CourseService:
         return CourseDetailSerializer(course, context=context or {}).data #type: ignore
 
     @classmethod
-    def create_course_from_data(
-        cls,
-        data: dict,
-        context: dict | None = None,
-    ) -> dict:
-        context = context or {}
+    def create_course_from_data(cls, data: dict, context: dict) -> dict:
         validated_data = cls.validate_course_data(data, context=context)
         course = cls.create_course(validated_data, request_user=context["request"].user)
         return cls.serialize_course_detail(course, context=context)
@@ -59,10 +54,9 @@ class CourseService:
         cls,
         course: Course,
         data: dict,
+        context: dict,
         partial: bool = True,
-        context: dict | None = None,
     ) -> dict:
-        context = context or {}
         validated_data = cls.validate_course_data(
             data,
             course=course,
@@ -138,7 +132,7 @@ class CourseService:
             return validated_data
 
         if course is None:
-            validated_data["teacher_profile"] = request_user.teacherprofile
+            validated_data["teacher_profile"] = request_user.teacher_profile
         else:
             validated_data.pop("teacher_profile", None)
 

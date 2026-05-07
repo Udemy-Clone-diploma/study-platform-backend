@@ -37,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
         serializer_class = PROFILE_SERIALIZERS.get(obj.role)
         if not serializer_class:
             return None
-        profile_attr = obj.role + "profile"
+        profile_attr = f"{obj.role}_profile"
         if not hasattr(obj, profile_attr):
             return None
         return serializer_class(getattr(obj, profile_attr)).data
