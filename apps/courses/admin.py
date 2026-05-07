@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Course, Tag
+from .models import Category, Course, Lesson, Module, Tag
 
 
 class SoftDeleteAdminMixin:
@@ -13,6 +13,20 @@ class SoftDeleteAdminMixin:
 
     def delete_queryset(self, request, queryset):
         queryset.update(is_deleted=True)
+
+
+class LessonInline(SoftDeleteAdminMixin, admin.TabularInline):
+    model = Lesson
+    extra = 0
+    fields = ("title", "order", "duration_minutes", "is_deleted")
+    show_change_link = True
+
+
+class ModuleInline(SoftDeleteAdminMixin, admin.TabularInline):
+    model = Module
+    extra = 0
+    fields = ("title", "order", "is_deleted")
+    show_change_link = True
 
 
 @admin.register(Tag)
@@ -30,4 +44,30 @@ class CategoryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
-admin.site.register(Course)
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = ("title", "slug", "status", "lessons_count", "is_deleted")
+    list_filter = ("status", "is_deleted", "level", "language")
+    search_fields = ("title", "slug")
+    inlines = [ModuleInline]
+
+
+@admin.register(Module)
+class ModuleAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "course", "order", "is_deleted")
+    list_filter = ("is_deleted", "course")
+    list_select_related = ("course",)
+    search_fields = ("title", "course__title")
+    inlines = [LessonInline]
+
+
+@admin.register(Lesson)
+class LessonAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "module", "course", "order", "duration_minutes", "is_deleted")
+    list_filter = ("is_deleted", "module__course", "module")
+    list_select_related = ("module__course",)
+    search_fields = ("title", "module__title", "module__course__title")
+
+    @admin.display(description="Course", ordering="module__course__title")
+    def course(self, obj):
+        return obj.module.course

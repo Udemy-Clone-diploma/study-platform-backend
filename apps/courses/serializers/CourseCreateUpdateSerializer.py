@@ -26,6 +26,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             "duration_hours", "lessons_count", "with_certificate",
             "is_on_sale", "status", "tag_ids",
         ]
+        read_only_fields = ["lessons_count"]
 
     def validate(self, attrs):
         mode = attrs.get("mode", getattr(self.instance, "mode", None))
