@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -16,11 +17,15 @@ from apps.users.exceptions import (
     ProfileNotAvailableError,
 )
 from apps.users.messages import EmailMessages
+from apps.users.models import User
 from apps.users.serializers import (
     EmailRequestSerializer,
     LoginSerializer,
+    ModeratorProfileSerializer,
     PasswordResetConfirmSerializer,
     RefreshTokenSerializer,
+    StudentProfileSerializer,
+    TeacherProfileSerializer,
     UserRegistrationSerializer,
     UserSerializer,
     UserUpdateSerializer,
@@ -134,39 +139,41 @@ class MeView(APIView):
 
 
 @extend_schema(tags=["Auth"])
-class MeProfileView(APIView):
+class TeacherProfileView(GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = TeacherProfileSerializer
 
-    @extend_schema(
-        description=(
-            "Update the current user's role-specific profile. "
-            "Teachers: bio, experience, specialization. "
-            "Students: date_of_birth, learning_goals, education_level. "
-            "Moderators: level. All fields are optional."
-        ),
-        request=inline_serializer(
-            name="ProfileUpdateRequest",
-            fields={
-                "bio": drf_serializers.CharField(required=False),
-                "experience": drf_serializers.IntegerField(required=False),
-                "specialization": drf_serializers.CharField(required=False),
-                "date_of_birth": drf_serializers.DateField(required=False),
-                "learning_goals": drf_serializers.CharField(required=False),
-                "education_level": drf_serializers.CharField(required=False),
-                "level": drf_serializers.CharField(required=False),
-            },
-        ),
-        responses={200: UserSerializer, 400: MessageSerializer},
-    )
+    @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
     def patch(self, request):
-        try:
-            user = UserService.update_profile(request.user, request.data)
-        except ProfileNotAvailableError as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if request.user.role != User.RoleChoices.TEACHER:
+            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+        user = UserService.update_profile(request.user, request.data)
+        return Response(UserSerializer(user).data)
 
+
+@extend_schema(tags=["Auth"])
+class StudentProfileView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = StudentProfileSerializer
+
+    @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
+    def patch(self, request):
+        if request.user.role != User.RoleChoices.STUDENT:
+            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+        user = UserService.update_profile(request.user, request.data)
+        return Response(UserSerializer(user).data)
+
+
+@extend_schema(tags=["Auth"])
+class ModeratorProfileView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ModeratorProfileSerializer
+
+    @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
+    def patch(self, request):
+        if request.user.role != User.RoleChoices.MODERATOR:
+            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+        user = UserService.update_profile(request.user, request.data)
         return Response(UserSerializer(user).data)
 
 
