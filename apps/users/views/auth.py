@@ -1,4 +1,4 @@
-from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -19,11 +19,8 @@ from apps.users.messages import EmailMessages
 from apps.users.serializers import (
     EmailRequestSerializer,
     LoginSerializer,
-    ModeratorProfileSerializer,
     PasswordResetConfirmSerializer,
     RefreshTokenSerializer,
-    StudentProfileSerializer,
-    TeacherProfileSerializer,
     UserRegistrationSerializer,
     UserSerializer,
     UserUpdateSerializer,
@@ -141,10 +138,23 @@ class MeProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        request=PolymorphicProxySerializer(
-            component_name="ProfileUpdate",
-            serializers=[TeacherProfileSerializer, StudentProfileSerializer, ModeratorProfileSerializer],
-            resource_type_field_name=None,
+        description=(
+            "Update the current user's role-specific profile. "
+            "Teachers: bio, experience, specialization. "
+            "Students: date_of_birth, learning_goals, education_level. "
+            "Moderators: level. All fields are optional."
+        ),
+        request=inline_serializer(
+            name="ProfileUpdateRequest",
+            fields={
+                "bio": drf_serializers.CharField(required=False),
+                "experience": drf_serializers.IntegerField(required=False),
+                "specialization": drf_serializers.CharField(required=False),
+                "date_of_birth": drf_serializers.DateField(required=False),
+                "learning_goals": drf_serializers.CharField(required=False),
+                "education_level": drf_serializers.CharField(required=False),
+                "level": drf_serializers.CharField(required=False),
+            },
         ),
         responses={200: UserSerializer, 400: MessageSerializer},
     )
