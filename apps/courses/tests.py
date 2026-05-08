@@ -1,7 +1,10 @@
+from django.contrib import admin as django_admin
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.courses.admin import SoftDeleteAdminMixin
 from apps.courses.models import Category, Course, Tag
 from apps.users.models import ModeratorProfile, TeacherProfile, User
 
@@ -745,3 +748,62 @@ class FeaturedCategoriesUrlTests(APITestCase):
         response = self.client.get(reverse("categories-featured"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, list)
+
+
+class CourseAdminSoftDeleteTests(TestCase):
+    """CourseAdmin must soft-delete instead of issuing SQL DELETE.
+
+    Regression: PR #27 (Module + Lesson) rewrote CourseAdmin and dropped
+    SoftDeleteAdminMixin, so admin "Delete" was hard-deleting Course rows.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        teacher_user = User.objects.create_user(
+            email="course_admin_teacher@example.com",
+            password="pass12345",
+            role="teacher",
+        )
+        cls.teacher_profile = TeacherProfile.objects.create(user=teacher_user)
+        cls.course = Course.all_objects.create(
+            title="Soft Delete Me",
+            short_description="x",
+            full_description="x",
+            slug="soft-delete-me",
+            teacher_profile=cls.teacher_profile,
+            level=Course.LevelChoices.BEGINNER,
+            language=Course.LanguageChoices.ENGLISH,
+            mode=Course.ModeChoices.SELF_LEARNING,
+            delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
+            course_type=Course.CourseTypeChoices.KNOWLEDGE,
+            pricing_type=Course.PricingTypeChoices.FREE,
+            price=0,
+            duration_hours=1,
+            lessons_count=0,
+            status=Course.StatusChoices.DRAFT,
+        )
+
+    def _course_admin(self):
+        model_admin = django_admin.site._registry[Course]
+        self.assertIsInstance(model_admin, SoftDeleteAdminMixin)
+        return model_admin
+
+    def test_delete_model_flips_is_deleted_and_keeps_row(self):
+        model_admin = self._course_admin()
+        request = RequestFactory().post("/admin/courses/course/")
+
+        model_admin.delete_model(request, self.course)
+
+        self.course.refresh_from_db()
+        self.assertTrue(self.course.is_deleted)
+        self.assertTrue(Course.all_objects.filter(pk=self.course.pk).exists())
+        self.assertFalse(Course.objects.filter(pk=self.course.pk).exists())
+
+    def test_admin_changelist_includes_soft_deleted_rows(self):
+        Course.all_objects.filter(pk=self.course.pk).update(is_deleted=True)
+        model_admin = self._course_admin()
+        request = RequestFactory().get("/admin/courses/course/")
+
+        queryset = model_admin.get_queryset(request)
+
+        self.assertIn(self.course, queryset)
