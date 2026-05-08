@@ -3,9 +3,11 @@ from rest_framework.routers import DefaultRouter
 
 from apps.users.views import (
     LoginView,
-    MeProfileView,
     MeView,
+    ModeratorProfileView,
     RegisterView,
+    StudentProfileView,
+    TeacherProfileView,
     TokenRefreshView,
     TopTeachersView,
     UserViewSet,
@@ -27,7 +29,9 @@ urlpatterns = [
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
-    path("auth/me/profile/", MeProfileView.as_view(), name="auth-me-profile"),
+    path("auth/me/profile/teacher/", TeacherProfileView.as_view(), name="auth-me-profile-teacher"),
+    path("auth/me/profile/student/", StudentProfileView.as_view(), name="auth-me-profile-student"),
+    path("auth/me/profile/moderator/", ModeratorProfileView.as_view(), name="auth-me-profile-moderator"),
     path("", include(router.urls)),
     path(
         "auth/verify-email/<str:uidb64>/<str:token>/", 

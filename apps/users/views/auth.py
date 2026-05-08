@@ -1,6 +1,7 @@
-from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -16,6 +17,7 @@ from apps.users.exceptions import (
     ProfileNotAvailableError,
 )
 from apps.users.messages import EmailMessages
+from apps.users.models import User
 from apps.users.serializers import (
     EmailRequestSerializer,
     LoginSerializer,
@@ -137,26 +139,41 @@ class MeView(APIView):
 
 
 @extend_schema(tags=["Auth"])
-class MeProfileView(APIView):
+class TeacherProfileView(GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = TeacherProfileSerializer
 
-    @extend_schema(
-        request=PolymorphicProxySerializer(
-            component_name="ProfileUpdate",
-            serializers=[TeacherProfileSerializer, StudentProfileSerializer, ModeratorProfileSerializer],
-            resource_type_field_name=None,
-        ),
-        responses={200: UserSerializer, 400: MessageSerializer},
-    )
+    @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
     def patch(self, request):
-        try:
-            user = UserService.update_profile(request.user, request.data)
-        except ProfileNotAvailableError as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if request.user.role != User.RoleChoices.TEACHER:
+            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+        user = UserService.update_profile(request.user, request.data)
+        return Response(UserSerializer(user).data)
 
+
+@extend_schema(tags=["Auth"])
+class StudentProfileView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = StudentProfileSerializer
+
+    @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
+    def patch(self, request):
+        if request.user.role != User.RoleChoices.STUDENT:
+            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+        user = UserService.update_profile(request.user, request.data)
+        return Response(UserSerializer(user).data)
+
+
+@extend_schema(tags=["Auth"])
+class ModeratorProfileView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ModeratorProfileSerializer
+
+    @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
+    def patch(self, request):
+        if request.user.role != User.RoleChoices.MODERATOR:
+            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+        user = UserService.update_profile(request.user, request.data)
         return Response(UserSerializer(user).data)
 
 
