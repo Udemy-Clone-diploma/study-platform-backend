@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -5,6 +7,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 
+from apps.common.serializers import AccessTokenSerializer, MessageSerializer, TokenPairSerializer
 from apps.users.exceptions import (
     AccountForbiddenError,
     AuthenticationError,
@@ -26,9 +29,11 @@ from apps.users.services.auth_service import AuthService
 from apps.users.services.user_service import UserService
 
 
+@extend_schema(tags=["Auth"])
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(request=UserRegistrationSerializer, responses={201: UserSerializer})
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -40,9 +45,14 @@ class RegisterView(APIView):
         )
 
 
+@extend_schema(tags=["Auth"])
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=LoginSerializer,
+        responses={200: TokenPairSerializer, 401: MessageSerializer, 403: MessageSerializer},
+    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -57,9 +67,14 @@ class LoginView(APIView):
         return Response(tokens, status=status.HTTP_200_OK)
 
 
+@extend_schema(tags=["Auth"])
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=RefreshTokenSerializer,
+        responses={205: MessageSerializer, 400: MessageSerializer},
+    )
     def post(self, request):
         serializer = RefreshTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -78,9 +93,14 @@ class LogoutView(APIView):
         )
 
 
+@extend_schema(tags=["Auth"])
 class TokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=RefreshTokenSerializer,
+        responses={200: AccessTokenSerializer, 401: MessageSerializer},
+    )
     def post(self, request):
         serializer = RefreshTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -97,12 +117,15 @@ class TokenRefreshView(APIView):
         return Response({"access": access_token}, status=status.HTTP_200_OK)
 
 
+@extend_schema(tags=["Auth"])
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses={200: UserSerializer})
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
+    @extend_schema(request=UserUpdateSerializer, responses={200: UserSerializer})
     def patch(self, request):
         serializer = UserUpdateSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -110,9 +133,11 @@ class MeView(APIView):
         return Response(UserSerializer(request.user).data)
 
 
+@extend_schema(tags=["Auth"])
 class MeProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=None, responses={200: UserSerializer, 400: MessageSerializer})
     def patch(self, request):
         try:
             user = UserService.update_profile(request.user, request.data)
@@ -125,9 +150,11 @@ class MeProfileView(APIView):
         return Response(UserSerializer(user).data)
 
 
+@extend_schema(tags=["Auth"])
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(responses={200: MessageSerializer, 400: MessageSerializer})
     def get(self, request, uidb64, token):
         try:
             AuthService.verify_email(uidb64, token)
@@ -143,11 +170,13 @@ class VerifyEmailView(APIView):
         )
 
 
+@extend_schema(tags=["Auth"])
 class ResendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "email_verification"
 
+    @extend_schema(request=EmailRequestSerializer, responses={200: MessageSerializer})
     def post(self, request):
         serializer = EmailRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -159,11 +188,17 @@ class ResendVerificationEmailView(APIView):
         )
 
 
+@extend_schema(tags=["Auth"])
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "password_reset"
 
+    @extend_schema(
+        operation_id="auth_password_reset_request",
+        request=EmailRequestSerializer,
+        responses={200: MessageSerializer},
+    )
     def post(self, request):
         serializer = EmailRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -175,9 +210,15 @@ class PasswordResetRequestView(APIView):
         )
 
 
+@extend_schema(tags=["Auth"])
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        operation_id="auth_password_reset_confirm",
+        request=PasswordResetConfirmSerializer,
+        responses={200: MessageSerializer, 400: MessageSerializer},
+    )
     def post(self, request, uidb64, token):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -200,9 +241,19 @@ class PasswordResetConfirmView(APIView):
         )
 
 
+@extend_schema(tags=["Auth"])
 class PasswordResetValidateView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        responses={
+            200: inline_serializer("TokenValidOkSerializer", {"valid": drf_serializers.BooleanField()}),
+            400: inline_serializer(
+                "TokenValidErrorSerializer",
+                {"valid": drf_serializers.BooleanField(), "detail": drf_serializers.CharField()},
+            ),
+        }
+    )
     def get(self, request, uidb64, token):
         try:
             AuthService.validate_password_reset_token(uidb64, token)
