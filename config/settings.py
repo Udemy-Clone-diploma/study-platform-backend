@@ -168,6 +168,18 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "REST API for the Study Platform e-learning application.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "TAGS": [
+        {"name": "Auth", "description": "Registration, login, logout, token refresh, email verification, password reset, and current-user endpoints."},
+        {"name": "Users", "description": "Admin user management and top teachers listing."},
+        {"name": "Courses", "description": "Course CRUD, new courses, and popular courses."},
+        {"name": "Categories", "description": "Course category listing and featured categories."},
+    ],
+    "ENUM_NAME_OVERRIDES": {
+        "UserLanguageEnum": "apps.users.models.User.LanguageChoices",
+        "CourseLanguageEnum": "apps.courses.models.Course.LanguageChoices",
+        "UserStatusEnum": "apps.users.models.User.StatusChoices",
+        "CourseStatusEnum": "apps.courses.models.Course.StatusChoices",
+    },
 }
 
 SIMPLE_JWT = {

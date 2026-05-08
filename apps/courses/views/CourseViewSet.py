@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.exceptions import NotFound
@@ -18,6 +19,7 @@ from apps.users.models import User
 from apps.users.permissions import IsTeacherOrAdmin
 
 
+@extend_schema(tags=["Courses"])
 class CourseViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,

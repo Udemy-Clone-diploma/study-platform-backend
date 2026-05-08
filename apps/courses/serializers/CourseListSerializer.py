@@ -24,5 +24,5 @@ class CourseListSerializer(serializers.ModelSerializer):
             "rating_avg", "students_count", "status", "published_at", "tags",
         ]
 
-    def get_image(self, obj):
+    def get_image(self, obj) -> str | None:
         return absolute_media_url(obj.image, self.context.get("request"))

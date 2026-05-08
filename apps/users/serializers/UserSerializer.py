@@ -33,7 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "date_joined"]
 
-    def get_profile(self, obj):
+    def get_profile(self, obj) -> dict | None:
         serializer_class = PROFILE_SERIALIZERS.get(obj.role)
         if not serializer_class:
             return None
