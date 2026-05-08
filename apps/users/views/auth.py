@@ -128,14 +128,14 @@ class MeView(APIView):
 
     @extend_schema(responses={200: UserSerializer})
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={"request": request}).data)
 
     @extend_schema(request=UserUpdateSerializer, responses={200: UserSerializer})
     def patch(self, request):
         serializer = UserUpdateSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])
@@ -148,7 +148,7 @@ class TeacherProfileView(GenericAPIView):
         if request.user.role != User.RoleChoices.TEACHER:
             return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
         user = UserService.update_profile(request.user, request.data)
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])
@@ -161,7 +161,7 @@ class StudentProfileView(GenericAPIView):
         if request.user.role != User.RoleChoices.STUDENT:
             return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
         user = UserService.update_profile(request.user, request.data)
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])
@@ -174,7 +174,7 @@ class ModeratorProfileView(GenericAPIView):
         if request.user.role != User.RoleChoices.MODERATOR:
             return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
         user = UserService.update_profile(request.user, request.data)
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])
