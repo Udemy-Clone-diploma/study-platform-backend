@@ -148,7 +148,7 @@ class TeacherProfileView(GenericAPIView):
         if request.user.role != User.RoleChoices.TEACHER:
             return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
         user = UserService.update_profile(request.user, request.data)
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])
@@ -161,7 +161,7 @@ class StudentProfileView(GenericAPIView):
         if request.user.role != User.RoleChoices.STUDENT:
             return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
         user = UserService.update_profile(request.user, request.data)
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])
@@ -174,7 +174,7 @@ class ModeratorProfileView(GenericAPIView):
         if request.user.role != User.RoleChoices.MODERATOR:
             return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
         user = UserService.update_profile(request.user, request.data)
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])
