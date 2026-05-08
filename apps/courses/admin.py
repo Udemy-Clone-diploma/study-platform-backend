@@ -45,10 +45,11 @@ class CategoryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(Course)
-class CourseAdmin(admin.ModelAdmin):
+class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("title", "slug", "status", "lessons_count", "is_deleted")
     list_filter = ("status", "is_deleted", "level", "language")
     search_fields = ("title", "slug")
+    prepopulated_fields = {"slug": ("title",)}
     inlines = [ModuleInline]
 
 
