@@ -81,7 +81,7 @@ python manage.py makemigrations --merge --no-input
 
 **Configuration**: Settings read from `.env` via `python-decouple`. See `.env.example` for required variables (DB credentials, `SECRET_KEY`, `FRONTEND_URL`, email SMTP settings).
 
-**API docs**: Swagger UI at `/api/docs/`, OpenAPI schema at `/api/schema/` (powered by `drf-spectacular`).
+**API docs**: Swagger UI at `/api/docs/`, OpenAPI schema at `/api/schema/` (powered by `drf-spectacular`). JWT auth: `SimpleJWTScheme.match_subclasses = True` is set in `UsersConfig.ready()` so `CustomJWTAuthentication` is matched. `GenericAPIView`/`ViewSet` subclasses are introspected automatically; plain `APIView` subclasses require per-method `@extend_schema`. Use class-level `@extend_schema(tags=["..."])` on every view class for Swagger grouping. `SerializerMethodField` return types resolve via plain Python type hints (`-> str | None`) — no `@extend_schema_field` needed unless you require a specific serializer schema. For role-dependent request bodies use `PolymorphicProxySerializer(component_name=..., serializers=[...], resource_type_field_name=None)`.
 
 **CORS**: Configured via `django-cors-headers`; frontend expected at `localhost:3000` by default.
 
