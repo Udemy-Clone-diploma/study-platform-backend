@@ -10,6 +10,9 @@ jobs:
     env:
       DJANGO_SETTINGS_MODULE: config.test_settings
       SECRET_KEY: ci-test-secret-key
+      DB_NAME: ci-unused
+      DB_USER: ci-unused
+      DB_PASSWORD: ci-unused
 
     steps:
       - name: Checkout code
