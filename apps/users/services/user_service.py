@@ -43,6 +43,10 @@ class UserService:
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        # Refresh the reverse-OneToOne cache so a subsequent
+        # user.{role}_profile read returns the just-saved profile.
+        setattr(user, f"{user.role}_profile", profile)
+
         return user
 
     @staticmethod
