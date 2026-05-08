@@ -28,8 +28,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "created_at", "updated_at", "published_at", "tags", "modules",
         ]
 
-    def get_moderator_id(self, obj):
+    def get_moderator_id(self, obj) -> int | None:
         return obj.moderator_profile.id if obj.moderator_profile else None
 
-    def get_image(self, obj):
+    def get_image(self, obj) -> str | None:
         return absolute_media_url(obj.image, self.context.get("request"))
