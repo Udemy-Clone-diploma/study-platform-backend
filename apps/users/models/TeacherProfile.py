@@ -8,7 +8,11 @@ from .User import User
 
 
 class TeacherProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="teacher_profile",
+    )
     bio = models.TextField(blank=True)
     experience = models.TextField(blank=True)
     specialization = models.CharField(max_length=150, blank=True)

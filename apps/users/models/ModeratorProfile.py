@@ -5,7 +5,11 @@ from .User import User
 
 
 class ModeratorProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="moderator_profile",
+    )
     level = models.CharField(max_length=50)
 
     def __str__(self):
