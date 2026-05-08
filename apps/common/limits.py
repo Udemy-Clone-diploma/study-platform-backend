@@ -1,7 +1,7 @@
 from rest_framework.request import Request
 
-from apps.courses.constants import MAX_TOP_N_LIMIT
-from apps.courses.exceptions import InvalidLimitError
+from apps.common.constants import MAX_TOP_N_LIMIT
+from apps.common.exceptions import InvalidLimitError
 
 
 def parse_limit(request: Request, default: int) -> int:

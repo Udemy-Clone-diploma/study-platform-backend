@@ -1,11 +1,14 @@
 from django.db import transaction
 
+from apps.users.constants import DEFAULT_TOP_TEACHERS_LIMIT
 from apps.users.exceptions import ProfileNotAvailableError
 from apps.users.models import TeacherProfile, User
-from apps.users.serializers import PROFILE_MODELS, PROFILE_SERIALIZERS
+from apps.users.serializers import (
+    PROFILE_MODELS,
+    PROFILE_SERIALIZERS,
+    TopTeacherSerializer,
+)
 
-DEFAULT_TOP_TEACHERS_LIMIT = 4
-MAX_TOP_TEACHERS_LIMIT = 50
 
 class UserService:
     @staticmethod
@@ -43,14 +46,18 @@ class UserService:
         return user
 
     @staticmethod
-    def get_top_teachers(limit: int = DEFAULT_TOP_TEACHERS_LIMIT, request=None) -> list[dict]:
-        from apps.users.serializers import TopTeacherSerializer
-
-        limit = min(limit, MAX_TOP_TEACHERS_LIMIT)
+    def get_top_teachers(
+        limit: int = DEFAULT_TOP_TEACHERS_LIMIT,
+        context: dict | None = None,
+    ) -> list[dict]:
         teachers = (
             TeacherProfile.objects.select_related("user")
-            .filter(user__is_deleted=False, user__is_blocked=False)
-            .order_by("-rating")[:limit]
+            .filter(
+                user__is_deleted=False,
+                user__is_blocked=False,
+                user__is_email_verified=True,
+                user__role=User.RoleChoices.TEACHER,
+            )
+            .order_by("-rating", "-id")[:limit]
         )
-        context = {"request": request} if request else {}
-        return TopTeacherSerializer(teachers, many=True, context=context).data
+        return TopTeacherSerializer(teachers, many=True, context=context or {}).data

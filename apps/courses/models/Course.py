@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from apps.common.files import UUIDUploadTo
 from apps.common.managers import ActiveManager
 from apps.users.models import ModeratorProfile, TeacherProfile
 
@@ -47,7 +48,7 @@ class Course(models.Model):
         PUBLISHED = "published", "Published"
         ARCHIVED = "archived", "Archived"
 
-    image = models.ImageField(upload_to="courses/", null=True, blank=True)
+    image = models.ImageField(upload_to=UUIDUploadTo("courses"), null=True, blank=True)
 
     title = models.CharField(max_length=255)
 

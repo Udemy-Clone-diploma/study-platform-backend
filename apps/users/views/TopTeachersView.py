@@ -5,17 +5,20 @@ from rest_framework.views import APIView
 
 from apps.common.exceptions import InvalidLimitError
 from apps.common.limits import parse_limit
-from apps.courses.constants import DEFAULT_NEW_COURSES_LIMIT
-from apps.courses.services.course_service import CourseService
+from apps.users.constants import DEFAULT_TOP_TEACHERS_LIMIT
+from apps.users.services.user_service import UserService
 
 
-class NewCoursesView(APIView):
+class TopTeachersView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
         try:
-            limit = parse_limit(request, default=DEFAULT_NEW_COURSES_LIMIT)
+            limit = parse_limit(request, default=DEFAULT_TOP_TEACHERS_LIMIT)
         except InvalidLimitError as e:
             return Response({"limit": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        courses = CourseService.get_new_courses(limit=limit, context={"request": request})
-        return Response(courses)
+        teachers = UserService.get_top_teachers(
+            limit=limit,
+            context={"request": request},
+        )
+        return Response(teachers)

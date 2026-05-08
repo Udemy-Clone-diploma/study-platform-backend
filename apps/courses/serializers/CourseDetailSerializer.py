@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.common.files import absolute_media_url
 from apps.courses.models import Course
 
 from .CategorySerializer import CategorySerializer
@@ -14,11 +15,12 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     teacher = CourseTeacherSerializer(source="teacher_profile", read_only=True)
     moderator_id = serializers.SerializerMethodField()
     modules = ModuleSerializer(many=True, read_only=True)
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
         fields = [
-            "id", "title", "short_description", "full_description", "slug",
+            "id", "image", "title", "short_description", "full_description", "slug",
             "teacher", "moderator_id", "category", "level", "language", "mode",
             "delivery_type", "course_type", "pricing_type", "price", "installment_count",
             "installment_amount", "duration_hours", "lessons_count",
@@ -28,3 +30,6 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_moderator_id(self, obj):
         return obj.moderator_profile.id if obj.moderator_profile else None
+
+    def get_image(self, obj):
+        return absolute_media_url(obj.image, self.context.get("request"))

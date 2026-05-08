@@ -1,6 +1,5 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from apps.users.exceptions import ProfileNotAvailableError
@@ -11,7 +10,7 @@ from apps.users.serializers import (
     UserSerializer,
     UserUpdateSerializer,
 )
-from apps.users.services.user_service import UserService, DEFAULT_TOP_TEACHERS_LIMIT, MAX_TOP_TEACHERS_LIMIT
+from apps.users.services.user_service import UserService
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -59,26 +58,3 @@ class UserViewSet(viewsets.ModelViewSet):
             )
 
         return Response(UserSerializer(user).data)
-
-
-
-    @action(detail=False, methods=["get"], url_path="top-teachers", permission_classes=[AllowAny],
-    )
-    def top_teachers(self, request):
-        raw = request.query_params.get("limit")
-        limit = DEFAULT_TOP_TEACHERS_LIMIT
- 
-        if raw is not None:
-            try:
-                limit = int(raw)
-                if limit <= 0:
-                    raise ValueError
-            except ValueError:
-                return Response(
-                    {"limit": "limit must be a positive integer"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            limit = min(limit, MAX_TOP_TEACHERS_LIMIT)
- 
-        data = UserService.get_top_teachers(limit=limit, request=request)
-        return Response(data)
