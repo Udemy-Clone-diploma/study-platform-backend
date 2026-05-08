@@ -64,6 +64,11 @@ class User(AbstractUser):
     is_deleted = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
 
+    instagram = models.URLField(blank=True, default="")
+    linkedin = models.URLField(blank=True, default="")
+    facebook = models.URLField(blank=True, default="")
+    behance = models.URLField(blank=True, default="")
+
     objects = ActiveUserManager()
     all_objects = UserManager()
 

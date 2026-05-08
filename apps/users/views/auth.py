@@ -128,14 +128,14 @@ class MeView(APIView):
 
     @extend_schema(responses={200: UserSerializer})
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={"request": request}).data)
 
     @extend_schema(request=UserUpdateSerializer, responses={200: UserSerializer})
     def patch(self, request):
         serializer = UserUpdateSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={"request": request}).data)
 
 
 @extend_schema(tags=["Auth"])

@@ -30,6 +30,10 @@ class UserSerializer(serializers.ModelSerializer):
             "is_blocked",
             "date_joined",
             "profile",
+            "instagram",
+            "linkedin",
+            "facebook",
+            "behance",
         ]
         read_only_fields = ["id", "date_joined"]
 
