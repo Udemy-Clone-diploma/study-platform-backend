@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import PolymorphicProxySerializer, extend_schema, inline_serializer
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -19,8 +19,11 @@ from apps.users.messages import EmailMessages
 from apps.users.serializers import (
     EmailRequestSerializer,
     LoginSerializer,
+    ModeratorProfileSerializer,
     PasswordResetConfirmSerializer,
     RefreshTokenSerializer,
+    StudentProfileSerializer,
+    TeacherProfileSerializer,
     UserRegistrationSerializer,
     UserSerializer,
     UserUpdateSerializer,
@@ -137,7 +140,14 @@ class MeView(APIView):
 class MeProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(request=None, responses={200: UserSerializer, 400: MessageSerializer})
+    @extend_schema(
+        request=PolymorphicProxySerializer(
+            component_name="ProfileUpdate",
+            serializers=[TeacherProfileSerializer, StudentProfileSerializer, ModeratorProfileSerializer],
+            resource_type_field_name=None,
+        ),
+        responses={200: UserSerializer, 400: MessageSerializer},
+    )
     def patch(self, request):
         try:
             user = UserService.update_profile(request.user, request.data)
