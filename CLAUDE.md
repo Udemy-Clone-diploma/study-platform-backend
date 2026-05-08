@@ -21,6 +21,9 @@ python manage.py test apps.courses
 
 # Verify no pending model changes (migration drift check)
 python manage.py makemigrations --check --dry-run
+
+# Resolve parallel migration leaves (e.g. two PRs added 0007_*)
+python manage.py makemigrations --merge --no-input
 ```
 
 ## Architecture
@@ -31,6 +34,8 @@ python manage.py makemigrations --check --dry-run
 - `users/`: custom User model (email-based login, 4 roles: student/teacher/moderator/admin), JWT auth, email verification, password reset, role-specific profile models (`StudentProfile`, `TeacherProfile`, `ModeratorProfile`)
 - `courses/`: Course, Category, Tag models with CRUD endpoints, filtering, and status/pricing choices
 - `common/`: shared DRF utilities (e.g. `StandardResultsSetPagination`). Cross-app helpers go here, not inside a feature app.
+
+**Shared utilities** (`apps/common/`): import these before reinventing — `ActiveManager` (single soft-delete manager), `parse_limit` + `MAX_TOP_N_LIMIT` (top-N `?limit=N` parser, raises `InvalidLimitError`), `absolute_media_url(field_file, request)` for ImageField/FileField URL building, `UUIDUploadTo("<prefix>")` for `upload_to` on file fields.
 
 **API URL prefix**: All app endpoints mount under `/api/v1/` (see `config/urls.py`). Docs (`/api/docs/`) and schema (`/api/schema/`) are siblings, not under `/api/v1/`.
 
@@ -48,11 +53,15 @@ python manage.py makemigrations --check --dry-run
 
 **Pagination**: Project-wide default is `apps.common.pagination.StandardResultsSetPagination` (page_size=20, max 100, `?page=` and `?page_size=` query params). List endpoints return the standard DRF paginated envelope (`count`, `next`, `previous`, `results`).
 
+**List endpoint pattern**: each browseable resource has two endpoints — `/<resource>/` paginated for browse, plus a sibling top-N (e.g. `/courses/new-courses/`, `/categories/featured/`, `/users/top-teachers/`) returning a raw list capped by `MAX_TOP_N_LIMIT`. Top-N is a standalone `APIView` (not a ViewSet action) and uses `apps.common.limits.parse_limit` for `?limit=N`.
+
 **Auth flow**: Register → email verification token → `AuthService.verify_email()` → Login → `AuthService.login()` → JWT access + refresh token pair. Tokens sent as `Authorization: Bearer <token>` header. Refresh tokens are blacklisted on logout.
 
-**Soft deletes**: Every domain model implements `is_deleted` plus an `Active*Manager` filtering it out by default; `all_objects` exposes deleted rows when needed. The active manager must be declared first so reverse FK queries (`course.modules.all()`) inherit the filter automatically.
+**Soft deletes**: Every domain model implements `is_deleted` plus `objects = ActiveManager()` (from `apps.common.managers`) filtering it out by default; `all_objects` exposes deleted rows when needed. The active manager must be declared first so reverse FK queries (`course.modules.all()`) inherit the filter automatically.
 
 **Soft-delete admin**: Models with `is_deleted` register with a `ModelAdmin` that uses `SoftDeleteAdminMixin` from `apps/courses/admin.py` (overrides `delete_model`/`delete_queryset` to flip `is_deleted` and uses `all_objects` in `get_queryset`). The bare `admin.site.register(Model)` would issue SQL `DELETE` and bypass soft-delete.
+
+**ImageField/FileField uploads**: use `upload_to=UUIDUploadTo("<prefix>")` from `apps.common.files`. Closure factories break `makemigrations` ("Could not find function ..."); the `@deconstructible` class is migration-safe and names files `<prefix>/<uuid>.<ext>` so URLs change on overwrite (CDN-cache-safe regardless of storage backend).
 
 **Taxonomy curation**: `Tag` and `Category` are admin-curated. Only list endpoints are exposed publicly; create/update/delete happens through Django admin. Teachers and students select from existing entries when creating or browsing courses, never propose new ones via the API.
 
@@ -60,11 +69,15 @@ python manage.py makemigrations --check --dry-run
 
 **Profile lookup**: `UserSerializer.get_profile` and `UserService.update_profile` resolve a user's profile via `user.role` (`f"{role}_profile"` for the reverse accessor, `PROFILE_MODELS[role]`/`PROFILE_SERIALIZERS[role]` for the model and serializer). The `related_name` on each profile model's `OneToOneField` must equal `<role>_profile` exactly; rename one and both lookups break silently.
 
+**Full name in serializers**: use `serializers.CharField(source="user.get_full_name", read_only=True)` (Django's `AbstractUser.get_full_name()`), not a `SerializerMethodField` that formats `first_name` + `last_name`.
+
 **Service transform pipeline**: When a service applies multiple business rules before save, encode each as a private `_apply_<name>_rules(validated_data)` that mutates and returns the dict, then chain them in `create_*` / `update_*`.
 
 **Throttling**: Use `ScopedRateThrottle` + `throttle_scope = "<name>"` on the view, with the rate defined under `DEFAULT_THROTTLE_RATES` in settings. Custom `AnonRateThrottle` subclasses only when behavior (not just rate) needs to change.
 
 **Branches**: GitFlow prefixes only: `feature/`, `release/`, `hotfix/`, `bugfix/`. Use `feature/<name>` for refactors too; this project does not use `refactor/`, `chore/`, or other conventional-commit-style prefixes. Branch off `develop` and PR back into `develop`; `main` is a release pointer and lags far behind.
+
+**PR merge style**: project preserves feature commits via merge commits — use `gh pr merge <n> --merge`, not `--squash`. For stacked PRs, after the parent merges, rebase the child onto fresh `develop`; redundant commits drop automatically via patch-id.
 
 **Configuration**: Settings read from `.env` via `python-decouple`. See `.env.example` for required variables (DB credentials, `SECRET_KEY`, `FRONTEND_URL`, email SMTP settings).
 
@@ -72,7 +85,7 @@ python manage.py makemigrations --check --dry-run
 
 **CORS**: Configured via `django-cors-headers`; frontend expected at `localhost:3000` by default.
 
-**Test settings**: `config/test_settings.py` overrides the main settings for the test runner (uses SQLite by default).
+**Test settings**: `config/test_settings.py` overrides the main settings for the test runner (uses SQLite by default). `from config.settings import *` re-evaluates module-level `decouple.config(...)` calls at import time, so any env var required without a default in `settings.py` must also be set in `pr-checks.yml` `env:` (currently `SECRET_KEY`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`) — adding a new no-default `config(...)` without updating the workflow breaks `python manage.py check` in CI.
 
 **CI**: `.github/workflows/pr-checks.yml` runs Django system check, migration drift check, and the test suite on every PR. `.github/workflows/main.yml` builds and pushes a Docker image to ECR on push to `develop`.
 
