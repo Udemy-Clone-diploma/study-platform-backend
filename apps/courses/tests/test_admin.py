@@ -2,7 +2,7 @@ from django.contrib import admin as django_admin
 from django.test import RequestFactory, TestCase
 
 from apps.courses.admin import SoftDeleteAdminMixin
-from apps.courses.models import Course
+from apps.courses.models import Course, Lesson, Module
 
 from ._factories import make_course, make_teacher
 
@@ -51,3 +51,57 @@ class CourseAdminSoftDeleteTests(TestCase):
         queryset = model_admin.get_queryset(request)
 
         self.assertIn(self.course, queryset)
+
+
+class AdminBulkDeleteRecomputesLessonsCountTests(TestCase):
+    """``delete_queryset`` (the "Delete selected" admin action) must keep
+    ``Course.lessons_count`` in sync.
+
+    ``QuerySet.update(is_deleted=True)`` skips ``post_save``/``post_delete``,
+    so the lessons_count signal never fires. ``ModuleAdmin`` and ``LessonAdmin``
+    use ``LessonsCountRecomputeMixin`` to call the recompute explicitly after
+    the bulk update.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        _, cls.teacher_profile = make_teacher(email="bulk_admin@example.com")
+        cls.course = make_course(
+            cls.teacher_profile, title="Bulk", slug="bulk", short_description="x",
+            full_description="x",
+        )
+        cls.module = Module.objects.create(course=cls.course, title="M", order=1)
+
+    def setUp(self):
+        Lesson.all_objects.filter(module=self.module).delete()
+        for i in range(3):
+            Lesson.objects.create(module=self.module, title=f"L{i}", order=i + 1)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.lessons_count, 3)
+
+    def _admin(self, model):
+        return django_admin.site._registry[model]
+
+    def test_lesson_admin_bulk_delete_drops_count(self):
+        request = RequestFactory().post("/admin/courses/lesson/")
+        to_delete_ids = list(
+            Lesson.objects.filter(module=self.module)
+            .order_by("order")
+            .values_list("pk", flat=True)
+        )[:2]
+        to_delete = Lesson.objects.filter(pk__in=to_delete_ids)
+
+        self._admin(Lesson).delete_queryset(request, to_delete)
+
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.lessons_count, 1)
+
+    def test_module_admin_bulk_delete_drops_count_to_zero(self):
+        request = RequestFactory().post("/admin/courses/module/")
+
+        self._admin(Module).delete_queryset(
+            request, Module.objects.filter(pk=self.module.pk)
+        )
+
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.lessons_count, 0)
