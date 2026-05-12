@@ -233,7 +233,7 @@ class CourseService:
     def get_teacher_courses_queryset(teacher_profile):
         return (
             teacher_profile.courses
-            .select_related("teacher_profile__user", "moderator_profile", "category")
+            .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )
 
@@ -241,7 +241,7 @@ class CourseService:
     def get_enrolled_courses_queryset(student_profile):
         return (
             student_profile.courses
-            .select_related("teacher_profile__user", "moderator_profile", "category")
+            .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )
 
