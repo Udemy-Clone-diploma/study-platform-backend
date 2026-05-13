@@ -5,6 +5,7 @@ from .FeaturedCategoriesView import FeaturedCategoriesView
 from .NewCoursesView import NewCoursesView
 from .PopularCoursesView import PopularCoursesView
 from .TeacherCoursesView import TeacherCoursesView
+from .WishlistView import WishlistListView, WishlistToggleView
 
 __all__ = [
     "CategoryViewSet",
@@ -14,4 +15,6 @@ __all__ = [
     "NewCoursesView",
     "PopularCoursesView",
     "TeacherCoursesView",
+    "WishlistListView",
+    "WishlistToggleView",
 ]

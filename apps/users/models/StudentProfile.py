@@ -14,6 +14,7 @@ class StudentProfile(models.Model):
     learning_goals = models.TextField(blank=True)
     education_level = models.CharField(max_length=100, blank=True)
     courses = models.ManyToManyField("courses.Course", blank=True, related_name="enrolled_students")
+    wishlisted_courses = models.ManyToManyField("courses.Course", blank=True, related_name="wishlisted_by")
     def __str__(self):
         return f"StudentProfile: {self.user.email}"
 
