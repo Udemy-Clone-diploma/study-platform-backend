@@ -9,6 +9,8 @@ from apps.courses.views import (
     NewCoursesView,
     PopularCoursesView,
     TeacherCoursesView,
+    WishlistListView,
+    WishlistToggleView,
 )
 
 router = DefaultRouter()
@@ -20,6 +22,8 @@ urlpatterns = [
     path("courses/popular-courses/", PopularCoursesView.as_view(), name="popular-courses"),
     path("courses/my-courses/", TeacherCoursesView.as_view(), name="teacher-my-courses"),
     path("courses/enrolled/", EnrolledCoursesView.as_view(), name="enrolled-courses"),
+    path("courses/wishlist/", WishlistListView.as_view(), name="wishlist-list"),
+    path("courses/<slug:slug>/wishlist/", WishlistToggleView.as_view(), name="wishlist-toggle"),
     path(
         "categories/featured/",
         FeaturedCategoriesView.as_view(),
