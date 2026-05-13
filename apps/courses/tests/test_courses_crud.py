@@ -33,11 +33,14 @@ class CourseViewSetTests(APITestCase):
             category=self.category,
             duration_hours=12,
             lessons_count=6,
-            status=Course.StatusChoices.PUBLISHED,
+            status=Course.StatusChoices.DRAFT,
         )
         self.course.tags.add(self.tag)
 
     def test_list_uses_list_serializer(self):
+        self.course.status = Course.StatusChoices.PUBLISHED
+        self.course.save(update_fields=["status"])
+
         response = self.client.get(reverse("courses-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
