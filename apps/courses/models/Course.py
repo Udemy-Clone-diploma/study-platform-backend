@@ -45,6 +45,7 @@ class Course(models.Model):
     class StatusChoices(models.TextChoices):
         DRAFT = "draft", "Draft"
         REVIEW = "review", "Review"
+        NEEDS_REVISION = "needs_revision", "Needs Revision (returned by moderator)"
         PUBLISHED = "published", "Published"
         ARCHIVED = "archived", "Archived"
 
