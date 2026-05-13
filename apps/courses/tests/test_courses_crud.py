@@ -33,7 +33,7 @@ class CourseViewSetTests(APITestCase):
             category=self.category,
             duration_hours=12,
             lessons_count=6,
-            status=Course.StatusChoices.DRAFT,
+            status=Course.StatusChoices.PUBLISHED,
         )
         self.course.tags.add(self.tag)
 
