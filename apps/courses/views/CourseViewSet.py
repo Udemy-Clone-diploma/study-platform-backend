@@ -42,7 +42,9 @@ class CourseViewSet(
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.action == "retrieve":
+        if self.action == "list":
+            queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
+        elif self.action == "retrieve":
             queryset = queryset.prefetch_related("modules", "modules__lessons")
         return queryset
 
