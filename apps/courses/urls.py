@@ -6,6 +6,7 @@ from apps.courses.views import (
     CourseViewSet,
     EnrolledCoursesView,
     FeaturedCategoriesView,
+    ModuleViewSet,
     NewCoursesView,
     PopularCoursesView,
     TeacherCoursesView,
@@ -16,6 +17,9 @@ from apps.courses.views import (
 router = DefaultRouter()
 router.register(r"courses", CourseViewSet, basename="courses")
 router.register(r"categories", CategoryViewSet, basename="categories")
+
+modules_router = DefaultRouter()
+modules_router.register(r"modules", ModuleViewSet, basename="course-modules")
 
 urlpatterns = [
     path("courses/new-courses/", NewCoursesView.as_view(), name="new-courses"),
@@ -30,4 +34,5 @@ urlpatterns = [
         name="categories-featured",
     ),
     path("", include(router.urls)),
+    path("courses/<slug:course_slug>/", include(modules_router.urls)),
 ]
