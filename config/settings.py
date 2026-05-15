@@ -49,6 +49,7 @@ LOCAL_APPS = [
     "apps.common",
     "apps.users",
     "apps.courses",
+    "apps.enrollments",
 ]
 
 THIRD_PARTY_APPS = [
@@ -173,6 +174,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "Users", "description": "Admin user management and top teachers listing."},
         {"name": "Courses", "description": "Course CRUD, new courses, and popular courses."},
         {"name": "Categories", "description": "Course category listing and featured categories."},
+        {"name": "Enrollments", "description": "Course enrollment access records."},
     ],
     "ENUM_NAME_OVERRIDES": {
         "UserLanguageEnum": "apps.users.models.User.LanguageChoices",
