@@ -20,7 +20,8 @@ class StudentProfile(models.Model):
         blank=True,
         related_name="enrolled_students",
     )
-
+    wishlisted_courses = models.ManyToManyField("courses.Course", blank=True, related_name="wishlisted_by")
+    
     def __str__(self):
         return f"StudentProfile: {self.user.email}"
 

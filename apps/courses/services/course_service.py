@@ -230,6 +230,22 @@ class CourseService:
         course.save(update_fields=["is_deleted", "status"])
 
     @staticmethod
+    def get_teacher_courses_queryset(teacher_profile):
+        return (
+            teacher_profile.courses
+            .select_related("teacher_profile__user", "category")
+            .prefetch_related("tags")
+        )
+
+    @staticmethod
+    def get_enrolled_courses_queryset(student_profile):
+        return (
+            student_profile.courses
+            .select_related("teacher_profile__user", "category")
+            .prefetch_related("tags")
+        )
+
+    @staticmethod
     def get_new_courses(limit: int = DEFAULT_NEW_COURSES_LIMIT, context: dict | None = None) -> list[dict]:
         courses = Course.objects.filter(
             status=Course.StatusChoices.PUBLISHED, is_deleted=False

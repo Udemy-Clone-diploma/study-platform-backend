@@ -30,6 +30,7 @@ COURSE_DEFAULTS = dict(
     price=0,
     duration_hours=10,
     lessons_count=0,
+    status=Course.StatusChoices.PUBLISHED,
 )
 
 

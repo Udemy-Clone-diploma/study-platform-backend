@@ -3,10 +3,98 @@ from rest_framework import serializers
 
 from apps.courses.models import Course
 from apps.enrollments.models import Enrollment
+from apps.enrollments.serializers import (
+    EnrollmentCreateSerializer,
+    EnrollmentSerializer,
+    EnrollmentUpdateSerializer,
+)
 from apps.users.models import StudentProfile, User
 
 
 class EnrollmentService:
+    @staticmethod
+    def get_base_queryset():
+        return Enrollment.objects.select_related(
+            "student_profile__user",
+            "course",
+            "course__teacher_profile__user",
+        )
+
+    @classmethod
+    def get_visible_enrollments_queryset(cls, user: User, base_queryset=None):
+        queryset = base_queryset if base_queryset is not None else cls.get_base_queryset()
+
+        if not user or not user.is_authenticated:
+            return queryset.none()
+
+        if user.role in (
+            User.RoleChoices.ADMINISTRATOR,
+            User.RoleChoices.MODERATOR,
+        ):
+            return queryset
+
+        if user.role == User.RoleChoices.TEACHER:
+            return queryset.filter(course__teacher_profile__user_id=user.id)
+
+        if user.role == User.RoleChoices.STUDENT:
+            return queryset.filter(student_profile__user_id=user.id)
+
+        return queryset.none()
+
+    @staticmethod
+    def serialize_enrollment(
+        enrollment: Enrollment,
+        context: dict | None = None,
+    ) -> dict:
+        return EnrollmentSerializer(enrollment, context=context or {}).data
+
+    @staticmethod
+    def validate_create_data(data: dict, context: dict | None = None) -> dict:
+        serializer = EnrollmentCreateSerializer(data=data, context=context or {})
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
+
+    @staticmethod
+    def validate_update_data(
+        data: dict,
+        context: dict | None = None,
+        partial: bool = True,
+    ) -> dict:
+        serializer = EnrollmentUpdateSerializer(
+            data=data,
+            context=context or {},
+            partial=partial,
+        )
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
+
+    @classmethod
+    def create_enrollment_from_data(
+        cls,
+        data: dict,
+        request_user: User,
+        context: dict | None = None,
+    ) -> dict:
+        validated_data = cls.validate_create_data(data, context=context)
+        enrollment = cls.create_enrollment(validated_data, request_user)
+        return cls.serialize_enrollment(enrollment, context=context)
+
+    @classmethod
+    def update_enrollment_from_data(
+        cls,
+        enrollment: Enrollment,
+        data: dict,
+        context: dict | None = None,
+        partial: bool = True,
+    ) -> dict:
+        validated_data = cls.validate_update_data(
+            data,
+            context=context,
+            partial=partial,
+        )
+        enrollment = cls.update_enrollment(enrollment, validated_data)
+        return cls.serialize_enrollment(enrollment, context=context)
+
     @staticmethod
     def _student_profile_for_user(user: User) -> StudentProfile:
         try:
