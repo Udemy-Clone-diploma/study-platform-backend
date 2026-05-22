@@ -49,6 +49,7 @@ LOCAL_APPS = [
     "apps.common",
     "apps.users",
     "apps.courses",
+    "apps.enrollments",
 ]
 
 THIRD_PARTY_APPS = [
@@ -64,6 +65,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS + ["django_cleanup.
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -173,6 +175,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "Users", "description": "Admin user management and top teachers listing."},
         {"name": "Courses", "description": "Course CRUD, new courses, and popular courses."},
         {"name": "Categories", "description": "Course category listing and featured categories."},
+        {"name": "Enrollments", "description": "Course enrollment access records."},
     ],
     "ENUM_NAME_OVERRIDES": {
         "UserLanguageEnum": "apps.users.models.User.LanguageChoices",
@@ -194,6 +197,16 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 EMAIL_VERIFICATION_TIMEOUT = int(timedelta(days=2).total_seconds())
 
