@@ -48,7 +48,12 @@ class CourseViewSet(
             queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
         elif self.action == "retrieve":
             queryset = queryset.prefetch_related(
-                "modules", "modules__lessons", "pricing_plans", "cohorts",
+                "modules",
+                "modules__lessons",
+                "modules__tests",
+                "modules__tests__questions",
+                "pricing_plans",
+                "cohorts",
             )
         return queryset
 

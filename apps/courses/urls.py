@@ -8,11 +8,15 @@ from apps.courses.views import (
     CourseViewSet,
     EnrolledCoursesView,
     FeaturedCategoriesView,
+    LessonViewSet,
+    ModuleViewSet,
     NewCoursesView,
     PopularCoursesView,
     PricingPlanDetailView,
     PricingPlanListCreateView,
+    QuestionViewSet,
     TeacherCoursesView,
+    TestViewSet,
     WishlistListView,
     WishlistToggleView,
 )
@@ -20,6 +24,18 @@ from apps.courses.views import (
 router = DefaultRouter()
 router.register(r"courses", CourseViewSet, basename="courses")
 router.register(r"categories", CategoryViewSet, basename="categories")
+
+modules_router = DefaultRouter()
+modules_router.register(r"modules", ModuleViewSet, basename="course-modules")
+
+lessons_router = DefaultRouter()
+lessons_router.register(r"lessons", LessonViewSet, basename="module-lessons")
+
+tests_router = DefaultRouter()
+tests_router.register(r"tests", TestViewSet, basename="module-tests")
+
+questions_router = DefaultRouter()
+questions_router.register(r"questions", QuestionViewSet, basename="test-questions")
 
 urlpatterns = [
     path("courses/new-courses/", NewCoursesView.as_view(), name="new-courses"),
@@ -54,4 +70,11 @@ urlpatterns = [
         name="categories-featured",
     ),
     path("", include(router.urls)),
+    path("courses/<slug:course_slug>/", include(modules_router.urls)),
+    path("courses/<slug:course_slug>/modules/<int:module_pk>/", include(lessons_router.urls)),
+    path("courses/<slug:course_slug>/modules/<int:module_pk>/", include(tests_router.urls)),
+    path(
+        "courses/<slug:course_slug>/modules/<int:module_pk>/tests/<int:test_pk>/",
+        include(questions_router.urls),
+    ),
 ]

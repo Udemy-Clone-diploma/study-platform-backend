@@ -10,6 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("courses", "0015_lesson_body_html_lesson_content_type_and_more"),
+        ("courses", "0016_alter_test_passing_score"),
     ]
 
     operations = [

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from apps.courses.admin import SoftDeleteAdminMixin
 
-from .models import Lesson, Module
+from .models import Lesson, Module, Question, Test
 from .signals import _recompute_lessons_count
 
 
@@ -32,6 +32,24 @@ class LessonInline(SoftDeleteAdminMixin, admin.TabularInline):
     show_change_link = True
 
 
+class TestInline(SoftDeleteAdminMixin, admin.TabularInline):
+    model = Test
+    extra = 0
+    fields = ("title", "passing_score", "order", "is_deleted")
+    show_change_link = True
+
+
+class QuestionInline(SoftDeleteAdminMixin, admin.TabularInline):
+    model = Question
+    extra = 0
+    fields = (
+        "question_type", "text", "options",
+        "correct_index", "correct_bool", "sample_answer",
+        "order", "is_deleted",
+    )
+    show_change_link = True
+
+
 class ModuleInline(SoftDeleteAdminMixin, admin.TabularInline):
     model = Module
     extra = 0
@@ -45,7 +63,7 @@ class ModuleAdmin(LessonsCountRecomputeMixin, SoftDeleteAdminMixin, admin.ModelA
     list_filter = ("is_deleted", "course")
     list_select_related = ("course",)
     search_fields = ("title", "course__title")
-    inlines = [LessonInline]
+    inlines = [LessonInline, TestInline]
     affected_course_ids_path = "course_id"
 
 
@@ -63,3 +81,27 @@ class LessonAdmin(LessonsCountRecomputeMixin, SoftDeleteAdminMixin, admin.ModelA
     @admin.display(description="Course", ordering="module__course__title")
     def course(self, obj):
         return obj.module.course
+
+
+@admin.register(Test)
+class TestAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "module", "course", "passing_score", "order", "is_deleted")
+    list_filter = ("is_deleted", "module__course")
+    list_select_related = ("module__course",)
+    search_fields = ("title", "module__title", "module__course__title")
+    inlines = [QuestionInline]
+
+    @admin.display(description="Course", ordering="module__course__title")
+    def course(self, obj):
+        return obj.module.course
+
+
+@admin.register(Question)
+class QuestionAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("text_short", "question_type", "test", "order", "is_deleted")
+    list_filter = ("is_deleted", "question_type")
+    search_fields = ("text", "test__title")
+
+    @admin.display(description="Question")
+    def text_short(self, obj):
+        return obj.text[:60] + "…" if len(obj.text) > 60 else obj.text

@@ -20,7 +20,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = [
-            "title", "subtitle", "short_description", "full_description",
+            "image", "title", "subtitle", "short_description", "full_description",
             "teacher_profile", "moderator_profile", "category_id",
             "level", "language", "mode", "delivery_type", "course_type",
             "duration_hours", "lessons_count",

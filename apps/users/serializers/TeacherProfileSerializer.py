@@ -6,5 +6,5 @@ from apps.users.models import TeacherProfile
 class TeacherProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherProfile
-        fields = ["bio", "experience", "specialization", "rating"]
+        fields = ["id", "bio", "experience", "specialization", "rating"]
         read_only_fields = ["rating"]
