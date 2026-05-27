@@ -97,13 +97,18 @@ class CourseFilterTests(APITestCase):
         slugs = [c["slug"] for c in response.data["results"]]
         self.assertEqual(slugs, ["django-course"])
 
-    def test_filter_by_pricing_type_in(self):
-        Course.all_objects.filter(slug="figma-course").update(
-            pricing_type=Course.PricingTypeChoices.FULL_PAYMENT, price="50.00"
+    def test_filter_by_plan_kind_in(self):
+        from ._factories import make_pricing_plan
+        from apps.courses.models import PricingPlan
+
+        make_pricing_plan(
+            self.course_design,
+            kind=PricingPlan.KindChoices.INDIVIDUAL,
+            price="50.00",
         )
 
         response = self.client.get(
-            reverse("courses-list"), {"pricing_type": "full_payment"}
+            reverse("courses-list"), {"plan_kind": "individual"}
         )
 
         slugs = [c["slug"] for c in response.data["results"]]
@@ -128,12 +133,15 @@ class CourseFilterTests(APITestCase):
         slugs = [c["slug"] for c in response.data["results"]]
         self.assertEqual(slugs, ["django-course"])
 
-    def test_ordering_by_price_ascending(self):
-        Course.all_objects.filter(slug="django-course").update(price="20.00")
-        Course.all_objects.filter(slug="figma-course").update(price="10.00")
-        Course.all_objects.filter(slug="no-category-course").update(price="30.00")
+    def test_ordering_by_min_price_ascending(self):
+        from ._factories import make_pricing_plan
+        from apps.courses.models import PricingPlan
 
-        response = self.client.get(reverse("courses-list"), {"ordering": "price"})
+        make_pricing_plan(self.course_dev, price="20.00")
+        make_pricing_plan(self.course_design, price="10.00")
+        make_pricing_plan(self.course_no_category, price="30.00")
+
+        response = self.client.get(reverse("courses-list"), {"ordering": "min_price"})
 
         slugs = [c["slug"] for c in response.data["results"]]
         self.assertEqual(
