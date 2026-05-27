@@ -1,84 +1,12 @@
-from datetime import timedelta
-
-from django.db import IntegrityError, transaction
-from django.test import TestCase
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_teacher
 from apps.enrollments.models import Enrollment
-from apps.enrollments.services import EnrollmentService
-from apps.users.models import StudentProfile, User
-
-
-def make_student(email="student@example.com"):
-    user = User.objects.create_user(
-        email=email,
-        password="pass12345",
-        role=User.RoleChoices.STUDENT,
-    )
-    profile = StudentProfile.objects.create(user=user)
-    return user, profile
-
-
-class EnrollmentModelTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        _, cls.teacher_profile = make_teacher(email="enrollments_teacher@example.com")
-        cls.course = make_course(
-            cls.teacher_profile,
-            slug="enrollments-course",
-            status=Course.StatusChoices.PUBLISHED,
-        )
-        cls.student_user, cls.student_profile = make_student(
-            email="enrollments_student@example.com"
-        )
-
-    def test_student_profile_courses_uses_enrollment_through_model(self):
-        self.student_profile.courses.add(self.course)
-
-        enrollment = Enrollment.objects.get(
-            student_profile=self.student_profile,
-            course=self.course,
-        )
-        self.assertEqual(enrollment.access_status, Enrollment.AccessStatusChoices.ACTIVE)
-        self.assertIsNone(enrollment.order_id)
-        self.assertIsNone(enrollment.access_until)
-
-        self.course.refresh_from_db()
-        self.assertEqual(self.course.students_count, 1)
-
-    def test_student_can_be_enrolled_in_course_once(self):
-        Enrollment.objects.create(
-            student_profile=self.student_profile,
-            course=self.course,
-        )
-
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                Enrollment.objects.create(
-                    student_profile=self.student_profile,
-                    course=self.course,
-                )
-
-    def test_access_check_honors_status_and_dates(self):
-        access_granted_at = timezone.now() - timedelta(days=2)
-        Enrollment.objects.create(
-            student_profile=self.student_profile,
-            course=self.course,
-            access_granted_at=access_granted_at,
-            access_until=access_granted_at + timedelta(days=1),
-        )
-
-        has_access = EnrollmentService.student_has_course_access(
-            self.student_profile,
-            self.course,
-        )
-
-        self.assertFalse(has_access)
+from apps.enrollments.tests._factories import make_student
+from apps.users.models import User
 
 
 class EnrollmentApiTests(APITestCase):
@@ -125,7 +53,7 @@ class EnrollmentApiTests(APITestCase):
             {
                 "course_id": self.course.pk,
                 "student_profile_id": self.other_student_profile.pk,
-                "id_order": 123,
+                "order_id": 123,
                 "access_status": Enrollment.AccessStatusChoices.REVOKED,
             },
             format="json",
@@ -136,7 +64,7 @@ class EnrollmentApiTests(APITestCase):
         self.assertEqual(enrollment.student_profile, self.student_profile)
         self.assertIsNone(enrollment.order_id)
         self.assertEqual(enrollment.access_status, Enrollment.AccessStatusChoices.ACTIVE)
-        self.assertIsNone(response.data["id_order"])
+        self.assertIsNone(response.data["order_id"])
 
     def test_student_cannot_enroll_in_draft_course(self):
         self.client.force_authenticate(user=self.student_user)
@@ -158,7 +86,7 @@ class EnrollmentApiTests(APITestCase):
             {
                 "course_id": self.course.pk,
                 "student_profile_id": self.student_profile.pk,
-                "id_order": 456,
+                "order_id": 456,
                 "access_status": Enrollment.AccessStatusChoices.PENDING,
             },
             format="json",

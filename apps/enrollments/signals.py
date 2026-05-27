@@ -1,9 +1,8 @@
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from apps.courses.models import Course
 from apps.enrollments.models import Enrollment
-from apps.users.models import StudentProfile
 
 
 def _active_enrollments_count(course_id: int) -> int:
@@ -41,24 +40,3 @@ def update_students_count_on_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=Enrollment)
 def update_students_count_on_delete(sender, instance, **kwargs):
     _recompute_students_count(instance.course_id)
-
-
-@receiver(m2m_changed, sender=StudentProfile.courses.through)
-def update_students_count_on_courses_change(sender, instance, action, reverse, pk_set, **kwargs):
-    if action not in {"post_add", "post_remove", "post_clear"}:
-        return
-
-    if reverse:
-        _recompute_students_count(instance.pk)
-        return
-
-    if pk_set is None:
-        course_ids = sender.objects.filter(student_profile=instance).values_list(
-            "course_id",
-            flat=True,
-        )
-    else:
-        course_ids = pk_set
-
-    for course_id in course_ids:
-        _recompute_students_count(course_id)
