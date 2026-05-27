@@ -14,14 +14,25 @@ class CourseListSerializer(serializers.ModelSerializer):
         source="teacher_profile.user.get_full_name", read_only=True,
     )
     image = serializers.SerializerMethodField()
+    price = serializers.DecimalField(
+        source="min_price",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+        allow_null=True,
+    )
+    currency = serializers.CharField(source="min_currency", read_only=True, allow_null=True)
 
     class Meta:
         model = Course
         fields = [
-            "id", "image", "title", "short_description", "slug", "teacher_name", "category",
-            "level", "language", "mode", "delivery_type", "course_type", "pricing_type",
-            "price", "duration_hours", "lessons_count", "with_certificate", "is_on_sale",
-            "rating_avg", "students_count", "status", "published_at", "tags",
+            "id", "image", "title", "subtitle", "short_description", "slug",
+            "teacher_name", "category",
+            "level", "language", "mode", "delivery_type", "course_type",
+            "price", "currency", "duration_hours", "lessons_count",
+            "with_certificate", "is_on_sale",
+            "rating_avg", "rating_count", "students_count", "status",
+            "published_at", "tags",
         ]
 
     def get_image(self, obj) -> str | None:

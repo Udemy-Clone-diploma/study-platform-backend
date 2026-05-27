@@ -1,7 +1,9 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from .models import Course, Lesson, Module
+from apps.courses.models import Course
+
+from .models import Lesson, Module
 
 
 def _recompute_lessons_count(course_id: int) -> None:

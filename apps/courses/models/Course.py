@@ -37,11 +37,6 @@ class Course(models.Model):
         QUALIFICATION = "qualification", "Qualification"
         KNOWLEDGE = "knowledge", "Knowledge"
 
-    class PricingTypeChoices(models.TextChoices):
-        FREE = "free", "Free"
-        FULL_PAYMENT = "full_payment", "Full Payment"
-        INSTALLMENT = "installment", "Installment"
-
     class StatusChoices(models.TextChoices):
         DRAFT = "draft", "Draft"
         REVIEW = "review", "Review"
@@ -52,6 +47,8 @@ class Course(models.Model):
     image = models.ImageField(upload_to=UUIDUploadTo("courses"), null=True, blank=True)
 
     title = models.CharField(max_length=255)
+
+    subtitle = models.CharField(max_length=255, blank=True, null=True)
 
     short_description = models.CharField(max_length=500)
 
@@ -101,27 +98,6 @@ class Course(models.Model):
         choices=CourseTypeChoices.choices,
     )
 
-    pricing_type = models.CharField(
-        max_length=20,
-        choices=PricingTypeChoices.choices,
-        default=PricingTypeChoices.FREE,
-    )
-
-    price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal("0.00"),
-    )
-
-    installment_count = models.PositiveIntegerField(null=True, blank=True)
-
-    installment_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
-
     duration_hours = models.PositiveIntegerField()
 
     lessons_count = models.PositiveIntegerField(default=0)
@@ -136,6 +112,8 @@ class Course(models.Model):
         default=Decimal("0.00"),
         validators=[MinValueValidator(0), MaxValueValidator(5)],
     )
+
+    rating_count = models.PositiveIntegerField(default=0)
 
     students_count = models.PositiveIntegerField(default=0)
 
