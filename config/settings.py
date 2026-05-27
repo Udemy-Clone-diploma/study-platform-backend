@@ -51,6 +51,7 @@ LOCAL_APPS = [
     "apps.courses",
     "apps.curriculum",
     "apps.enrollments",
+    "apps.reviews",
 ]
 
 THIRD_PARTY_APPS = [
