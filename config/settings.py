@@ -49,6 +49,7 @@ LOCAL_APPS = [
     "apps.common",
     "apps.users",
     "apps.courses",
+    "apps.curriculum",
     "apps.enrollments",
 ]
 

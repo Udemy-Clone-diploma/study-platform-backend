@@ -1,19 +1,18 @@
 from django.db import models
 
 from apps.common.managers import ActiveManager
+from apps.courses.models import Course
 
-from .Module import Module
 
-
-class Lesson(models.Model):
+class Module(models.Model):
     title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     order = models.PositiveSmallIntegerField()
-    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
 
-    module = models.ForeignKey(
-        Module,
+    course = models.ForeignKey(
+        Course,
         on_delete=models.CASCADE,
-        related_name="lessons",
+        related_name="modules",
     )
 
     is_deleted = models.BooleanField(default=False)
@@ -25,13 +24,13 @@ class Lesson(models.Model):
     all_objects = models.Manager()
 
     class Meta:
-        db_table = "lessons"
+        db_table = "modules"
         ordering = ["order"]
         constraints = [
             models.UniqueConstraint(
-                fields=["module", "order"],
+                fields=["course", "order"],
                 condition=models.Q(is_deleted=False),
-                name="unique_active_lesson_order_per_module",
+                name="unique_active_module_order_per_course",
             ),
         ]
 

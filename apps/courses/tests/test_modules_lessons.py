@@ -4,7 +4,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.courses.models import Course, Lesson, Module
+from apps.courses.models import Course
+from apps.curriculum.models import Lesson, Module
 
 from ._factories import make_course, make_teacher
 

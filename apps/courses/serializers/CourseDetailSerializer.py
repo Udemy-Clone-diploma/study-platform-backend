@@ -3,10 +3,11 @@ from rest_framework import serializers
 from apps.common.files import absolute_media_url
 from apps.courses.models import Course
 
+from apps.curriculum.serializers import ModuleSerializer
+
 from .CategorySerializer import CategorySerializer
 from .CohortSerializer import CohortSerializer
 from .CourseTeacherSerializer import CourseTeacherSerializer
-from .ModuleSerializer import ModuleSerializer
 from .PricingPlanSerializer import PricingPlanSerializer
 from .TagSerializer import TagSerializer
 
