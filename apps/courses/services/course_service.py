@@ -1,15 +1,13 @@
-from decimal import Decimal
-
-from django.utils.text import slugify
 from django.db import transaction
+from django.db.models import Min, Subquery, OuterRef
+from django.utils.text import slugify
 
 from apps.courses.constants import (
     DEFAULT_FEATURED_CATEGORIES_LIMIT,
     DEFAULT_NEW_COURSES_LIMIT,
     DEFAULT_POPULAR_COURSES_LIMIT,
 )
-from apps.courses.exceptions import InvalidPricingError
-from apps.courses.models import Category, Course
+from apps.courses.models import Category, Course, PricingPlan
 from apps.courses.serializers import (
     CategorySerializer,
     CourseCreateUpdateSerializer,
@@ -20,6 +18,23 @@ from apps.users.models import User
 
 
 class CourseService:
+    @staticmethod
+    def annotate_min_price(queryset):
+        """Annotate each course with min_price and the matching min_currency.
+
+        Courses without any PricingPlan get min_price=None, min_currency=None
+        (which the catalog serializes as a free course).
+        """
+        cheapest_plan = (
+            PricingPlan.objects.filter(course=OuterRef("pk"))
+            .order_by("price")
+            .values("currency")[:1]
+        )
+        return queryset.annotate(
+            min_price=Min("pricing_plans__price"),
+            min_currency=Subquery(cheapest_plan),
+        )
+
     @staticmethod
     def validate_course_data(
         data: dict,
@@ -34,14 +49,18 @@ class CourseService:
             context=context or {},
         )
         serializer.is_valid(raise_exception=True)
-        return serializer.validated_data #type: ignore
+        return serializer.validated_data
 
-    @staticmethod
+    @classmethod
     def serialize_course_detail(
+        cls,
         course: Course,
         context: dict | None = None,
     ) -> dict:
-        return CourseDetailSerializer(course, context=context or {}).data #type: ignore
+        annotated = cls.annotate_min_price(
+            Course.all_objects.filter(pk=course.pk)
+        ).first()
+        return CourseDetailSerializer(annotated or course, context=context or {}).data
 
     @classmethod
     def create_course_from_data(cls, data: dict, context: dict) -> dict:
@@ -70,7 +89,6 @@ class CourseService:
         )
         return cls.serialize_course_detail(course, context=context)
 
-    # data validation
     @staticmethod
     def _resolve_value(
         validated_data: dict,
@@ -109,7 +127,7 @@ class CourseService:
         title = cls._resolve_value(validated_data, "title", course, "")
 
         if course is None:
-            validated_data["slug"] = cls._build_unique_slug(title, None) #type: ignore
+            validated_data["slug"] = cls._build_unique_slug(title, None)
             return validated_data
 
         title_changed = "title" in validated_data and validated_data["title"] != course.title
@@ -118,7 +136,7 @@ class CourseService:
         )
 
         if can_regenerate_slug:
-            validated_data["slug"] = cls._build_unique_slug(title, course) #type: ignore
+            validated_data["slug"] = cls._build_unique_slug(title, course)
 
         return validated_data
 
@@ -138,43 +156,6 @@ class CourseService:
 
         return validated_data
 
-    @classmethod
-    def _apply_pricing_rules(
-        cls,
-        validated_data: dict,
-        course: Course | None = None,
-    ) -> dict:
-        pricing_type = cls._resolve_value(
-            validated_data,
-            "pricing_type",
-            course,
-            Course.PricingTypeChoices.FREE,
-        )
-        price = cls._resolve_value(
-            validated_data,
-            "price",
-            course,
-            Decimal("0.00"),
-        )
-
-        if pricing_type == Course.PricingTypeChoices.FREE:
-            validated_data["price"] = Decimal("0.00")
-            validated_data["installment_count"] = None
-            validated_data["installment_amount"] = None
-            return validated_data
-
-        if pricing_type == Course.PricingTypeChoices.FULL_PAYMENT:
-            if price is None or price <= 0:
-                raise InvalidPricingError(
-                    "Price must be greater than 0 for fully paid courses."
-                )
-            validated_data["installment_count"] = None
-            validated_data["installment_amount"] = None
-            return validated_data
-
-
-        return validated_data
-
     @staticmethod
     @transaction.atomic
     def create_course(validated_data: dict, request_user: User) -> Course:
@@ -183,7 +164,6 @@ class CourseService:
             request_user,
         )
         validated_data = CourseService._apply_slug_rules(validated_data)
-        validated_data = CourseService._apply_pricing_rules(validated_data)
         tags = validated_data.pop("tags", [])
         course = Course.all_objects.create(**validated_data)
         if tags:
@@ -206,10 +186,6 @@ class CourseService:
             validated_data,
             course=course,
         )
-        validated_data = CourseService._apply_pricing_rules(
-            validated_data,
-            course=course,
-        )
         tags = validated_data.pop("tags", None)
 
         for attr, value in validated_data.items():
@@ -229,38 +205,52 @@ class CourseService:
         course.status = Course.StatusChoices.ARCHIVED
         course.save(update_fields=["is_deleted", "status"])
 
-    @staticmethod
-    def get_teacher_courses_queryset(teacher_profile):
-        return (
+    @classmethod
+    def get_teacher_courses_queryset(cls, teacher_profile):
+        return cls.annotate_min_price(
             teacher_profile.courses
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )
 
-    @staticmethod
-    def get_enrolled_courses_queryset(student_profile):
-        return (
-            student_profile.courses
+    @classmethod
+    def get_enrolled_courses_queryset(cls, student_profile):
+        from apps.enrollments.models import Enrollment
+
+        active_course_ids = (
+            Enrollment.objects.with_active_access()
+            .filter(student_profile=student_profile)
+            .values_list("course_id", flat=True)
+        )
+        return cls.annotate_min_price(
+            Course.objects.filter(pk__in=active_course_ids)
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )
 
-    @staticmethod
-    def get_new_courses(limit: int = DEFAULT_NEW_COURSES_LIMIT, context: dict | None = None) -> list[dict]:
-        courses = Course.objects.filter(
-            status=Course.StatusChoices.PUBLISHED, is_deleted=False
-        ).order_by('-published_at')[:limit]
+    @classmethod
+    def get_new_courses(
+        cls,
+        limit: int = DEFAULT_NEW_COURSES_LIMIT,
+        context: dict | None = None,
+    ) -> list[dict]:
+        courses = cls.annotate_min_price(
+            Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
+        ).order_by("-published_at")[:limit]
         return CourseListSerializer(courses, many=True, context=context or {}).data
 
-    @staticmethod
-    def get_popular_courses(limit: int = DEFAULT_POPULAR_COURSES_LIMIT, context: dict | None = None) -> list[dict]:
-        courses = Course.objects.filter(
-            status=Course.StatusChoices.PUBLISHED, is_deleted=False
-        ).order_by('-rating_avg')[:limit]
+    @classmethod
+    def get_popular_courses(
+        cls,
+        limit: int = DEFAULT_POPULAR_COURSES_LIMIT,
+        context: dict | None = None,
+    ) -> list[dict]:
+        courses = cls.annotate_min_price(
+            Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
+        ).order_by("-rating_avg")[:limit]
         return CourseListSerializer(courses, many=True, context=context or {}).data
 
     @staticmethod
     def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:
         categories = Category.objects.all()[:limit]
         return CategorySerializer(categories, many=True).data
-

@@ -20,11 +20,12 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = [
-            "image", "title", "short_description", "full_description", "teacher_profile",
-            "moderator_profile", "category_id", "level", "language", "mode", "delivery_type",
-            "course_type", "pricing_type", "price", "installment_count", "installment_amount",
-            "duration_hours", "lessons_count", "with_certificate",
-            "is_on_sale", "status", "tag_ids",
+            "image", "title", "subtitle", "short_description", "full_description",
+            "teacher_profile", "moderator_profile", "category_id",
+            "level", "language", "mode", "delivery_type", "course_type",
+            "duration_hours", "lessons_count",
+            "with_certificate", "is_on_sale",
+            "status", "tag_ids",
         ]
         read_only_fields = ["lessons_count"]
 
@@ -60,15 +61,5 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
                     )
                 }
             )
-
-        pricing_type = attrs.get("pricing_type", getattr(self.instance, "pricing_type", None))
-        errors = {}
-        if pricing_type == Course.PricingTypeChoices.INSTALLMENT:
-            if not attrs.get("installment_count") and not getattr(self.instance, "installment_count", None):
-                errors["installment_count"] = "installment_count is required for installment pricing."
-            if not attrs.get("installment_amount") and not getattr(self.instance, "installment_amount", None):
-                errors["installment_amount"] = "installment_amount is required for installment pricing."
-        if errors:
-            raise serializers.ValidationError(errors)
 
         return attrs

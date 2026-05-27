@@ -1,18 +1,19 @@
 from .CategoryViewSet import CategoryViewSet
+from .CohortView import CohortDetailView, CohortListCreateView
 from .CourseViewSet import CourseViewSet
 from .EnrolledCoursesView import EnrolledCoursesView
 from .FeaturedCategoriesView import FeaturedCategoriesView
-from .LessonViewSet import LessonViewSet
-from .ModuleViewSet import ModuleViewSet
 from .NewCoursesView import NewCoursesView
 from .PopularCoursesView import PopularCoursesView
-from .QuestionViewSet import QuestionViewSet
+from .PricingPlanView import PricingPlanDetailView, PricingPlanListCreateView
 from .TeacherCoursesView import TeacherCoursesView
-from .TestViewSet import TestViewSet
 from .WishlistView import WishlistListView, WishlistToggleView
+from apps.curriculum.views import LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
 
 __all__ = [
     "CategoryViewSet",
+    "CohortDetailView",
+    "CohortListCreateView",
     "CourseViewSet",
     "EnrolledCoursesView",
     "FeaturedCategoriesView",
@@ -20,6 +21,8 @@ __all__ = [
     "ModuleViewSet",
     "NewCoursesView",
     "PopularCoursesView",
+    "PricingPlanDetailView",
+    "PricingPlanListCreateView",
     "QuestionViewSet",
     "TeacherCoursesView",
     "TestViewSet",

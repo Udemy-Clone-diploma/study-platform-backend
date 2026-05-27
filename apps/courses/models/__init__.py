@@ -1,17 +1,7 @@
 from .Category import Category
+from .Cohort import Cohort
 from .Course import Course
-from .Lesson import Lesson
-from .Module import Module
-from .Question import Question
+from .PricingPlan import PricingPlan
 from .Tag import Tag
-from .Test import Test
 
-__all__ = [
-    "Category",
-    "Course",
-    "Lesson",
-    "Module",
-    "Question",
-    "Tag",
-    "Test",
-]
+__all__ = ["Category", "Cohort", "Course", "PricingPlan", "Tag"]

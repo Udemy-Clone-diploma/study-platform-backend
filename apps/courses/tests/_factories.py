@@ -1,4 +1,6 @@
-from apps.courses.models import Category, Course
+from django.utils import timezone
+
+from apps.courses.models import Category, Cohort, Course, PricingPlan
 from apps.users.models import TeacherProfile, User
 
 
@@ -26,8 +28,6 @@ COURSE_DEFAULTS = dict(
     mode=Course.ModeChoices.SELF_LEARNING,
     delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
     course_type=Course.CourseTypeChoices.KNOWLEDGE,
-    pricing_type=Course.PricingTypeChoices.FREE,
-    price=0,
     duration_hours=10,
     lessons_count=0,
     status=Course.StatusChoices.PUBLISHED,
@@ -37,4 +37,45 @@ COURSE_DEFAULTS = dict(
 def make_course(teacher_profile, *, title="Course", slug="course", **overrides):
     fields = {**COURSE_DEFAULTS, "title": title, "slug": slug}
     fields.update(overrides)
+    if (
+        fields.get("status") == Course.StatusChoices.PUBLISHED
+        and "published_at" not in fields
+    ):
+        fields["published_at"] = timezone.now()
     return Course.all_objects.create(teacher_profile=teacher_profile, **fields)
+
+
+def make_pricing_plan(
+    course,
+    *,
+    kind=PricingPlan.KindChoices.GROUP,
+    price="100.00",
+    currency=PricingPlan.CurrencyChoices.USD,
+    **overrides,
+):
+    return PricingPlan.objects.create(
+        course=course,
+        kind=kind,
+        price=price,
+        currency=currency,
+        **overrides,
+    )
+
+
+def make_cohort(
+    course,
+    *,
+    duration_months=3,
+    hours_per_week_min=5,
+    hours_per_week_max=10,
+    delivery_mode=Cohort.DeliveryModeChoices.GROUP,
+    **overrides,
+):
+    return Cohort.objects.create(
+        course=course,
+        duration_months=duration_months,
+        hours_per_week_min=hours_per_week_min,
+        hours_per_week_max=hours_per_week_max,
+        delivery_mode=delivery_mode,
+        **overrides,
+    )

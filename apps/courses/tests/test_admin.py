@@ -2,7 +2,8 @@ from django.contrib import admin as django_admin
 from django.test import RequestFactory, TestCase
 
 from apps.courses.admin import SoftDeleteAdminMixin
-from apps.courses.models import Course, Lesson, Module
+from apps.courses.models import Course
+from apps.curriculum.models import Lesson, Module
 
 from ._factories import make_course, make_teacher
 
