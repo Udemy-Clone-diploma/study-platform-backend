@@ -172,6 +172,34 @@ class CourseService:
             validated_data["installment_amount"] = None
             return validated_data
 
+        if pricing_type == Course.PricingTypeChoices.INSTALLMENT:
+            installment_count = cls._resolve_value(
+                validated_data,
+                "installment_count",
+                course,
+            )
+            installment_amount = cls._resolve_value(
+                validated_data,
+                "installment_amount",
+                course,
+            )
+            if price is None or price <= 0:
+                raise InvalidPricingError(
+                    "Price must be greater than 0 for installment courses."
+                )
+            if installment_count is None or installment_count < 2:
+                raise InvalidPricingError(
+                    "Installment count must be at least 2 for installment courses."
+                )
+            if installment_amount is None or installment_amount <= 0:
+                raise InvalidPricingError(
+                    "Installment amount must be greater than 0 for installment courses."
+                )
+            if installment_count * installment_amount < price:
+                raise InvalidPricingError(
+                    "Sum of installments must cover the course price."
+                )
+            return validated_data
 
         return validated_data
 
@@ -239,8 +267,15 @@ class CourseService:
 
     @staticmethod
     def get_enrolled_courses_queryset(student_profile):
+        from apps.enrollments.models import Enrollment
+
+        active_course_ids = (
+            Enrollment.objects.with_active_access()
+            .filter(student_profile=student_profile)
+            .values_list("course_id", flat=True)
+        )
         return (
-            student_profile.courses
+            Course.objects.filter(pk__in=active_course_ids)
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )

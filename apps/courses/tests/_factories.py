@@ -1,3 +1,5 @@
+from django.utils import timezone
+
 from apps.courses.models import Category, Course
 from apps.users.models import TeacherProfile, User
 
@@ -37,4 +39,9 @@ COURSE_DEFAULTS = dict(
 def make_course(teacher_profile, *, title="Course", slug="course", **overrides):
     fields = {**COURSE_DEFAULTS, "title": title, "slug": slug}
     fields.update(overrides)
+    if (
+        fields.get("status") == Course.StatusChoices.PUBLISHED
+        and "published_at" not in fields
+    ):
+        fields["published_at"] = timezone.now()
     return Course.all_objects.create(teacher_profile=teacher_profile, **fields)
