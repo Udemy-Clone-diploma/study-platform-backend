@@ -37,8 +37,8 @@ class CourseViewSet(
     http_method_names = ["get", "post", "patch", "delete"]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = CourseFilter
-    ordering_fields = ["price", "students_count", "rating_avg", "created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["price", "students_count", "rating_avg", "published_at", "created_at"]
+    ordering = ["-published_at"]
 
     def get_queryset(self):
         queryset = super().get_queryset()

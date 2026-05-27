@@ -15,7 +15,10 @@ class WishlistService:
     @staticmethod
     def toggle(student_profile: StudentProfile, slug: str) -> bool:
         try:
-            course = Course.objects.get(slug=slug)
+            course = Course.objects.get(
+                slug=slug,
+                status=Course.StatusChoices.PUBLISHED,
+            )
         except Course.DoesNotExist:
             raise CourseNotFoundError(slug)
 
