@@ -1,23 +1,20 @@
 from django.db import models
 
-from apps.common.files import UUIDUploadTo
 from apps.common.managers import ActiveManager
 
 from .Module import Module
 
 
-class Lesson(models.Model):
+class Test(models.Model):
     title = models.CharField(max_length=255)
-    content = models.TextField(blank=True, default="")
-    video = models.FileField(upload_to=UUIDUploadTo("lessons/videos"), null=True, blank=True)
+    description = models.TextField(blank=True, default="")
+    passing_score = models.PositiveSmallIntegerField(default=70)
     order = models.PositiveSmallIntegerField()
-    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
-    min_score = models.PositiveSmallIntegerField(null=True, blank=True)
 
     module = models.ForeignKey(
         Module,
         on_delete=models.CASCADE,
-        related_name="lessons",
+        related_name="tests",
     )
 
     is_deleted = models.BooleanField(default=False)
@@ -29,13 +26,13 @@ class Lesson(models.Model):
     all_objects = models.Manager()
 
     class Meta:
-        db_table = "lessons"
+        db_table = "tests"
         ordering = ["order"]
         constraints = [
             models.UniqueConstraint(
                 fields=["module", "order"],
                 condition=models.Q(is_deleted=False),
-                name="unique_active_lesson_order_per_module",
+                name="unique_active_test_order_per_module",
             ),
         ]
 

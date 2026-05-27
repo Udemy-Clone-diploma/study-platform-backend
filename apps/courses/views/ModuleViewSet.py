@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from apps.courses.models import Course, Module
 from apps.courses.serializers import ModuleSerializer
 from apps.courses.serializers.ModuleCreateUpdateSerializer import ModuleCreateUpdateSerializer
+from apps.courses.services import ModuleService
 from apps.users.models import User
 
 
@@ -30,8 +31,7 @@ class ModuleViewSet(viewsets.GenericViewSet):
         course = self._get_owned_course(request)
         serializer = ModuleCreateUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        order = Module.objects.filter(course=course).count() + 1
-        module = serializer.save(course=course, order=order)
+        module = ModuleService.create_module(course, serializer.validated_data)
         return Response(ModuleSerializer(module).data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):
@@ -45,6 +45,5 @@ class ModuleViewSet(viewsets.GenericViewSet):
     def destroy(self, request, *args, **kwargs):
         course = self._get_owned_course(request)
         module = get_object_or_404(Module, pk=self.kwargs["pk"], course=course)
-        module.is_deleted = True
-        module.save()
+        ModuleService.soft_delete_module(module)
         return Response(status=status.HTTP_204_NO_CONTENT)

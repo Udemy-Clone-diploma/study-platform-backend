@@ -45,7 +45,12 @@ class CourseViewSet(
         if self.action == "list":
             queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
         elif self.action == "retrieve":
-            queryset = queryset.prefetch_related("modules", "modules__lessons")
+            queryset = queryset.prefetch_related(
+                "modules",
+                "modules__lessons",
+                "modules__tests",
+                "modules__tests__questions",
+            )
         return queryset
 
     def get_permissions(self):

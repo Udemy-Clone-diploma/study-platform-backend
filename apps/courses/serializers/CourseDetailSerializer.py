@@ -16,6 +16,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     moderator_id = serializers.SerializerMethodField()
     modules = ModuleSerializer(many=True, read_only=True)
     image = serializers.SerializerMethodField()
+    total_duration_minutes = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -23,7 +24,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "id", "image", "title", "short_description", "full_description", "slug",
             "teacher", "moderator_id", "category", "level", "language", "mode",
             "delivery_type", "course_type", "pricing_type", "price", "installment_count",
-            "installment_amount", "duration_hours", "lessons_count",
+            "installment_amount", "duration_hours", "lessons_count", "total_duration_minutes",
             "with_certificate", "is_on_sale", "rating_avg", "students_count", "status",
             "created_at", "updated_at", "published_at", "tags", "modules",
         ]
@@ -33,3 +34,10 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj) -> str | None:
         return absolute_media_url(obj.image, self.context.get("request"))
+
+    def get_total_duration_minutes(self, obj) -> int:
+        return sum(
+            lesson.duration_minutes or 0
+            for module in obj.modules.all()
+            for lesson in module.lessons.all()
+        )
