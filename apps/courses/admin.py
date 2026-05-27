@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Course, Tag
+from .models import Category, Cohort, Course, PricingPlan, Tag
 
 
 class SoftDeleteAdminMixin:
@@ -30,9 +30,49 @@ class CategoryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+class PricingPlanInline(admin.TabularInline):
+    model = PricingPlan
+    extra = 0
+    fields = ("kind", "price", "currency", "installment_count", "installment_amount")
+
+
+class CohortInline(admin.TabularInline):
+    model = Cohort
+    extra = 0
+    fields = (
+        "delivery_mode",
+        "duration_months",
+        "hours_per_week_min",
+        "hours_per_week_max",
+        "group_size",
+        "start_date",
+    )
+
+
 @admin.register(Course)
 class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("title", "slug", "status", "lessons_count", "is_deleted")
     list_filter = ("status", "is_deleted", "level", "language")
     search_fields = ("title", "slug")
     prepopulated_fields = {"slug": ("title",)}
+    inlines = [PricingPlanInline, CohortInline]
+
+
+@admin.register(PricingPlan)
+class PricingPlanAdmin(admin.ModelAdmin):
+    list_display = ("course", "kind", "price", "currency", "installment_count")
+    list_filter = ("kind", "currency")
+    search_fields = ("course__title", "course__slug")
+    list_select_related = ("course",)
+    raw_id_fields = ("course",)
+
+
+@admin.register(Cohort)
+class CohortAdmin(admin.ModelAdmin):
+    list_display = (
+        "course", "delivery_mode", "duration_months", "start_date", "group_size",
+    )
+    list_filter = ("delivery_mode",)
+    search_fields = ("course__title", "course__slug")
+    list_select_related = ("course",)
+    raw_id_fields = ("course",)
