@@ -1,29 +1,24 @@
 from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.pagination import StandardResultsSetPagination
 from apps.courses.exceptions import CourseNotFoundError
 from apps.courses.serializers import CourseListSerializer
 from apps.courses.services import WishlistService
 from apps.users.permissions import IsStudent
 
 
-@extend_schema(tags=["Wishlist"])
-class WishlistListView(APIView):
+@extend_schema(
+    tags=["Wishlist"],
+    summary="List the current student's wishlisted courses",
+)
+class WishlistListView(generics.ListAPIView):
     permission_classes = [IsStudent]
+    serializer_class = CourseListSerializer
 
-    @extend_schema(
-        summary="List the current student's wishlisted courses",
-        responses={200: CourseListSerializer(many=True)},
-    )
-    def get(self, request):
-        courses = WishlistService.get_wishlisted_courses(request.user.student_profile)
-        paginator = StandardResultsSetPagination()
-        page = paginator.paginate_queryset(courses, request)
-        data = WishlistService.serialize_courses(page, request)
-        return paginator.get_paginated_response(data)
+    def get_queryset(self):
+        return WishlistService.get_wishlisted_courses(self.request.user.student_profile)
 
 
 @extend_schema(tags=["Wishlist"])
