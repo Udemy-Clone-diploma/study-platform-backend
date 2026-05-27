@@ -32,7 +32,8 @@ python manage.py makemigrations --merge --no-input
 
 **App layout** (`apps/`):
 - `users/`: custom User model (email-based login, 4 roles: student/teacher/moderator/admin), JWT auth, email verification, password reset, role-specific profile models (`StudentProfile`, `TeacherProfile`, `ModeratorProfile`)
-- `courses/`: Course, Category, Tag models with CRUD endpoints, filtering, and status/pricing choices
+- `courses/`: Course, Category, Tag models with CRUD endpoints, filtering, and status/pricing choices. Also hosts the wishlist endpoints (`/courses/wishlist/`, `/courses/<slug>/wishlist/`) and the per-role catalog views (`/courses/my-courses/` for teachers, `/courses/enrolled/` for students).
+- `enrollments/`: `Enrollment` through-model (`StudentProfile` ↔ `Course`) with access-status lifecycle (active/pending/expired/revoked), `EnrollmentViewSet` for CRUD by students and admins, plus the signals that recompute `Course.students_count`.
 - `common/`: shared DRF utilities (e.g. `StandardResultsSetPagination`). Cross-app helpers go here, not inside a feature app.
 
 **Shared utilities** (`apps/common/`): import these before reinventing — `ActiveManager` (single soft-delete manager), `parse_limit` + `MAX_TOP_N_LIMIT` (top-N `?limit=N` parser, raises `InvalidLimitError`), `absolute_media_url(field_file, request)` for ImageField/FileField URL building, `UUIDUploadTo("<prefix>")` for `upload_to` on file fields.
@@ -65,7 +66,7 @@ python manage.py makemigrations --merge --no-input
 
 **Taxonomy curation**: `Tag` and `Category` are admin-curated. Only list endpoints are exposed publicly; create/update/delete happens through Django admin. Teachers and students select from existing entries when creating or browsing courses, never propose new ones via the API.
 
-**Permissions layout**: Role-only checks live in `apps/users/permissions.py` and are reusable across apps. Object-level checks that need a specific model live in that app's own `permissions.py`. Global default is `IsAuthenticated`; public endpoints opt in with explicit `[AllowAny]`.
+**Permissions layout**: Role-only checks live in `apps/users/permissions.py` and are reusable across apps (`IsAdmin`, `IsTeacher`, `IsStudent`, `IsStudentOrAdmin`, `IsTeacherOrAdmin`, `IsAdminOrModerator`). Object-level checks that need a specific model live in that app's own `permissions.py`. Global default is `IsAuthenticated`; public endpoints opt in with explicit `[AllowAny]`.
 
 **Profile lookup**: `UserSerializer.get_profile` and `UserService.update_profile` resolve a user's profile via `user.role` (`f"{role}_profile"` for the reverse accessor, `PROFILE_MODELS[role]`/`PROFILE_SERIALIZERS[role]` for the model and serializer). The `related_name` on each profile model's `OneToOneField` must equal `<role>_profile` exactly; rename one and both lookups break silently.
 
@@ -89,6 +90,12 @@ python manage.py makemigrations --merge --no-input
 
 **CI**: `.github/workflows/pr-checks.yml` runs Django system check, migration drift check, and the test suite on every PR. `.github/workflows/main.yml` builds and pushes a Docker image to ECR on push to `develop`.
 
-**Tests layout**: Currently one `apps/<app>/tests.py` per app, written as DRF `APITestCase` integration tests (no separate unit/service test layer). Each test class spins up real DB rows and hits endpoints via `self.client`.
+**Tests layout**: Each app keeps its tests in an `apps/<app>/tests/` package: `_factories.py` for shared fixtures, one `test_<feature>.py` per feature area. Tests are DRF `APITestCase` integration tests (no separate unit/service test layer) that spin up real DB rows and hit endpoints via `self.client`. The `make_course` factory in `apps/courses/tests/_factories.py` auto-sets `published_at=timezone.now()` whenever `status=PUBLISHED`, so any new test that needs a draft course must pass `status=Course.StatusChoices.DRAFT` explicitly.
 
 **Signals**: App-level signal handlers live in `apps/<app>/signals.py` and are imported from the corresponding `AppConfig.ready()` so registration happens once on app load.
+
+**Enrollment writes**: The `StudentProfile.courses` M2M is read-only in practice. All enrollment creation must go through `EnrollmentService.create_enrollment` (or `Enrollment.objects.create(...)` for tests/admin). `student_profile.courses.add(...)` does a `bulk_create` on the through-model which **does not fire `post_save`**, so denormalized `Course.students_count` would silently drift. The previous `m2m_changed` patch for this was removed to keep one write path.
+
+**Catalog ordering**: `CourseViewSet.list` filters to `status=PUBLISHED` and orders by `-published_at` by default. Any code path that creates a published course must populate `published_at` (the test factory does this automatically; service code should too).
+
+**Production image**: `Dockerfile` runs gunicorn with `gevent` workers on port 8000. The entrypoint script `docker-entrypoint.sh` runs `migrate` and `collectstatic` at container start, so build does not need a `SECRET_KEY`. Whitenoise serves `STATIC_ROOT` (`/app/staticfiles`) via `CompressedManifestStaticFilesStorage`.
