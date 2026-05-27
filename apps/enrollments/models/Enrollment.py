@@ -2,6 +2,8 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.common.managers import ActiveManager
+
 
 class EnrollmentQuerySet(models.QuerySet):
     def with_active_access(self):
@@ -9,6 +11,14 @@ class EnrollmentQuerySet(models.QuerySet):
         return self.filter(access_status="active").filter(
             Q(access_until__isnull=True) | Q(access_until__gte=now)
         )
+
+
+class ActiveEnrollmentManager(ActiveManager.from_queryset(EnrollmentQuerySet)):
+    pass
+
+
+class AllEnrollmentManager(models.Manager.from_queryset(EnrollmentQuerySet)):
+    pass
 
 
 class Enrollment(models.Model):
@@ -50,7 +60,10 @@ class Enrollment(models.Model):
 
     access_until = models.DateTimeField(null=True, blank=True)
 
-    objects = EnrollmentQuerySet.as_manager()
+    is_deleted = models.BooleanField(default=False)
+
+    objects = ActiveEnrollmentManager()
+    all_objects = AllEnrollmentManager()
 
     class Meta:
         db_table = "enrollments"
