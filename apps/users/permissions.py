@@ -37,6 +37,10 @@ class IsStudent(RolePermission):
     allowed_roles = ("student",)
 
 
+class IsStudentOrAdmin(RolePermission):
+    allowed_roles = ("student", "administrator")
+
+
 class IsOwnerOrAdmin(BasePermission):
     """Grants access if the requesting user owns the object or is an administrator.
 
