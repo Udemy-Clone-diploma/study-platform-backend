@@ -49,7 +49,9 @@ LOCAL_APPS = [
     "apps.common",
     "apps.users",
     "apps.courses",
+    "apps.curriculum",
     "apps.enrollments",
+    "apps.reviews",
 ]
 
 THIRD_PARTY_APPS = [

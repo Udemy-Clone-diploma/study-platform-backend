@@ -148,3 +148,20 @@ class EnrollmentService:
             student_profile=student_profile,
             course=course,
         ).exists()
+
+    @classmethod
+    def is_enrolled(cls, user, course: Course) -> bool:
+        """Convenience wrapper: does this user have an active enrollment?
+
+        Returns False for anonymous users, non-students, and students without
+        a profile. Otherwise delegates to ``student_has_course_access``.
+        """
+        if not user or not user.is_authenticated:
+            return False
+        if user.role != User.RoleChoices.STUDENT:
+            return False
+        try:
+            student_profile = user.student_profile
+        except StudentProfile.DoesNotExist:
+            return False
+        return cls.student_has_course_access(student_profile, course)

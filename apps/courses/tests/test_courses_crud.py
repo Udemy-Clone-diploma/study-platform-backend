@@ -72,8 +72,6 @@ class CourseViewSetTests(APITestCase):
                 "mode": Course.ModeChoices.WITH_TEACHER,
                 "delivery_type": Course.DeliveryTypeChoices.GROUP,
                 "course_type": Course.CourseTypeChoices.PROFESSION,
-                "pricing_type": Course.PricingTypeChoices.FULL_PAYMENT,
-                "price": "199.99",
                 "duration_hours": 24,
                 "lessons_count": 10,
                 "with_certificate": True,
@@ -109,8 +107,6 @@ class CourseViewSetTests(APITestCase):
                 "mode": Course.ModeChoices.WITH_TEACHER,
                 "delivery_type": Course.DeliveryTypeChoices.GROUP,
                 "course_type": Course.CourseTypeChoices.PROFESSION,
-                "pricing_type": Course.PricingTypeChoices.FULL_PAYMENT,
-                "price": "199.99",
                 "duration_hours": 24,
                 "lessons_count": 10,
                 "with_certificate": True,
@@ -138,7 +134,6 @@ class CourseViewSetTests(APITestCase):
                 "mode": Course.ModeChoices.SELF_LEARNING,
                 "delivery_type": Course.DeliveryTypeChoices.SELF_PACED,
                 "course_type": Course.CourseTypeChoices.KNOWLEDGE,
-                "pricing_type": Course.PricingTypeChoices.FREE,
                 "duration_hours": 8,
                 "lessons_count": 4,
                 "status": Course.StatusChoices.DRAFT,
@@ -213,141 +208,3 @@ class CourseViewSetTests(APITestCase):
         self.assertFalse(Course.objects.filter(pk=self.course.pk).exists())
 
 
-class CoursePricingRulesTests(APITestCase):
-    def setUp(self):
-        teacher_user, self.teacher_profile = make_teacher()
-        moderator_user = User.objects.create_user(
-            email="moderator@example.com",
-            password="pass12345",
-            role="moderator",
-        )
-        self.moderator_profile = ModeratorProfile.objects.create(
-            user=moderator_user, level="senior"
-        )
-        self.client.force_authenticate(user=teacher_user)
-        self.category = make_category()
-
-    def test_create_free_course_normalizes_price_and_installments(self):
-        response = self.client.post(
-            reverse("courses-list"),
-            {
-                "title": "Free Django Basics",
-                "short_description": "Learn the basics",
-                "full_description": "Introductory course content.",
-                "teacher_profile": self.teacher_profile.pk,
-                "moderator_profile": self.moderator_profile.pk,
-                "category_id": self.category.pk,
-                "level": Course.LevelChoices.BEGINNER,
-                "language": Course.LanguageChoices.ENGLISH,
-                "mode": Course.ModeChoices.SELF_LEARNING,
-                "delivery_type": Course.DeliveryTypeChoices.SELF_PACED,
-                "course_type": Course.CourseTypeChoices.KNOWLEDGE,
-                "pricing_type": Course.PricingTypeChoices.FREE,
-                "price": "149.99",
-                "installment_count": 6,
-                "installment_amount": "24.99",
-                "duration_hours": 8,
-                "lessons_count": 4,
-                "status": Course.StatusChoices.DRAFT,
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["price"], "0.00")
-        self.assertIsNone(response.data["installment_count"])
-        self.assertIsNone(response.data["installment_amount"])
-
-    def test_partial_update_full_payment_clears_installment_fields(self):
-        installment_course = make_course(
-            self.teacher_profile,
-            title="Installment Course",
-            slug="installment-course",
-            short_description="Pay in parts",
-            full_description="Installment pricing example.",
-            moderator_profile=self.moderator_profile,
-            category=self.category,
-            level=Course.LevelChoices.INTERMEDIATE,
-            mode=Course.ModeChoices.WITH_TEACHER,
-            delivery_type=Course.DeliveryTypeChoices.GROUP,
-            course_type=Course.CourseTypeChoices.PROFESSION,
-            pricing_type=Course.PricingTypeChoices.INSTALLMENT,
-            price="300.00",
-            installment_count=3,
-            installment_amount="100.00",
-            duration_hours=18,
-            lessons_count=9,
-            status=Course.StatusChoices.REVIEW,
-        )
-
-        response = self.client.patch(
-            reverse("courses-detail", args=[installment_course.slug]),
-            {
-                "pricing_type": Course.PricingTypeChoices.FULL_PAYMENT,
-                "price": "300.00",
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsNone(response.data["installment_count"])
-        self.assertIsNone(response.data["installment_amount"])
-
-        installment_course.refresh_from_db()
-        self.assertIsNone(installment_course.installment_count)
-        self.assertIsNone(installment_course.installment_amount)
-
-    def test_installment_pricing_requires_installment_fields(self):
-        response = self.client.post(
-            reverse("courses-list"),
-            {
-                "title": "Broken Installments",
-                "short_description": "Missing installment data",
-                "full_description": "This should fail.",
-                "teacher_profile": self.teacher_profile.pk,
-                "moderator_profile": self.moderator_profile.pk,
-                "category_id": self.category.pk,
-                "level": Course.LevelChoices.BEGINNER,
-                "language": Course.LanguageChoices.ENGLISH,
-                "mode": Course.ModeChoices.WITH_TEACHER,
-                "delivery_type": Course.DeliveryTypeChoices.INDIVIDUAL,
-                "course_type": Course.CourseTypeChoices.KNOWLEDGE,
-                "pricing_type": Course.PricingTypeChoices.INSTALLMENT,
-                "price": "120.00",
-                "duration_hours": 10,
-                "lessons_count": 5,
-                "status": Course.StatusChoices.DRAFT,
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("installment_count", response.data)
-        self.assertIn("installment_amount", response.data)
-
-    def test_full_payment_with_zero_price_rejected(self):
-        response = self.client.post(
-            reverse("courses-list"),
-            {
-                "title": "Free But Paid",
-                "short_description": "Bad combo",
-                "full_description": "Full payment with zero price.",
-                "teacher_profile": self.teacher_profile.pk,
-                "moderator_profile": self.moderator_profile.pk,
-                "category_id": self.category.pk,
-                "level": Course.LevelChoices.BEGINNER,
-                "language": Course.LanguageChoices.ENGLISH,
-                "mode": Course.ModeChoices.SELF_LEARNING,
-                "delivery_type": Course.DeliveryTypeChoices.SELF_PACED,
-                "course_type": Course.CourseTypeChoices.KNOWLEDGE,
-                "pricing_type": Course.PricingTypeChoices.FULL_PAYMENT,
-                "price": "0",
-                "duration_hours": 5,
-                "lessons_count": 2,
-                "status": Course.StatusChoices.DRAFT,
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("price", response.data)

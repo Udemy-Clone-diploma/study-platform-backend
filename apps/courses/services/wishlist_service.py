@@ -1,12 +1,13 @@
 from apps.courses.exceptions import CourseNotFoundError
 from apps.courses.models import Course
+from apps.courses.services.course_service import CourseService
 from apps.users.models import StudentProfile
 
 
 class WishlistService:
     @staticmethod
     def get_wishlisted_courses(student_profile: StudentProfile):
-        return (
+        return CourseService.annotate_min_price(
             student_profile.wishlisted_courses
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")

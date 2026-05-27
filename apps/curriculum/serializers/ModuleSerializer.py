@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.courses.models import Module
+from apps.curriculum.models import Module
 
 from .LessonSerializer import LessonSerializer
 

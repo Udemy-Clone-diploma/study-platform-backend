@@ -1,7 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Course, Lesson, Module, Tag
-from .signals import _recompute_lessons_count
+from .models import Category, Cohort, Course, PricingPlan, Tag
 
 
 class SoftDeleteAdminMixin:
@@ -14,39 +13,6 @@ class SoftDeleteAdminMixin:
 
     def delete_queryset(self, request, queryset):
         queryset.update(is_deleted=True)
-
-
-class LessonsCountRecomputeMixin:
-    """Bulk delete uses queryset.update(), which skips post_save/post_delete.
-
-    Subclasses set ``affected_course_ids_path`` to the ORM path that resolves
-    a row to its owning course id, and we call ``_recompute_lessons_count``
-    once per distinct course after the bulk update.
-    """
-
-    affected_course_ids_path: str = ""
-
-    def delete_queryset(self, request, queryset):
-        course_ids = list(
-            queryset.values_list(self.affected_course_ids_path, flat=True).distinct()
-        )
-        super().delete_queryset(request, queryset)  # type: ignore[misc]
-        for course_id in course_ids:
-            _recompute_lessons_count(course_id)
-
-
-class LessonInline(SoftDeleteAdminMixin, admin.TabularInline):
-    model = Lesson
-    extra = 0
-    fields = ("title", "order", "duration_minutes", "is_deleted")
-    show_change_link = True
-
-
-class ModuleInline(SoftDeleteAdminMixin, admin.TabularInline):
-    model = Module
-    extra = 0
-    fields = ("title", "order", "is_deleted")
-    show_change_link = True
 
 
 @admin.register(Tag)
@@ -64,33 +30,49 @@ class CategoryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+class PricingPlanInline(admin.TabularInline):
+    model = PricingPlan
+    extra = 0
+    fields = ("kind", "price", "currency", "installment_count", "installment_amount")
+
+
+class CohortInline(admin.TabularInline):
+    model = Cohort
+    extra = 0
+    fields = (
+        "delivery_mode",
+        "duration_months",
+        "hours_per_week_min",
+        "hours_per_week_max",
+        "group_size",
+        "start_date",
+    )
+
+
 @admin.register(Course)
 class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("title", "slug", "status", "lessons_count", "is_deleted")
     list_filter = ("status", "is_deleted", "level", "language")
     search_fields = ("title", "slug")
     prepopulated_fields = {"slug": ("title",)}
-    inlines = [ModuleInline]
+    inlines = [PricingPlanInline, CohortInline]
 
 
-@admin.register(Module)
-class ModuleAdmin(LessonsCountRecomputeMixin, SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("title", "course", "order", "is_deleted")
-    list_filter = ("is_deleted", "course")
+@admin.register(PricingPlan)
+class PricingPlanAdmin(admin.ModelAdmin):
+    list_display = ("course", "kind", "price", "currency", "installment_count")
+    list_filter = ("kind", "currency")
+    search_fields = ("course__title", "course__slug")
     list_select_related = ("course",)
-    search_fields = ("title", "course__title")
-    inlines = [LessonInline]
-    affected_course_ids_path = "course_id"
+    raw_id_fields = ("course",)
 
 
-@admin.register(Lesson)
-class LessonAdmin(LessonsCountRecomputeMixin, SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("title", "module", "course", "order", "duration_minutes", "is_deleted")
-    list_filter = ("is_deleted", "module__course", "module")
-    list_select_related = ("module__course",)
-    search_fields = ("title", "module__title", "module__course__title")
-    affected_course_ids_path = "module__course_id"
-
-    @admin.display(description="Course", ordering="module__course__title")
-    def course(self, obj):
-        return obj.module.course
+@admin.register(Cohort)
+class CohortAdmin(admin.ModelAdmin):
+    list_display = (
+        "course", "delivery_mode", "duration_months", "start_date", "group_size",
+    )
+    list_filter = ("delivery_mode",)
+    search_fields = ("course__title", "course__slug")
+    list_select_related = ("course",)
+    raw_id_fields = ("course",)
