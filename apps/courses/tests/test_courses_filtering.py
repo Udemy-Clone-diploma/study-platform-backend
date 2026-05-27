@@ -140,9 +140,9 @@ class CourseFilterTests(APITestCase):
             slugs, ["figma-course", "django-course", "no-category-course"]
         )
 
-    def test_default_ordering_is_created_at_desc(self):
+    def test_default_ordering_is_published_at_desc(self):
         response = self.client.get(reverse("courses-list"))
 
-        # Last created should appear first.
+        # Most recently published should appear first.
         slugs = [c["slug"] for c in response.data["results"]]
         self.assertEqual(slugs[0], "no-category-course")
