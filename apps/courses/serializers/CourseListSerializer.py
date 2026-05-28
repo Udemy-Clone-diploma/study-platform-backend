@@ -22,6 +22,7 @@ class CourseListSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     currency = serializers.CharField(source="min_currency", read_only=True, allow_null=True)
+    enrolled_at = serializers.DateTimeField(read_only=True, default=None)
 
     class Meta:
         model = Course
@@ -32,7 +33,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             "price", "currency", "duration_hours", "lessons_count",
             "with_certificate", "is_on_sale",
             "rating_avg", "rating_count", "students_count", "status",
-            "published_at", "tags",
+            "published_at", "created_at", "tags", "enrolled_at",
         ]
 
     def get_image(self, obj) -> str | None:

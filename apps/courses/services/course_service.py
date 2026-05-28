@@ -216,7 +216,13 @@ class CourseService:
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
         from apps.enrollments.models import Enrollment
+        from django.db.models import OuterRef, Subquery
 
+        enrolled_at_sq = Subquery(
+            Enrollment.objects.with_active_access()
+            .filter(student_profile=student_profile, course=OuterRef("pk"))
+            .values("access_granted_at")[:1]
+        )
         active_course_ids = (
             Enrollment.objects.with_active_access()
             .filter(student_profile=student_profile)
@@ -226,6 +232,7 @@ class CourseService:
             Course.objects.filter(pk__in=active_course_ids)
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
+            .annotate(enrolled_at=enrolled_at_sq)
         )
 
     @classmethod
