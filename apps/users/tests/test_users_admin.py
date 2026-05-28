@@ -61,13 +61,12 @@ class UserRetrieveTests(APITestCase):
     def test_retrieve_user_with_student_profile(self):
         StudentProfile.objects.create(
             user=self.user,
-            education_level="bachelor",
             learning_goals="learn python",
         )
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNotNone(response.data["profile"])
-        self.assertEqual(response.data["profile"]["education_level"], "bachelor")
+        self.assertEqual(response.data["profile"]["learning_goals"], "learn python")
 
     def test_retrieve_not_found(self):
         response = self.client.get(reverse("users-detail", args=[99999]))

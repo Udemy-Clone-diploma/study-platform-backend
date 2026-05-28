@@ -1,8 +1,9 @@
-from .auth import LoginView, LogoutView, MeView, ModeratorProfileView, RegisterView, StudentProfileView, TeacherProfileView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView
+from .auth import ChangePasswordView, LoginView, LogoutView, MeView, ModeratorProfileView, RegisterView, StudentProfileView, TeacherProfileView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView
 from .TopTeachersView import TopTeachersView
 from .users import UserViewSet
 
 __all__ = [
+    "ChangePasswordView",
     "UserViewSet",
     "RegisterView",
     "LoginView",

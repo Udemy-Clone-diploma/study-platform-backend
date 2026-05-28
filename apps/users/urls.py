@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.users.views import (
+    ChangePasswordView,
     LoginView,
     MeView,
     ModeratorProfileView,
@@ -29,6 +30,7 @@ urlpatterns = [
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+    path("auth/change-password/", ChangePasswordView.as_view(), name="auth-change-password"),
     path("auth/me/profile/teacher/", TeacherProfileView.as_view(), name="auth-me-profile-teacher"),
     path("auth/me/profile/student/", StudentProfileView.as_view(), name="auth-me-profile-student"),
     path("auth/me/profile/moderator/", ModeratorProfileView.as_view(), name="auth-me-profile-moderator"),
