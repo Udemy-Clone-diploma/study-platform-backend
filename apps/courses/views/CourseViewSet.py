@@ -90,7 +90,18 @@ class CourseViewSet(
             User.RoleChoices.MODERATOR,
         ):
             return True
-        return course.teacher_profile.user_id == user.id
+        if course.teacher_profile.user_id == user.id:
+            return True
+        if course.status == Course.StatusChoices.HIDDEN:
+            from apps.enrollments.models import Enrollment
+            try:
+                return Enrollment.objects.with_active_access().filter(
+                    student_profile=user.student_profile,
+                    course=course,
+                ).exists()
+            except Exception:
+                return False
+        return False
 
     def create(self, request, *args, **kwargs):
         data = CourseService.create_course_from_data(
