@@ -17,7 +17,7 @@ from .PopularCoursesView import PopularCoursesView
 from .PricingPlanView import PricingPlanDetailView, PricingPlanListCreateView
 from .TeacherCoursesView import TeacherCoursesView
 from .WishlistView import WishlistListView, WishlistToggleView
-from apps.curriculum.views import LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
+from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListView, LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
 
 __all__ = [
     "CategoryViewSet",
@@ -34,6 +34,8 @@ __all__ = [
     "EnrolledCoursesView",
     "StudentCompletionsView",
     "FeaturedCategoriesView",
+    "LessonDocumentDetailView",
+    "LessonDocumentListView",
     "LessonViewSet",
     "ModuleViewSet",
     "NewCoursesView",

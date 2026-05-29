@@ -6,6 +6,8 @@ from apps.courses.views import (
     CourseApproveView,
     CourseRejectView,
     CohortDetailView,
+    LessonDocumentDetailView,
+    LessonDocumentListView,
     CohortListCreateView,
     CoursePendingEditApproveView,
     CoursePendingEditRejectView,
@@ -88,6 +90,16 @@ urlpatterns = [
     path("", include(router.urls)),
     path("courses/<slug:course_slug>/", include(modules_router.urls)),
     path("courses/<slug:course_slug>/modules/<int:module_pk>/", include(lessons_router.urls)),
+    path(
+        "courses/<slug:course_slug>/modules/<int:module_pk>/lessons/<int:lesson_pk>/documents/",
+        LessonDocumentListView.as_view(),
+        name="lesson-documents",
+    ),
+    path(
+        "courses/<slug:course_slug>/modules/<int:module_pk>/lessons/<int:lesson_pk>/documents/<int:doc_pk>/",
+        LessonDocumentDetailView.as_view(),
+        name="lesson-document-detail",
+    ),
     path("courses/<slug:course_slug>/modules/<int:module_pk>/", include(tests_router.urls)),
     path(
         "courses/<slug:course_slug>/modules/<int:module_pk>/tests/<int:test_pk>/",

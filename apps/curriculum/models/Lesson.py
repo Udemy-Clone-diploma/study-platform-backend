@@ -14,6 +14,7 @@ class Lesson(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField(blank=True, default="")
     video = models.FileField(upload_to=UUIDUploadTo("lessons/videos"), null=True, blank=True)
+    original_video_name = models.CharField(max_length=255, blank=True, default="")
     order = models.PositiveSmallIntegerField()
     duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
     min_score = models.PositiveSmallIntegerField(null=True, blank=True)
