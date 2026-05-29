@@ -1,0 +1,141 @@
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.courses.exceptions import PendingEditLockedError
+from apps.courses.models import Course, CoursePendingEdit
+from apps.courses.serializers import CoursePendingEditReadSerializer, CoursePendingEditWriteSerializer
+from apps.courses.services.pending_edit_service import PendingEditService
+from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.users.models import User
+from apps.users.permissions import IsAdminOrModerator, IsTeacherOrAdmin
+
+
+def _get_published_course(view, slug: str) -> Course:
+    """Resolve a published (or hidden) course the requester owns."""
+    course = get_course_for_request(view, slug)
+    ensure_can_modify_course(view.request.user, course)
+    if course.status not in (Course.StatusChoices.PUBLISHED, Course.StatusChoices.HIDDEN):
+        raise PermissionDenied("Pending edits are only allowed on published or hidden courses.")
+    return course
+
+
+def _get_pending_edit(course: Course) -> CoursePendingEdit:
+    try:
+        return course.pending_edit
+    except CoursePendingEdit.DoesNotExist:
+        raise NotFound("No pending edit found for this course.")
+
+
+@extend_schema(tags=["Course Pending Edit"])
+class CoursePendingEditView(APIView):
+    """
+    GET  /courses/{slug}/pending-edit/  — read (or auto-create) the pending edit.
+    PUT  /courses/{slug}/pending-edit/  — create-or-update metadata + modules snapshot.
+    DELETE /courses/{slug}/pending-edit/ — discard all changes (course stays published).
+    """
+
+    permission_classes = [IsTeacherOrAdmin]
+
+    def get(self, request, slug):
+        course = _get_published_course(self, slug)
+        pending_edit = PendingEditService.get_or_create(course)
+        data = CoursePendingEditReadSerializer(pending_edit, context={"request": request}).data
+        return Response(data)
+
+    def put(self, request, slug):
+        course = _get_published_course(self, slug)
+        pending_edit = PendingEditService.get_or_create(course)
+
+        serializer = CoursePendingEditWriteSerializer(
+            pending_edit,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated = PendingEditService.update_metadata(pending_edit, serializer.validated_data)
+        except PendingEditLockedError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        return Response(
+            CoursePendingEditReadSerializer(updated, context={"request": request}).data
+        )
+
+    def delete(self, request, slug):
+        course = _get_published_course(self, slug)
+        pending_edit = _get_pending_edit(course)
+        PendingEditService.discard(pending_edit)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(tags=["Course Pending Edit"])
+class CoursePendingEditSubmitView(APIView):
+    """POST /courses/{slug}/pending-edit/submit/ — submit for moderation."""
+
+    permission_classes = [IsTeacherOrAdmin]
+
+    def post(self, request, slug):
+        course = _get_published_course(self, slug)
+        pending_edit = _get_pending_edit(course)
+
+        try:
+            updated = PendingEditService.submit(pending_edit)
+        except PendingEditLockedError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        return Response(
+            CoursePendingEditReadSerializer(updated, context={"request": request}).data
+        )
+
+
+@extend_schema(tags=["Course Pending Edit"])
+class CoursePendingEditWithdrawView(APIView):
+    """POST /courses/{slug}/pending-edit/withdraw/ — pull back from moderation (edits kept)."""
+
+    permission_classes = [IsTeacherOrAdmin]
+
+    def post(self, request, slug):
+        course = _get_published_course(self, slug)
+        pending_edit = _get_pending_edit(course)
+
+        try:
+            updated = PendingEditService.withdraw(pending_edit)
+        except PendingEditLockedError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        return Response(
+            CoursePendingEditReadSerializer(updated, context={"request": request}).data
+        )
+
+
+@extend_schema(tags=["Course Pending Edit"])
+class CoursePendingEditApproveView(APIView):
+    """POST /courses/{slug}/pending-edit/approve/ — apply changes to live course (moderator only)."""
+
+    permission_classes = [IsAdminOrModerator]
+
+    def post(self, request, slug):
+        course = get_course_for_request(self, slug)
+        pending_edit = _get_pending_edit(course)
+        PendingEditService.approve(pending_edit)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(tags=["Course Pending Edit"])
+class CoursePendingEditRejectView(APIView):
+    """POST /courses/{slug}/pending-edit/reject/ — return for revision with optional comment."""
+
+    permission_classes = [IsAdminOrModerator]
+
+    def post(self, request, slug):
+        course = get_course_for_request(self, slug)
+        pending_edit = _get_pending_edit(course)
+        comment = request.data.get("comment", "")
+        updated = PendingEditService.reject(pending_edit, comment=comment)
+        return Response(
+            CoursePendingEditReadSerializer(updated, context={"request": request}).data
+        )

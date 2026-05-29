@@ -124,6 +124,8 @@ class Course(models.Model):
         default=StatusChoices.DRAFT,
     )
 
+    moderator_comment = models.TextField(blank=True, default="")
+
     is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)

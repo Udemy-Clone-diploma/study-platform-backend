@@ -1,5 +1,13 @@
 from .CategoryViewSet import CategoryViewSet
+from .CourseModerationView import CourseApproveView, CourseRejectView
 from .CohortView import CohortDetailView, CohortListCreateView
+from .CoursePendingEditView import (
+    CoursePendingEditApproveView,
+    CoursePendingEditRejectView,
+    CoursePendingEditSubmitView,
+    CoursePendingEditView,
+    CoursePendingEditWithdrawView,
+)
 from .CourseViewSet import CourseViewSet
 from .EnrolledCoursesView import EnrolledCoursesView
 from .StudentCompletionsView import StudentCompletionsView
@@ -13,8 +21,15 @@ from apps.curriculum.views import LessonViewSet, ModuleViewSet, QuestionViewSet,
 
 __all__ = [
     "CategoryViewSet",
+    "CourseApproveView",
+    "CourseRejectView",
     "CohortDetailView",
     "CohortListCreateView",
+    "CoursePendingEditApproveView",
+    "CoursePendingEditRejectView",
+    "CoursePendingEditSubmitView",
+    "CoursePendingEditView",
+    "CoursePendingEditWithdrawView",
     "CourseViewSet",
     "EnrolledCoursesView",
     "StudentCompletionsView",
