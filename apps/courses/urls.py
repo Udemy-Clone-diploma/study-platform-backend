@@ -15,6 +15,7 @@ from apps.courses.views import (
     PricingPlanDetailView,
     PricingPlanListCreateView,
     QuestionViewSet,
+    StudentCompletionsView,
     TeacherCoursesView,
     TestViewSet,
     WishlistListView,
@@ -42,6 +43,7 @@ urlpatterns = [
     path("courses/popular-courses/", PopularCoursesView.as_view(), name="popular-courses"),
     path("courses/my-courses/", TeacherCoursesView.as_view(), name="teacher-my-courses"),
     path("courses/enrolled/", EnrolledCoursesView.as_view(), name="enrolled-courses"),
+    path("courses/completions/", StudentCompletionsView.as_view(), name="student-completions"),
     path("courses/wishlist/", WishlistListView.as_view(), name="wishlist-list"),
     path("courses/<slug:slug>/wishlist/", WishlistToggleView.as_view(), name="wishlist-toggle"),
     path(

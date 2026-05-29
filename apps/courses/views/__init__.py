@@ -2,6 +2,7 @@ from .CategoryViewSet import CategoryViewSet
 from .CohortView import CohortDetailView, CohortListCreateView
 from .CourseViewSet import CourseViewSet
 from .EnrolledCoursesView import EnrolledCoursesView
+from .StudentCompletionsView import StudentCompletionsView
 from .FeaturedCategoriesView import FeaturedCategoriesView
 from .NewCoursesView import NewCoursesView
 from .PopularCoursesView import PopularCoursesView
@@ -16,6 +17,7 @@ __all__ = [
     "CohortListCreateView",
     "CourseViewSet",
     "EnrolledCoursesView",
+    "StudentCompletionsView",
     "FeaturedCategoriesView",
     "LessonViewSet",
     "ModuleViewSet",
