@@ -19,3 +19,9 @@ class LessonCreateUpdateSerializer(serializers.ModelSerializer):
             "min_score": {"required": False},
             "is_preview": {"required": False},
         }
+
+    def save(self, **kwargs):
+        video = self.validated_data.get("video")
+        if video and hasattr(video, "name"):
+            kwargs["original_video_name"] = video.name
+        return super().save(**kwargs)

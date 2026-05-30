@@ -22,6 +22,9 @@ class CourseListSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     currency = serializers.CharField(source="min_currency", read_only=True, allow_null=True)
+    enrolled_at = serializers.DateTimeField(read_only=True, default=None)
+
+    pending_edit_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -32,8 +35,15 @@ class CourseListSerializer(serializers.ModelSerializer):
             "price", "currency", "duration_hours", "lessons_count",
             "with_certificate", "is_on_sale",
             "rating_avg", "rating_count", "students_count", "status",
-            "published_at", "tags",
+            "published_at", "created_at", "tags", "enrolled_at",
+            "pending_edit_status",
         ]
 
     def get_image(self, obj) -> str | None:
         return absolute_media_url(obj.image, self.context.get("request"))
+
+    def get_pending_edit_status(self, obj) -> str | None:
+        try:
+            return obj.pending_edit.status
+        except Exception:
+            return None

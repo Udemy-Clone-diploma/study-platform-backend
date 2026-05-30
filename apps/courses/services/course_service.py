@@ -200,6 +200,33 @@ class CourseService:
 
     @staticmethod
     @transaction.atomic
+    def approve_course(course: Course, moderator_profile) -> Course:
+        if course.status != Course.StatusChoices.REVIEW:
+            from apps.courses.exceptions import CoursesError
+            raise CoursesError("Only courses in 'review' status can be approved.")
+        course.status = Course.StatusChoices.PUBLISHED
+        course.moderator_profile = moderator_profile
+        course.moderator_comment = ""
+        if not course.published_at:
+            from django.utils import timezone
+            course.published_at = timezone.now()
+        course.save(update_fields=["status", "moderator_profile", "moderator_comment", "published_at"])
+        return course
+
+    @staticmethod
+    @transaction.atomic
+    def reject_course(course: Course, moderator_profile, comment: str = "") -> Course:
+        if course.status not in (Course.StatusChoices.REVIEW, Course.StatusChoices.NEEDS_REVISION):
+            from apps.courses.exceptions import CoursesError
+            raise CoursesError("Only courses in 'review' or 'needs_revision' status can be rejected.")
+        course.status = Course.StatusChoices.NEEDS_REVISION
+        course.moderator_profile = moderator_profile
+        course.moderator_comment = comment
+        course.save(update_fields=["status", "moderator_profile", "moderator_comment"])
+        return course
+
+    @staticmethod
+    @transaction.atomic
     def soft_delete_course(course: Course) -> None:
         course.is_deleted = True
         course.status = Course.StatusChoices.ARCHIVED
@@ -216,7 +243,13 @@ class CourseService:
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
         from apps.enrollments.models import Enrollment
+        from django.db.models import OuterRef, Subquery
 
+        enrolled_at_sq = Subquery(
+            Enrollment.objects.with_active_access()
+            .filter(student_profile=student_profile, course=OuterRef("pk"))
+            .values("access_granted_at")[:1]
+        )
         active_course_ids = (
             Enrollment.objects.with_active_access()
             .filter(student_profile=student_profile)
@@ -226,6 +259,7 @@ class CourseService:
             Course.objects.filter(pk__in=active_course_ids)
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
+            .annotate(enrolled_at=enrolled_at_sq)
         )
 
     @classmethod

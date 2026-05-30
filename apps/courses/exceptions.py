@@ -8,3 +8,7 @@ class CourseNotFoundError(CoursesError):
 
 class DuplicatePricingKindError(CoursesError):
     """A PricingPlan already exists for this course and kind."""
+
+
+class PendingEditLockedError(CoursesError):
+    """Operation not allowed because the pending edit is currently under moderation."""

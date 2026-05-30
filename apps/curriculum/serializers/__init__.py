@@ -1,4 +1,5 @@
 from .LessonCreateUpdateSerializer import LessonCreateUpdateSerializer
+from .LessonDocumentSerializer import LessonDocumentSerializer
 from .LessonSerializer import LessonDetailSerializer, LessonSerializer
 from .ModuleCreateUpdateSerializer import ModuleCreateUpdateSerializer
 from .ModuleSerializer import ModuleSerializer
@@ -9,6 +10,7 @@ from .TestSerializer import TestSerializer
 
 __all__ = [
     "LessonCreateUpdateSerializer",
+    "LessonDocumentSerializer",
     "LessonDetailSerializer",
     "LessonSerializer",
     "ModuleCreateUpdateSerializer",

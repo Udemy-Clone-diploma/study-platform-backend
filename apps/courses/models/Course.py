@@ -42,6 +42,7 @@ class Course(models.Model):
         REVIEW = "review", "Review"
         NEEDS_REVISION = "needs_revision", "Needs Revision (returned by moderator)"
         PUBLISHED = "published", "Published"
+        HIDDEN = "hidden", "Hidden (active but not listed)"
         ARCHIVED = "archived", "Archived"
 
     image = models.ImageField(upload_to=UUIDUploadTo("courses"), null=True, blank=True)
@@ -122,6 +123,8 @@ class Course(models.Model):
         choices=StatusChoices.choices,
         default=StatusChoices.DRAFT,
     )
+
+    moderator_comment = models.TextField(blank=True, default="")
 
     is_deleted = models.BooleanField(default=False)
 
