@@ -5,7 +5,6 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.courses.exceptions import InvalidPricingError
 from apps.courses.filters import CourseFilter
 from apps.courses.models import Course
 from apps.courses.permissions import IsCourseOwnerOrAdmin
@@ -28,24 +27,34 @@ class CourseViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = Course.objects.select_related(
-        "teacher_profile__user",
-        "moderator_profile",
-        "category",
-    ).prefetch_related("tags")
     lookup_field = "slug"
     http_method_names = ["get", "post", "patch", "delete"]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = CourseFilter
-    ordering_fields = ["price", "students_count", "rating_avg", "created_at"]
-    ordering = ["-created_at"]
+    ordering_fields = ["min_price", "students_count", "rating_avg", "published_at", "created_at"]
+    ordering = ["-published_at"]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = (
+            Course.objects.select_related(
+                "teacher_profile__user",
+                "moderator_profile",
+                "category",
+            )
+            .prefetch_related("tags")
+        )
+        queryset = CourseService.annotate_min_price(queryset)
         if self.action == "list":
             queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
         elif self.action == "retrieve":
-            queryset = queryset.prefetch_related("modules", "modules__lessons")
+            queryset = queryset.prefetch_related(
+                "modules",
+                "modules__lessons",
+                "modules__tests",
+                "modules__tests__questions",
+                "pricing_plans",
+                "cohorts",
+            )
         return queryset
 
     def get_permissions(self):
@@ -81,30 +90,33 @@ class CourseViewSet(
             User.RoleChoices.MODERATOR,
         ):
             return True
-        return course.teacher_profile.user_id == user.id
+        if course.teacher_profile.user_id == user.id:
+            return True
+        if course.status == Course.StatusChoices.HIDDEN:
+            from apps.enrollments.models import Enrollment
+            try:
+                return Enrollment.objects.with_active_access().filter(
+                    student_profile=user.student_profile,
+                    course=course,
+                ).exists()
+            except Exception:
+                return False
+        return False
 
     def create(self, request, *args, **kwargs):
-        try:
-            data = CourseService.create_course_from_data(
-                request.data,
-                context=self.get_serializer_context(),
-            )
-        except InvalidPricingError as e:
-            return Response({"price": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        data = CourseService.create_course_from_data(
+            request.data,
+            context=self.get_serializer_context(),
+        )
         return Response(data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):
         course = self.get_object()
-        try:
-            data = CourseService.update_course_from_data(
-                course,
-                request.data,
-                context=self.get_serializer_context(),
-            )
-        except InvalidPricingError as e:
-            return Response({"price": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        data = CourseService.update_course_from_data(
+            course,
+            request.data,
+            context=self.get_serializer_context(),
+        )
         return Response(data)
 
     def destroy(self, request, *args, **kwargs):

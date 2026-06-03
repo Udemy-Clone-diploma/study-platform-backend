@@ -32,7 +32,10 @@ python manage.py makemigrations --merge --no-input
 
 **App layout** (`apps/`):
 - `users/`: custom User model (email-based login, 4 roles: student/teacher/moderator/admin), JWT auth, email verification, password reset, role-specific profile models (`StudentProfile`, `TeacherProfile`, `ModeratorProfile`)
-- `courses/`: Course, Category, Tag models with CRUD endpoints, filtering, and status/pricing choices
+- `courses/`: `Course`, `Category`, `Tag`, `PricingPlan`, `Cohort` models with CRUD endpoints, filtering, and status choices. Pricing is per-plan, not on `Course`. Also hosts the wishlist endpoints (`/courses/wishlist/`, `/courses/<slug>/wishlist/`) and the per-role catalog views (`/courses/my-courses/` for teachers, `/courses/enrolled/` for students).
+- `curriculum/`: `Module` and `Lesson` models (moved out of `courses` via `SeparateDatabaseAndState`) plus `GET /courses/<slug>/lessons/<id>/` detail endpoint with preview / enrollment access control. Owns the `lessons_count` recompute signal.
+- `enrollments/`: `Enrollment` through-model (`StudentProfile` ↔ `Course`) with access-status lifecycle (active/pending/expired/revoked), `EnrollmentViewSet` for CRUD by students and admins, plus the signals that recompute `Course.students_count`.
+- `reviews/`: `Review` model, paginated `GET` / authenticated `POST /courses/<slug>/reviews/`, and the signal that recomputes `Course.rating_avg` + `Course.rating_count`.
 - `common/`: shared DRF utilities (e.g. `StandardResultsSetPagination`). Cross-app helpers go here, not inside a feature app.
 
 **Shared utilities** (`apps/common/`): import these before reinventing — `ActiveManager` (single soft-delete manager), `parse_limit` + `MAX_TOP_N_LIMIT` (top-N `?limit=N` parser, raises `InvalidLimitError`), `absolute_media_url(field_file, request)` for ImageField/FileField URL building, `UUIDUploadTo("<prefix>")` for `upload_to` on file fields.
@@ -65,7 +68,7 @@ python manage.py makemigrations --merge --no-input
 
 **Taxonomy curation**: `Tag` and `Category` are admin-curated. Only list endpoints are exposed publicly; create/update/delete happens through Django admin. Teachers and students select from existing entries when creating or browsing courses, never propose new ones via the API.
 
-**Permissions layout**: Role-only checks live in `apps/users/permissions.py` and are reusable across apps. Object-level checks that need a specific model live in that app's own `permissions.py`. Global default is `IsAuthenticated`; public endpoints opt in with explicit `[AllowAny]`.
+**Permissions layout**: Role-only checks live in `apps/users/permissions.py` and are reusable across apps (`IsAdmin`, `IsTeacher`, `IsStudent`, `IsStudentOrAdmin`, `IsTeacherOrAdmin`, `IsAdminOrModerator`). Object-level checks that need a specific model live in that app's own `permissions.py`. Global default is `IsAuthenticated`; public endpoints opt in with explicit `[AllowAny]`.
 
 **Profile lookup**: `UserSerializer.get_profile` and `UserService.update_profile` resolve a user's profile via `user.role` (`f"{role}_profile"` for the reverse accessor, `PROFILE_MODELS[role]`/`PROFILE_SERIALIZERS[role]` for the model and serializer). The `related_name` on each profile model's `OneToOneField` must equal `<role>_profile` exactly; rename one and both lookups break silently.
 
@@ -89,6 +92,28 @@ python manage.py makemigrations --merge --no-input
 
 **CI**: `.github/workflows/pr-checks.yml` runs Django system check, migration drift check, and the test suite on every PR. `.github/workflows/main.yml` builds and pushes a Docker image to ECR on push to `develop`.
 
-**Tests layout**: Currently one `apps/<app>/tests.py` per app, written as DRF `APITestCase` integration tests (no separate unit/service test layer). Each test class spins up real DB rows and hits endpoints via `self.client`.
+**Tests layout**: Each app keeps its tests in an `apps/<app>/tests/` package: `_factories.py` for shared fixtures, one `test_<feature>.py` per feature area. Tests are DRF `APITestCase` integration tests (no separate unit/service test layer) that spin up real DB rows and hit endpoints via `self.client`. The `make_course` factory in `apps/courses/tests/_factories.py` auto-sets `published_at=timezone.now()` whenever `status=PUBLISHED`, so any new test that needs a draft course must pass `status=Course.StatusChoices.DRAFT` explicitly.
 
 **Signals**: App-level signal handlers live in `apps/<app>/signals.py` and are imported from the corresponding `AppConfig.ready()` so registration happens once on app load.
+
+**Enrollment writes**: The `StudentProfile.courses` M2M is read-only in practice. All enrollment creation must go through `EnrollmentService.create_enrollment` (or `Enrollment.objects.create(...)` for tests/admin). `student_profile.courses.add(...)` does a `bulk_create` on the through-model which **does not fire `post_save`**, so denormalized `Course.students_count` would silently drift. The previous `m2m_changed` patch for this was removed to keep one write path.
+
+**Catalog ordering**: `CourseViewSet.list` filters to `status=PUBLISHED` and orders by `-published_at` by default. Any code path that creates a published course must populate `published_at` (the test factory does this automatically; service code should too).
+
+**Catalog price annotation**: `CourseListSerializer` reads `price` / `currency` from `min_price` / `min_currency` annotations, not `Course` columns (the flat pricing fields were dropped in favor of `PricingPlan`). Any view feeding a `Course` queryset into `CourseListSerializer` (`CourseViewSet`, top-N endpoints, `TeacherCoursesView`, `EnrolledCoursesView`, `WishlistListView`, future list-shaped views) must first call `CourseService.annotate_min_price(qs)` or the catalog price serializes as `null`. The service-layer queryset builders (`get_teacher_courses_queryset`, `get_enrolled_courses_queryset`, `get_new_courses`, `get_popular_courses`) already apply this; `WishlistService.get_wishlisted_courses` too.
+
+**Pricing plans**: `PricingPlan` is a child of `Course` (`related_name="pricing_plans"`) with `kind` (group / individual), `price`, `currency` (USD / EUR / UAH), and optional installment fields. Unique constraint on `(course, kind)`. Endpoints are nested under the course: `GET / POST /courses/<slug>/pricing-plans/`, `GET / PATCH / DELETE /courses/<slug>/pricing-plans/<id>/`. Reads follow course visibility; writes require course ownership or admin. `PricingPlanService.validate_installment_fields` enforces installment math (both or neither, `count >= 2`, `amount > 0`, `count * amount >= price`); duplicate `(course, kind)` returns 409 via `DuplicatePricingKindError`.
+
+**Cohorts**: `Cohort` captures schedule and audience info per course (`duration_months`, `hours_per_week_min/max`, `group_size`, `delivery_mode`, `start_date`). Endpoints mirror PricingPlan: nested under `courses/<slug>/cohorts/`. `CohortSerializer.validate` checks `hours_per_week_min <= hours_per_week_max`.
+
+**Curriculum split**: `Module` and `Lesson` live in `apps/curriculum/`, not `apps/courses/`. The move was done with `migrations.SeparateDatabaseAndState`: db tables `modules` and `lessons` stayed put, only Django's app state moved. `Course.modules` still works as a reverse FK (the FK from `curriculum.Module` to `courses.Course`). `apps/curriculum/signals.py` owns the `lessons_count` recompute now; `apps/courses/signals.py` is gone and `apps/courses/apps.py` no longer imports signals. `LessonDetailView` at `GET /courses/<slug>/lessons/<id>/` enforces preview / enrollment access control via `EnrollmentService.is_enrolled` (also allowing admins, moderators, and the owning teacher).
+
+**Course-scoped views helper**: PricingPlan / Cohort endpoints share `apps/courses/views/_course_scoped.py`. `get_course_for_request(view, slug)` resolves the course and 404s if the requester cannot see it (PUBLISHED, or admin / moderator / owner for non-public statuses). `ensure_can_modify_course(user, course)` raises `PermissionDenied` unless the user is the owning teacher or an administrator. Reuse these in any future course-scoped resource (e.g., a per-course attachments endpoint) before reinventing the access checks.
+
+**Reviews**: One review per (course, student) (unique constraint). `POST /courses/<slug>/reviews/` requires the student to be currently enrolled (`EnrollmentService.is_enrolled`); not-enrolled returns 403, duplicate returns 409 via `ReviewAlreadyExistsError`. Reads are public on published courses. `apps/reviews/signals.py` recomputes `Course.rating_avg` and `Course.rating_count` on `post_save` and `post_delete` using a single `aggregate(avg, count)` query and `Course.all_objects.filter().update()` (skips recursive signals and `auto_now`).
+
+**Production image**: `Dockerfile` runs gunicorn with `gevent` workers on port 8000. The entrypoint script `docker-entrypoint.sh` runs `migrate` and `collectstatic` at container start, so build does not need a `SECRET_KEY`. Whitenoise serves `STATIC_ROOT` (`/app/staticfiles`) via `CompressedManifestStaticFilesStorage`.
+
+**Denormalized Course fields**: `Course.lessons_count` is recomputed by `apps/curriculum/signals.py`; `Course.rating_avg` and `Course.rating_count` are recomputed by `apps/reviews/signals.py`; `Course.students_count` is recomputed by `apps/enrollments/signals.py`. All three use `Course.all_objects.filter(...).update(...)` (not `.save()`) to skip recursive signals and `auto_now`. To find what writes a denormalized Course field, grep across the whole repo, not just `apps/courses/`.
+
+**Moving a model between apps**: use `migrations.SeparateDatabaseAndState(state_operations=[...], database_operations=[])` in both the source app (`DeleteModel`) and the destination app (`CreateModel`), with the destination migration depending on the source. DB tables (`db_table`) stay put; only Django's app state changes. See `apps/courses/migrations/0016_move_module_lesson_to_curriculum.py` + `apps/curriculum/migrations/0001_initial.py` for the exact shape.

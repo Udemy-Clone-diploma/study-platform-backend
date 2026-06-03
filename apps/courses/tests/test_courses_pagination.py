@@ -23,7 +23,6 @@ class CoursePaginationTests(APITestCase):
                 title=f"Dev Course {i:02d}",
                 slug=f"dev-course-{i:02d}",
                 category=cls.category,
-                price=i,
             )
         for i in range(3):
             make_course(
@@ -88,13 +87,13 @@ class CoursePaginationTests(APITestCase):
     def test_pagination_composes_with_ordering(self):
         response = self.client.get(
             reverse("courses-list"),
-            {"category": "development", "ordering": "price", "page_size": 5},
+            {"category": "development", "ordering": "published_at", "page_size": 5},
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        prices = [c["price"] for c in response.data["results"]]
-        self.assertEqual(prices, sorted(prices))
-        self.assertEqual(len(prices), 5)
+        published_at = [c["published_at"] for c in response.data["results"]]
+        self.assertEqual(published_at, sorted(published_at))
+        self.assertEqual(len(published_at), 5)
 
     def test_results_do_not_overlap_between_pages(self):
         first = self.client.get(reverse("courses-list"), {"page": 1, "page_size": 10})
