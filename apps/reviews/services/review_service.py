@@ -1,8 +1,13 @@
 from django.db import IntegrityError, transaction
 
 from apps.courses.models import Course
-from apps.enrollments.services import EnrollmentService
-from apps.reviews.exceptions import NotEnrolledError, ReviewAlreadyExistsError
+from apps.enrollments.exceptions import ActiveEnrollmentRequiredError
+from apps.enrollments.services import ProgressService
+from apps.reviews.exceptions import (
+    NotEnrolledError,
+    ReviewAlreadyExistsError,
+    ReviewEligibilityNotMetError,
+)
 from apps.reviews.models import Review
 from apps.users.models import User
 
@@ -18,8 +23,13 @@ class ReviewService:
         rating: int,
         text: str,
     ) -> Review:
-        if not EnrollmentService.is_enrolled(user, course):
-            raise NotEnrolledError
+        try:
+            enrollment = ProgressService.get_active_enrollment(user, course)
+        except ActiveEnrollmentRequiredError as exc:
+            raise NotEnrolledError from exc
+
+        if not ProgressService.is_eligible_to_review(enrollment, course):
+            raise ReviewEligibilityNotMetError
 
         try:
             return Review.objects.create(

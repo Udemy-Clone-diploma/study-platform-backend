@@ -31,6 +31,8 @@ class Lesson(models.Model):
 
     body_html = models.TextField(blank=True, null=True)
 
+    meeting_url = models.URLField(blank=True, null=True)
+
     module = models.ForeignKey(
         Module,
         on_delete=models.CASCADE,

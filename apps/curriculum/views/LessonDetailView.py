@@ -28,6 +28,7 @@ class LessonDetailView(APIView):
         lesson = (
             Lesson.objects.filter(pk=lesson_id, module__course=course)
             .select_related("module")
+            .prefetch_related("documents")
             .first()
         )
         if lesson is None:
@@ -35,13 +36,21 @@ class LessonDetailView(APIView):
                 {"detail": "Lesson not found."}, status=status.HTTP_404_NOT_FOUND,
             )
 
-        if not lesson.is_preview and not self._has_full_access(request.user, course):
+        has_enrollment_access = self._has_full_access(request.user, course)
+        if not lesson.is_preview and not has_enrollment_access:
             return Response(
                 {"detail": "Enrollment required to access this lesson."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response(LessonDetailSerializer(lesson).data)
+        serializer = LessonDetailSerializer(
+            lesson,
+            context={
+                "request": request,
+                "has_enrollment_access": has_enrollment_access,
+            },
+        )
+        return Response(serializer.data)
 
     @staticmethod
     def _has_full_access(user, course: Course) -> bool:

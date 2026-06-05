@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Min, Subquery, OuterRef
+from django.db.models import Min, OuterRef, Subquery
 from django.utils.text import slugify
 
 from apps.courses.constants import (
@@ -243,24 +243,29 @@ class CourseService:
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
         from apps.enrollments.models import Enrollment
-        from django.db.models import OuterRef, Subquery
 
-        enrolled_at_sq = Subquery(
-            Enrollment.objects.with_active_access()
-            .filter(student_profile=student_profile, course=OuterRef("pk"))
-            .values("access_granted_at")[:1]
+        active_enrollments = Enrollment.objects.with_active_access().filter(
+            student_profile=student_profile,
         )
-        active_course_ids = (
-            Enrollment.objects.with_active_access()
-            .filter(student_profile=student_profile)
-            .values_list("course_id", flat=True)
-        )
-        return cls.annotate_min_price(
-            Course.objects.filter(pk__in=active_course_ids)
+        enrolled_at_subquery = active_enrollments.filter(
+            course_id=OuterRef("pk"),
+        ).values("access_granted_at")[:1]
+        completed_subquery = active_enrollments.filter(
+            course_id=OuterRef("pk"),
+        ).values("lessons_completed_count")[:1]
+
+        queryset = (
+            Course.objects.filter(
+                pk__in=active_enrollments.values_list("course_id", flat=True),
+            )
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
-            .annotate(enrolled_at=enrolled_at_sq)
+            .annotate(
+                enrolled_at=Subquery(enrolled_at_subquery),
+                enrollment_lessons_completed=Subquery(completed_subquery),
+            )
         )
+        return cls.annotate_min_price(queryset)
 
     @classmethod
     def get_new_courses(

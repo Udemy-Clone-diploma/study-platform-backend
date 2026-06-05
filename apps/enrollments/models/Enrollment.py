@@ -60,6 +60,18 @@ class Enrollment(models.Model):
 
     access_until = models.DateTimeField(null=True, blank=True)
 
+    lessons_completed_count = models.PositiveIntegerField(default=0)
+
+    last_lesson = models.ForeignKey(
+        "curriculum.Lesson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    last_opened_at = models.DateTimeField(null=True, blank=True)
+
     is_deleted = models.BooleanField(default=False)
 
     objects = ActiveEnrollmentManager()

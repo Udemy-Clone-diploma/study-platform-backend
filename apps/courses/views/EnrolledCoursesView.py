@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics
 
-from apps.courses.serializers import CourseListSerializer
+from apps.courses.serializers import EnrolledCourseListSerializer
 from apps.courses.services import CourseService
 from apps.users.permissions import IsStudent
 
@@ -13,7 +13,7 @@ from apps.users.permissions import IsStudent
 )
 class EnrolledCoursesView(generics.ListAPIView):
     permission_classes = [IsStudent]
-    serializer_class = CourseListSerializer
+    serializer_class = EnrolledCourseListSerializer
 
     def get_queryset(self):
         return CourseService.get_enrolled_courses_queryset(self.request.user.student_profile)

@@ -5,6 +5,7 @@ from .CourseDetailSerializer import CourseDetailSerializer
 from .CourseListSerializer import CourseListSerializer
 from .CoursePendingEditSerializer import CoursePendingEditReadSerializer, CoursePendingEditWriteSerializer
 from .CourseTeacherSerializer import CourseTeacherSerializer
+from .EnrolledCourseListSerializer import EnrolledCourseListSerializer
 from .PricingPlanSerializer import PricingPlanSerializer
 from .TagSerializer import TagSerializer
 
@@ -17,6 +18,7 @@ __all__ = [
     "CoursePendingEditReadSerializer",
     "CoursePendingEditWriteSerializer",
     "CourseTeacherSerializer",
+    "EnrolledCourseListSerializer",
     "PricingPlanSerializer",
     "TagSerializer",
 ]
