@@ -31,7 +31,14 @@ class CourseViewSet(
     http_method_names = ["get", "post", "patch", "delete"]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = CourseFilter
-    ordering_fields = ["min_price", "students_count", "rating_avg", "published_at", "created_at"]
+    ordering_fields = [
+        "min_price",
+        "students_count",
+        "students_enrolled_last_30_days",
+        "rating_avg",
+        "published_at",
+        "created_at",
+    ]
     ordering = ["-published_at"]
 
     def get_queryset(self):
@@ -44,6 +51,7 @@ class CourseViewSet(
             .prefetch_related("tags")
         )
         queryset = CourseService.annotate_min_price(queryset)
+        queryset = CourseService.annotate_recent_enrollments(queryset)
         if self.action == "list":
             queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
         elif self.action == "retrieve":
