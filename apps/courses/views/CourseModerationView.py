@@ -32,6 +32,27 @@ class CourseApproveView(APIView):
 
 
 @extend_schema(tags=["Courses"])
+class CourseAssignModeratorView(APIView):
+    """POST /courses/{slug}/assign-moderator/ — assign the current moderator to a course."""
+
+    permission_classes = [IsAdminOrModerator]
+
+    def post(self, request, slug):
+        course = get_course_for_request(self, slug)
+        try:
+            moderator_profile = getattr(request.user, "moderator_profile", None)
+            course = CourseService.assign_moderator_self(course, moderator_profile)
+        except CoursesError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(
+            CourseService.serialize_course_detail(course, context=self.get_serializer_context()),
+        )
+
+    def get_serializer_context(self):
+        return {"request": self.request}
+
+
+@extend_schema(tags=["Courses"])
 class CourseRejectView(APIView):
     """POST /courses/{slug}/reject/ — return a course for revision with an optional comment."""
 

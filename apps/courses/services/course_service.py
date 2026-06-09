@@ -7,7 +7,9 @@ from apps.courses.constants import (
     DEFAULT_NEW_COURSES_LIMIT,
     DEFAULT_POPULAR_COURSES_LIMIT,
 )
-from apps.courses.models import Category, Course, PricingPlan
+from django.db.models import Q
+
+from apps.courses.models import Category, Course, CoursePendingEdit, PricingPlan
 from apps.courses.serializers import (
     CategorySerializer,
     CourseCreateUpdateSerializer,
@@ -231,6 +233,87 @@ class CourseService:
         course.is_deleted = True
         course.status = Course.StatusChoices.ARCHIVED
         course.save(update_fields=["is_deleted", "status"])
+
+    @classmethod
+    def get_unassigned_moderation_queryset(cls):
+        """Courses that need moderation and have no moderator assigned yet.
+
+        Includes two cases:
+        - New/resubmitted courses: status=review, no Course.moderator_profile
+        - Published courses with pending edits submitted for review:
+          status=published, CoursePendingEdit.status=pending, no PendingEdit.moderator_profile
+        """
+        return cls.annotate_min_price(
+            Course.objects.filter(
+                Q(
+                    status=Course.StatusChoices.REVIEW,
+                    moderator_profile__isnull=True,
+                )
+                | Q(
+                    status=Course.StatusChoices.PUBLISHED,
+                    pending_edit__status=CoursePendingEdit.StatusChoices.PENDING,
+                    pending_edit__moderator_profile__isnull=True,
+                )
+            )
+            .select_related("teacher_profile__user", "moderator_profile", "category")
+            .prefetch_related("tags")
+            .order_by("created_at")
+        )
+
+    @classmethod
+    def get_my_moderation_queryset(cls, moderator_profile):
+        """All courses assigned to the given moderator.
+
+        Includes:
+        - Courses where Course.moderator_profile = me (initial review flow)
+        - Published courses where CoursePendingEdit.moderator_profile = me (pending edit flow)
+        """
+        return cls.annotate_min_price(
+            Course.objects.filter(
+                Q(moderator_profile=moderator_profile)
+                | Q(pending_edit__moderator_profile=moderator_profile)
+            )
+            .distinct()
+            .select_related("teacher_profile__user", "moderator_profile", "category")
+            .prefetch_related("tags")
+            .order_by("-created_at")
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def assign_moderator_self(course: Course, moderator_profile) -> Course:
+        """Assign the given moderator to a course that has no moderator yet.
+
+        Handles two cases:
+        - status=review: assigns Course.moderator_profile
+        - status=published with pending edit: assigns CoursePendingEdit.moderator_profile
+        """
+        from apps.courses.exceptions import CoursesError
+
+        if moderator_profile is None:
+            raise CoursesError("Authenticated user does not have a moderator profile.")
+
+        if course.status == Course.StatusChoices.REVIEW:
+            if course.moderator_profile_id is not None:
+                raise CoursesError("This course already has a moderator assigned.")
+            course.moderator_profile = moderator_profile
+            course.save(update_fields=["moderator_profile"])
+            return course
+
+        if course.status == Course.StatusChoices.PUBLISHED:
+            try:
+                pending_edit = course.pending_edit
+            except CoursePendingEdit.DoesNotExist:
+                raise CoursesError("This published course has no pending edit to assign.")
+            if pending_edit.status != CoursePendingEdit.StatusChoices.PENDING:
+                raise CoursesError("The pending edit is not submitted for moderation yet.")
+            if pending_edit.moderator_profile_id is not None:
+                raise CoursesError("This pending edit already has a moderator assigned.")
+            pending_edit.moderator_profile = moderator_profile
+            pending_edit.save(update_fields=["moderator_profile"])
+            return course
+
+        raise CoursesError("Only courses in 'review' or published courses with pending edits can be assigned.")
 
     @classmethod
     def get_teacher_courses_queryset(cls, teacher_profile):
