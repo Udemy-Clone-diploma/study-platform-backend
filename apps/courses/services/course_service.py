@@ -221,7 +221,7 @@ class CourseService:
         if course.status != Course.StatusChoices.REVIEW:
             raise CoursesError("Only courses in 'review' status can be approved.")
         course.status = Course.StatusChoices.PUBLISHED
-        course.moderator_profile = moderator_profile
+        course.moderator_profile = None
         course.moderator_comment = ""
         if not course.published_at:
             course.published_at = timezone.now()
@@ -286,24 +286,11 @@ class CourseService:
         ):
             raise CoursesError("Only courses in 'review', 'needs_revision', or 'rejected' status can be moderated.")
         course.status = Course.StatusChoices.REJECTED if final_action == "rejected" else Course.StatusChoices.NEEDS_REVISION
-        course.moderator_profile = moderator_profile
+        course.moderator_profile = None
         course.moderator_comment = final_comment
         course.save(update_fields=["status", "moderator_profile", "moderator_comment"])
-        ModerationReview.objects.update_or_create(
-            course=course,
-            defaults={
-                "moderator_profile": moderator_profile,
-                "basics_field_statuses": basics_field_statuses or {},
-                "basics_action": basics_action,
-                "basics_comment": basics_comment,
-                "content_item_statuses": content_item_statuses or {},
-                "content_action": content_action,
-                "content_comment": content_comment,
-                "final_action": final_action,
-                "final_comment": final_comment,
-            },
-        )
         if final_action == "rejected":
+            ModerationReview.objects.filter(course=course).delete()
             RejectedCourseRecord.objects.create(
                 course=course,
                 teacher_profile=course.teacher_profile,
@@ -318,6 +305,21 @@ class CourseService:
                 final_action=final_action,
                 final_comment=final_comment,
             )
+        else:
+            ModerationReview.objects.update_or_create(
+                course=course,
+                defaults={
+                    "moderator_profile": moderator_profile,
+                    "basics_field_statuses": basics_field_statuses or {},
+                    "basics_action": basics_action,
+                    "basics_comment": basics_comment,
+                    "content_item_statuses": content_item_statuses or {},
+                    "content_action": content_action,
+                    "content_comment": content_comment,
+                    "final_action": final_action,
+                    "final_comment": final_comment,
+                },
+            )
         return course
 
     @staticmethod
@@ -326,7 +328,9 @@ class CourseService:
         if course.status != Course.StatusChoices.REJECTED:
             raise CoursesError("Only rejected courses can be restored to draft.")
         course.status = Course.StatusChoices.DRAFT
-        course.save(update_fields=["status"])
+        course.moderator_comment = ""
+        course.moderator_profile = None
+        course.save(update_fields=["status", "moderator_comment", "moderator_profile"])
         return course
 
     @classmethod
