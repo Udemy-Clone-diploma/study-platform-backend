@@ -1,6 +1,6 @@
 from .CategoryViewSet import CategoryViewSet
-from .CourseModerationView import CourseApproveView, CourseAssignModeratorView, CourseRejectView
-from .ModerationCoursesView import MyModerationCoursesView, UnassignedModerationCoursesView
+from .CourseModerationView import CourseApproveView, CourseAssignModeratorView, CourseRejectView, SaveReviewDraftView
+from .ModerationCoursesView import MyModerationCoursesView, MyRejectedModerationCoursesView, UnassignedModerationCoursesView
 from .CohortView import CohortDetailView, CohortListCreateView
 from .CoursePendingEditView import (
     CoursePendingEditApproveView,
@@ -17,6 +17,14 @@ from .NewCoursesView import NewCoursesView
 from .PopularCoursesView import PopularCoursesView
 from .PricingPlanView import PricingPlanDetailView, PricingPlanListCreateView
 from .TeacherCoursesView import TeacherCoursesView
+from .CourseRejectedView import (
+    CourseCopyToDraftView,
+    CourseRestoreFromRejectedView,
+    ModeratorApprovalRecordsView,
+    ModeratorRejectionRecordsView,
+    RejectedCoursesView,
+    TeacherRejectionRecordsView,
+)
 from .WishlistView import WishlistListView, WishlistToggleView
 from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListView, LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
 
@@ -25,7 +33,9 @@ __all__ = [
     "CourseApproveView",
     "CourseAssignModeratorView",
     "CourseRejectView",
+    "SaveReviewDraftView",
     "MyModerationCoursesView",
+    "MyRejectedModerationCoursesView",
     "UnassignedModerationCoursesView",
     "CohortDetailView",
     "CohortListCreateView",
@@ -48,6 +58,12 @@ __all__ = [
     "PricingPlanListCreateView",
     "QuestionViewSet",
     "TeacherCoursesView",
+    "CourseCopyToDraftView",
+    "CourseRestoreFromRejectedView",
+    "ModeratorApprovalRecordsView",
+    "ModeratorRejectionRecordsView",
+    "RejectedCoursesView",
+    "TeacherRejectionRecordsView",
     "TestViewSet",
     "WishlistListView",
     "WishlistToggleView",

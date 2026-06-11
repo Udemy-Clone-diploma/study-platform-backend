@@ -1,8 +1,10 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics
 
-from apps.courses.serializers import CourseListSerializer
+from apps.courses.models import Course
+from apps.courses.serializers import CourseListSerializer, RejectedCourseSerializer
 from apps.courses.services import CourseService
+from apps.courses.views._course_scoped import _moderator_profile
 from apps.users.permissions import IsAdminOrModerator
 
 
@@ -29,9 +31,22 @@ class MyModerationCoursesView(generics.ListAPIView):
     serializer_class = CourseListSerializer
 
     def get_queryset(self):
-        moderator_profile = getattr(self.request.user, "moderator_profile", None)
-        if moderator_profile is None:
-            return CourseService.annotate_min_price(
-                __import__("apps.courses.models", fromlist=["Course"]).Course.objects.none()
-            )
-        return CourseService.get_my_moderation_queryset(moderator_profile)
+        mod = _moderator_profile(self.request.user)
+        if mod is None:
+            return CourseService.annotate_min_price(Course.objects.none())
+        return CourseService.get_my_moderation_queryset(mod)
+
+
+@extend_schema(
+    tags=["Courses"],
+    summary="Rejected courses assigned to the current moderator",
+)
+class MyRejectedModerationCoursesView(generics.ListAPIView):
+    permission_classes = [IsAdminOrModerator]
+    serializer_class = RejectedCourseSerializer
+
+    def get_queryset(self):
+        mod = _moderator_profile(self.request.user)
+        if mod is None:
+            return CourseService.annotate_min_price(Course.objects.none())
+        return CourseService.get_rejected_moderation_queryset(mod)
