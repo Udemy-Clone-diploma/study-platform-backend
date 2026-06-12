@@ -1,15 +1,56 @@
+import os
+
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
 from apps.courses.exceptions import PendingEditLockedError
-from apps.courses.models import CoursePendingEdit
+from apps.courses.models import (
+    ApprovedCourseRecord,
+    CoursePendingEdit,
+    ModerationReview,
+    RejectedCourseRecord,
+)
+from apps.courses.services.course_service import _course_snapshot_kwargs
+from apps.curriculum.models import Lesson, Module, Question, Test
+
+
+def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
+    """Return the list of field names that differ between the pending edit and the live course."""
+    course = pending_edit.course
+    if not course:
+        return []
+    changed = []
+    for field in [
+        "title", "subtitle", "short_description", "full_description",
+        "level", "language", "mode", "delivery_type", "course_type",
+        "duration_hours", "with_certificate", "is_on_sale",
+    ]:
+        if getattr(pending_edit, field) != getattr(course, field):
+            changed.append(field)
+    if pending_edit.category_id != course.category_id:
+        changed.append("category")
+    live_tags = set(course.tags.values_list("id", flat=True))
+    if set(pending_edit.tag_ids or []) != live_tags:
+        changed.append("tags")
+    if pending_edit.image and pending_edit.image.name != (course.image.name if course.image else None):
+        changed.append("image")
+    return changed
+
+
+def _restore_or_create(Model, parent_lookup: dict, id_val, **kwargs):
+    if id_val:
+        obj = Model.all_objects.filter(id=id_val, **parent_lookup).first()
+        if obj:
+            for k, v in kwargs.items():
+                setattr(obj, k, v)
+            obj.is_deleted = False
+            obj.save()
+            return obj
+    return Model.objects.create(**parent_lookup, **kwargs)
 
 
 class PendingEditService:
-
-    # ------------------------------------------------------------------ #
-    # Snapshot builders                                                    #
-    # ------------------------------------------------------------------ #
 
     @staticmethod
     def _build_modules_snapshot(course) -> list:
@@ -68,10 +109,6 @@ class PendingEditService:
             })
         return result
 
-    # ------------------------------------------------------------------ #
-    # Lifecycle                                                            #
-    # ------------------------------------------------------------------ #
-
     @classmethod
     def get_or_create(cls, course) -> CoursePendingEdit:
         try:
@@ -100,20 +137,12 @@ class PendingEditService:
             modules_snapshot=cls._build_modules_snapshot(course),
         )
 
-    # ------------------------------------------------------------------ #
-    # Guards                                                               #
-    # ------------------------------------------------------------------ #
-
     @staticmethod
     def _ensure_editable(pending_edit: CoursePendingEdit) -> None:
         if pending_edit.status == CoursePendingEdit.StatusChoices.PENDING:
             raise PendingEditLockedError(
                 "Cannot edit while pending moderation. Withdraw first."
             )
-
-    # ------------------------------------------------------------------ #
-    # Teacher actions                                                      #
-    # ------------------------------------------------------------------ #
 
     @classmethod
     def update_metadata(cls, pending_edit: CoursePendingEdit, validated_data: dict) -> CoursePendingEdit:
@@ -137,11 +166,11 @@ class PendingEditService:
         pending_edit.status = CoursePendingEdit.StatusChoices.PENDING
         pending_edit.submitted_at = timezone.now()
         pending_edit.save(update_fields=["status", "submitted_at", "updated_at"])
+        pending_edit.course.save(update_fields=["updated_at"])
         return pending_edit
 
     @staticmethod
     def withdraw(pending_edit: CoursePendingEdit) -> CoursePendingEdit:
-        """Withdraw from moderation; keeps the draft edits, returns to editable state."""
         if pending_edit.status != CoursePendingEdit.StatusChoices.PENDING:
             raise PendingEditLockedError("Can only withdraw when pending moderation.")
         pending_edit.status = CoursePendingEdit.StatusChoices.DRAFT
@@ -149,19 +178,16 @@ class PendingEditService:
         return pending_edit
 
     @staticmethod
+    @transaction.atomic
     def discard(pending_edit: CoursePendingEdit) -> None:
-        """Delete the pending edit entirely. The published course is unaffected."""
+        ModerationReview.objects.filter(course=pending_edit.course).delete()
         pending_edit.delete()
-
-    # ------------------------------------------------------------------ #
-    # Moderator actions                                                    #
-    # ------------------------------------------------------------------ #
 
     @classmethod
     @transaction.atomic
-    def approve(cls, pending_edit: CoursePendingEdit) -> None:
-        """Apply all pending changes to the live course and remove the draft."""
+    def approve(cls, pending_edit: CoursePendingEdit, moderator_profile=None) -> None:
         course = pending_edit.course
+        changed = compute_pending_edit_changed_fields(pending_edit)
 
         for field in [
             "title", "subtitle", "short_description", "full_description",
@@ -171,136 +197,145 @@ class PendingEditService:
             setattr(course, field, getattr(pending_edit, field))
 
         if pending_edit.image:
-            course.image = pending_edit.image
+            ext = os.path.splitext(pending_edit.image.name)[1] or ".png"
+            pending_edit.image.open("rb")
+            try:
+                content = pending_edit.image.read()
+            finally:
+                pending_edit.image.close()
+            course.image.save(f"icon{ext}", ContentFile(content), save=False)
 
         course.save()
         course.tags.set(pending_edit.tag_ids or [])
-
         cls._apply_modules_snapshot(course, pending_edit.modules_snapshot)
 
+        effective_moderator = moderator_profile or pending_edit.moderator_profile
+        ApprovedCourseRecord.objects.create(
+            course=course,
+            teacher_profile=course.teacher_profile,
+            moderator_profile=effective_moderator,
+            **_course_snapshot_kwargs(course),
+            changed_fields=changed,
+        )
         pending_edit.delete()
 
     @staticmethod
-    def reject(pending_edit: CoursePendingEdit, comment: str = "") -> CoursePendingEdit:
-        pending_edit.status = CoursePendingEdit.StatusChoices.NEEDS_REVISION
-        pending_edit.moderator_comment = comment
-        pending_edit.save(update_fields=["status", "moderator_comment", "updated_at"])
-        return pending_edit
+    @transaction.atomic
+    def reject(
+        pending_edit: CoursePendingEdit,
+        moderator_profile=None,
+        basics_field_statuses: dict | None = None,
+        basics_action: str = "",
+        basics_comment: str = "",
+        content_item_statuses: dict | None = None,
+        content_action: str = "",
+        content_comment: str = "",
+        final_action: str = "",
+        final_comment: str = "",
+    ) -> CoursePendingEdit:
+        course = pending_edit.course
+        effective_moderator = moderator_profile or pending_edit.moderator_profile
 
-    # ------------------------------------------------------------------ #
-    # Snapshot application (used during approve)                          #
-    # ------------------------------------------------------------------ #
+        changed = compute_pending_edit_changed_fields(pending_edit)
+        RejectedCourseRecord.objects.create(
+            course=course,
+            teacher_profile=course.teacher_profile,
+            moderator_profile=effective_moderator,
+            **_course_snapshot_kwargs(course),
+            changed_fields=changed,
+            basics_field_statuses=basics_field_statuses or {},
+            basics_action=basics_action,
+            basics_comment=basics_comment or "",
+            content_item_statuses=content_item_statuses or {},
+            content_action=content_action,
+            content_comment=content_comment or "",
+            final_action=final_action,
+            final_comment=final_comment or "",
+        )
+
+        if final_action == "rejected":
+            # Full rejection: discard the draft entirely; live course is untouched.
+            ModerationReview.objects.filter(course=course).delete()
+            pending_edit.delete()
+            return pending_edit
+
+        # needs_revision: keep the draft so the teacher can fix and resubmit.
+        pending_edit.status = CoursePendingEdit.StatusChoices.NEEDS_REVISION
+        pending_edit.moderator_comment = final_comment
+        pending_edit.save(update_fields=["status", "moderator_comment", "updated_at"])
+
+        ModerationReview.objects.update_or_create(
+            course=course,
+            defaults={
+                "moderator_profile": effective_moderator,
+                "basics_field_statuses": basics_field_statuses or {},
+                "basics_action": basics_action,
+                "basics_comment": basics_comment,
+                "content_item_statuses": content_item_statuses or {},
+                "content_action": content_action,
+                "content_comment": content_comment,
+                "final_action": final_action,
+                "final_comment": final_comment,
+            },
+        )
+        return pending_edit
 
     @staticmethod
     @transaction.atomic
     def _apply_modules_snapshot(course, modules_data: list) -> None:
-        from apps.curriculum.models import Lesson, Module, Test
-        from apps.curriculum.models.Question import Question
-
-        # Soft-delete all active modules so their orders don't conflict during restore.
-        # Lessons/tests are left untouched at this point; they'll be handled per-module.
+        # Soft-delete all active modules first so their orders don't conflict during restore.
         Module.all_objects.filter(course=course, is_deleted=False).update(is_deleted=True)
 
         for idx, mod_data in enumerate(modules_data, 1):
-            mod_id = mod_data.get("id")
-            order = mod_data.get("order", idx)
+            module = _restore_or_create(
+                Module,
+                {"course": course},
+                mod_data.get("id"),
+                title=mod_data.get("title", ""),
+                description=mod_data.get("description", ""),
+                order=mod_data.get("order", idx),
+            )
 
-            if mod_id:
-                module = Module.all_objects.filter(id=mod_id, course=course).first()
-                if module:
-                    module.title = mod_data.get("title", "")
-                    module.description = mod_data.get("description", "")
-                    module.order = order
-                    module.is_deleted = False
-                    module.save()
-                else:
-                    module = Module.objects.create(
-                        course=course,
-                        title=mod_data.get("title", ""),
-                        description=mod_data.get("description", ""),
-                        order=order,
-                    )
-            else:
-                module = Module.objects.create(
-                    course=course,
-                    title=mod_data.get("title", ""),
-                    description=mod_data.get("description", ""),
-                    order=order,
+            Lesson.all_objects.filter(module=module, is_deleted=False).update(is_deleted=True)
+            for l_idx, lesson_data in enumerate(mod_data.get("lessons", []), 1):
+                _restore_or_create(
+                    Lesson,
+                    {"module": module},
+                    lesson_data.get("id"),
+                    title=lesson_data.get("title", ""),
+                    content=lesson_data.get("content", ""),
+                    video_url=lesson_data.get("video_url"),
+                    body_html=lesson_data.get("body_html", "") or "",
+                    duration_minutes=lesson_data.get("duration_minutes"),
+                    min_score=lesson_data.get("min_score"),
+                    is_preview=lesson_data.get("is_preview", False),
+                    content_type=lesson_data.get("content_type", "text"),
+                    order=lesson_data.get("order", l_idx),
                 )
 
-            # Soft-delete current active lessons; restore or create from snapshot
-            Lesson.all_objects.filter(module=module, is_deleted=False).update(is_deleted=True)
-
-            for l_idx, lesson_data in enumerate(mod_data.get("lessons", []), 1):
-                lesson_id = lesson_data.get("id")
-                lesson_kwargs = {
-                    "title": lesson_data.get("title", ""),
-                    "content": lesson_data.get("content", ""),
-                    "video_url": lesson_data.get("video_url"),
-                    "body_html": lesson_data.get("body_html", "") or "",
-                    "duration_minutes": lesson_data.get("duration_minutes"),
-                    "min_score": lesson_data.get("min_score"),
-                    "is_preview": lesson_data.get("is_preview", False),
-                    "content_type": lesson_data.get("content_type", "text"),
-                    "order": lesson_data.get("order", l_idx),
-                }
-                if lesson_id:
-                    lesson = Lesson.all_objects.filter(id=lesson_id, module=module).first()
-                    if lesson:
-                        for k, v in lesson_kwargs.items():
-                            setattr(lesson, k, v)
-                        lesson.is_deleted = False
-                        lesson.save()
-                    else:
-                        Lesson.objects.create(module=module, **lesson_kwargs)
-                else:
-                    Lesson.objects.create(module=module, **lesson_kwargs)
-
-            # Tests
             Test.all_objects.filter(module=module, is_deleted=False).update(is_deleted=True)
-
             for t_idx, test_data in enumerate(mod_data.get("tests", []), 1):
-                test_id = test_data.get("id")
-                test_kwargs = {
-                    "title": test_data.get("title", ""),
-                    "description": test_data.get("description", ""),
-                    "passing_score": test_data.get("passing_score", 70),
-                    "order": test_data.get("order", t_idx),
-                }
-                if test_id:
-                    test = Test.all_objects.filter(id=test_id, module=module).first()
-                    if test:
-                        for k, v in test_kwargs.items():
-                            setattr(test, k, v)
-                        test.is_deleted = False
-                        test.save()
-                    else:
-                        test = Test.objects.create(module=module, **test_kwargs)
-                else:
-                    test = Test.objects.create(module=module, **test_kwargs)
+                test = _restore_or_create(
+                    Test,
+                    {"module": module},
+                    test_data.get("id"),
+                    title=test_data.get("title", ""),
+                    description=test_data.get("description", ""),
+                    passing_score=test_data.get("passing_score", 70),
+                    order=test_data.get("order", t_idx),
+                )
 
-                # Questions: soft-delete all then restore/create
                 Question.all_objects.filter(test=test, is_deleted=False).update(is_deleted=True)
-
                 for q_idx, q_data in enumerate(test_data.get("questions", []), 1):
-                    q_id = q_data.get("id")
-                    q_kwargs = {
-                        "question_type": q_data.get("question_type", "multiple_choice"),
-                        "text": q_data.get("text", ""),
-                        "options": q_data.get("options", []),
-                        "correct_index": q_data.get("correct_index"),
-                        "correct_bool": q_data.get("correct_bool"),
-                        "sample_answer": q_data.get("sample_answer", ""),
-                        "order": q_data.get("order", q_idx),
-                    }
-                    if q_id:
-                        question = Question.all_objects.filter(id=q_id, test=test).first()
-                        if question:
-                            for k, v in q_kwargs.items():
-                                setattr(question, k, v)
-                            question.is_deleted = False
-                            question.save()
-                        else:
-                            Question.objects.create(test=test, **q_kwargs)
-                    else:
-                        Question.objects.create(test=test, **q_kwargs)
+                    _restore_or_create(
+                        Question,
+                        {"test": test},
+                        q_data.get("id"),
+                        question_type=q_data.get("question_type", "multiple_choice"),
+                        text=q_data.get("text", ""),
+                        options=q_data.get("options", []),
+                        correct_index=q_data.get("correct_index"),
+                        correct_bool=q_data.get("correct_bool"),
+                        sample_answer=q_data.get("sample_answer", ""),
+                        order=q_data.get("order", q_idx),
+                    )

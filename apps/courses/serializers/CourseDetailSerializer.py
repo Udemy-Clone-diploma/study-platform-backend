@@ -7,6 +7,7 @@ from apps.curriculum.serializers import ModuleSerializer
 from .CategorySerializer import CategorySerializer
 from .CohortSerializer import CohortSerializer
 from .CourseTeacherSerializer import CourseTeacherSerializer
+from .ModerationReviewSerializer import ModerationReviewSerializer
 from .PricingPlanSerializer import PricingPlanSerializer
 from .TagSerializer import TagSerializer
 
@@ -21,6 +22,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     cohorts = CohortSerializer(many=True, read_only=True)
     image = serializers.SerializerMethodField()
     total_duration_minutes = serializers.SerializerMethodField()
+    moderation_review = ModerationReviewSerializer(read_only=True)
 
     class Meta:
         model = Course
@@ -31,8 +33,10 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "duration_hours", "lessons_count", "total_duration_minutes",
             "with_certificate", "is_on_sale",
             "rating_avg", "rating_count", "students_count", "status",
+            "moderator_comment",
             "created_at", "updated_at", "published_at",
             "tags", "modules", "pricing_plans", "cohorts",
+            "moderation_review",
         ]
 
     def get_moderator_id(self, obj) -> int | None:

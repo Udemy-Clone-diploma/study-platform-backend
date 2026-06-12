@@ -25,6 +25,9 @@ class CourseListSerializer(serializers.ModelSerializer):
     enrolled_at = serializers.DateTimeField(read_only=True, default=None)
 
     pending_edit_status = serializers.SerializerMethodField()
+    moderator_id = serializers.IntegerField(
+        source="moderator_profile_id", read_only=True, allow_null=True,
+    )
 
     class Meta:
         model = Course
@@ -36,7 +39,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             "with_certificate", "is_on_sale",
             "rating_avg", "rating_count", "students_count", "status",
             "published_at", "created_at", "tags", "enrolled_at",
-            "pending_edit_status",
+            "pending_edit_status", "moderator_id",
         ]
 
     def get_image(self, obj) -> str | None:
