@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase
 
 from apps.cart.models import Cart, CartItem
 from apps.courses.models import Course
-from apps.courses.tests._factories import make_course, make_teacher
+from apps.courses.tests._factories import make_course, make_pricing_plan, make_teacher
 from apps.enrollments.models import Enrollment
 from apps.users.models import StudentProfile, User
 
@@ -27,17 +27,15 @@ class CartApiTests(APITestCase):
             title="Cart Course",
             slug="cart-course",
             status=Course.StatusChoices.PUBLISHED,
-            price=25,
-            pricing_type=Course.PricingTypeChoices.FULL_PAYMENT,
         )
+        self.course_plan = make_pricing_plan(self.course, price="25.00")
         self.second_course = make_course(
             self.teacher_profile,
             title="Second Cart Course",
             slug="second-cart-course",
             status=Course.StatusChoices.PUBLISHED,
-            price=15,
-            pricing_type=Course.PricingTypeChoices.FULL_PAYMENT,
         )
+        self.second_course_plan = make_pricing_plan(self.second_course, price="15.00")
         self.draft_course = make_course(
             self.teacher_profile,
             title="Draft Cart Course",
@@ -59,7 +57,7 @@ class CartApiTests(APITestCase):
     def test_add_course_to_cart(self):
         response = self.client.post(
             reverse("cart-add-item"),
-            {"course_id": self.course.pk},
+            {"course_id": self.course.pk, "pricing_plan_id": self.course_plan.pk},
             format="json",
         )
 
@@ -67,6 +65,8 @@ class CartApiTests(APITestCase):
         self.assertEqual(response.data["items_count"], 1)
         self.assertEqual(response.data["total_price"], "25.00")
         self.assertEqual(response.data["items"][0]["course_id"], self.course.pk)
+        self.assertEqual(response.data["items"][0]["pricing_plan_id"], self.course_plan.pk)
+        self.assertEqual(response.data["items"][0]["unit_price"], "25.00")
 
     def test_cannot_add_draft_course_to_cart(self):
         response = self.client.post(
@@ -80,11 +80,11 @@ class CartApiTests(APITestCase):
 
     def test_cannot_add_duplicate_course_to_cart(self):
         cart = Cart.objects.create(student_profile=self.student_profile)
-        CartItem.objects.create(cart=cart, course=self.course)
+        CartItem.objects.create(cart=cart, course=self.course, pricing_plan=self.course_plan)
 
         response = self.client.post(
             reverse("cart-add-item"),
-            {"course_id": self.course.pk},
+            {"course_id": self.course.pk, "pricing_plan_id": self.course_plan.pk},
             format="json",
         )
 
@@ -99,7 +99,7 @@ class CartApiTests(APITestCase):
 
         response = self.client.post(
             reverse("cart-add-item"),
-            {"course_id": self.course.pk},
+            {"course_id": self.course.pk, "pricing_plan_id": self.course_plan.pk},
             format="json",
         )
 
@@ -108,8 +108,12 @@ class CartApiTests(APITestCase):
 
     def test_remove_course_from_cart(self):
         cart = Cart.objects.create(student_profile=self.student_profile)
-        CartItem.objects.create(cart=cart, course=self.course)
-        CartItem.objects.create(cart=cart, course=self.second_course)
+        CartItem.objects.create(cart=cart, course=self.course, pricing_plan=self.course_plan)
+        CartItem.objects.create(
+            cart=cart,
+            course=self.second_course,
+            pricing_plan=self.second_course_plan,
+        )
 
         response = self.client.delete(
             reverse("cart-remove-item", args=[self.course.pk])
@@ -121,8 +125,12 @@ class CartApiTests(APITestCase):
 
     def test_clear_cart(self):
         cart = Cart.objects.create(student_profile=self.student_profile)
-        CartItem.objects.create(cart=cart, course=self.course)
-        CartItem.objects.create(cart=cart, course=self.second_course)
+        CartItem.objects.create(cart=cart, course=self.course, pricing_plan=self.course_plan)
+        CartItem.objects.create(
+            cart=cart,
+            course=self.second_course,
+            pricing_plan=self.second_course_plan,
+        )
 
         response = self.client.delete(reverse("cart-clear"))
 

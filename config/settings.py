@@ -53,6 +53,7 @@ LOCAL_APPS = [
     "apps.curriculum",
     "apps.enrollments",
     "apps.reviews",
+    "apps.payments",
 ]
 
 THIRD_PARTY_APPS = [
@@ -180,6 +181,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "Categories", "description": "Course category listing and featured categories."},
         {"name": "Cart", "description": "Student course cart operations."},
         {"name": "Enrollments", "description": "Course enrollment access records."},
+        {"name": "Payments", "description": "Stripe checkout sessions and payment history."},
     ],
     "ENUM_NAME_OVERRIDES": {
         "UserLanguageEnum": "apps.users.models.User.LanguageChoices",
@@ -215,6 +217,9 @@ STORAGES = {
 EMAIL_VERIFICATION_TIMEOUT = int(timedelta(days=2).total_seconds())
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
+
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",

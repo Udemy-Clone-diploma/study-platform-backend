@@ -9,7 +9,7 @@ from apps.cart.serializers import (
     CartItemRemoveSerializer,
     CartSerializer,
 )
-from apps.courses.models import Course
+from apps.courses.models import Course, PricingPlan
 from apps.enrollments.services import EnrollmentService
 from apps.users.models import StudentProfile, User
 
@@ -21,7 +21,8 @@ class CartService:
             "course",
             "course__teacher_profile__user",
             "course__category",
-        ).prefetch_related("course__tags")
+            "pricing_plan",
+        ).prefetch_related("course__pricing_plans", "course__tags")
 
     @classmethod
     def get_base_queryset(cls):
@@ -86,13 +87,40 @@ class CartService:
                 {"course_id": "Student already has access to this course."}
             )
 
+    @staticmethod
+    def _validate_cart_currency(cart: Cart, pricing_plan: PricingPlan | None) -> None:
+        if pricing_plan is None:
+            return
+
+        existing_currencies = {
+            item.currency
+            for item in cart.items.select_related("pricing_plan", "course").prefetch_related(
+                "course__pricing_plans"
+            )
+            if item.currency
+        }
+        if existing_currencies and pricing_plan.currency not in existing_currencies:
+            raise serializers.ValidationError(
+                {"pricing_plan_id": "Cart items must use the same currency."}
+            )
+
     @classmethod
     @transaction.atomic
-    def add_item(cls, cart: Cart, course: Course) -> Cart:
+    def add_item(
+        cls,
+        cart: Cart,
+        course: Course,
+        pricing_plan: PricingPlan | None = None,
+    ) -> Cart:
         cls._validate_course_is_available(course)
         cls._validate_student_is_not_enrolled(cart.student_profile, course)
+        cls._validate_cart_currency(cart, pricing_plan)
 
-        _, created = CartItem.objects.get_or_create(cart=cart, course=course)
+        _, created = CartItem.objects.get_or_create(
+            cart=cart,
+            course=course,
+            defaults={"pricing_plan": pricing_plan},
+        )
         if not created:
             raise serializers.ValidationError(
                 {"course_id": "Course is already in cart."}
@@ -109,7 +137,11 @@ class CartService:
     ) -> dict:
         validated_data = cls.validate_add_item_data(data, context=context)
         cart = cls.get_current_cart(user)
-        cart = cls.add_item(cart, validated_data["course"])
+        cart = cls.add_item(
+            cart,
+            validated_data["course"],
+            validated_data.get("pricing_plan"),
+        )
         return cls.serialize_cart(cart, context=context)
 
     @classmethod

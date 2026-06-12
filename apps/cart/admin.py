@@ -6,9 +6,9 @@ from apps.cart.models import Cart, CartItem
 class CartItemInline(admin.TabularInline):
     model = CartItem
     extra = 0
-    fields = ("course", "added_at")
+    fields = ("course", "pricing_plan", "added_at")
     readonly_fields = ("added_at",)
-    autocomplete_fields = ("course",)
+    autocomplete_fields = ("course", "pricing_plan")
 
 
 @admin.register(Cart)
@@ -21,8 +21,8 @@ class CartAdmin(admin.ModelAdmin):
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ("cart", "course", "added_at")
-    list_select_related = ("cart__student_profile__user", "course")
+    list_display = ("cart", "course", "pricing_plan", "added_at")
+    list_select_related = ("cart__student_profile__user", "course", "pricing_plan")
     search_fields = (
         "cart__student_profile__user__email",
         "course__title",

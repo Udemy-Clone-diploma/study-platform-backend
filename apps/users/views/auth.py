@@ -112,7 +112,7 @@ class TokenRefreshView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            access_token = AuthService.refresh_access_token(
+            tokens = AuthService.refresh_access_token(
                 serializer.validated_data["refresh"]
             )
         except TokenError as e:
@@ -120,7 +120,7 @@ class TokenRefreshView(APIView):
         except (InvalidTokenError, AccountForbiddenError) as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response({"access": access_token}, status=status.HTTP_200_OK)
+        return Response(tokens, status=status.HTTP_200_OK)
 
 
 @extend_schema(tags=["Auth"])
