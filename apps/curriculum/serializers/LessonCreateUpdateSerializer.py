@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.common.sanitize import sanitize_html
 from apps.curriculum.models import Lesson
 
 
@@ -20,6 +21,9 @@ class LessonCreateUpdateSerializer(serializers.ModelSerializer):
             "min_score": {"required": False},
             "is_preview": {"required": False},
         }
+
+    def validate_body_html(self, value):
+        return sanitize_html(value)
 
     def save(self, **kwargs):
         video = self.validated_data.get("video")
