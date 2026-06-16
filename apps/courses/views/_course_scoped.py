@@ -5,13 +5,7 @@ from apps.users.models import User
 
 
 def get_course_for_request(view, slug: str) -> Course:
-    """Resolve a Course by slug and enforce read visibility.
-
-    Anyone may read a PUBLISHED course. Drafts, review, archived, and
-    is_deleted=False-but-non-PUBLISHED courses are visible to admins,
-    moderators, and the owning teacher only. Otherwise 404 (we do not
-    leak existence).
-    """
+    """Resolve a Course by slug and enforce read visibility   """
     course = (
         Course.all_objects.filter(slug=slug)
         .select_related("teacher_profile__user")
@@ -43,3 +37,12 @@ def _can_view_course(user, course: Course) -> bool:
     if user.role in (User.RoleChoices.ADMINISTRATOR, User.RoleChoices.MODERATOR):
         return True
     return course.teacher_profile.user_id == user.id
+
+
+def _get_dict(data, key: str) -> dict:
+    val = data.get(key, {})
+    return val if isinstance(val, dict) else {}
+
+
+def _moderator_profile(user):
+    return getattr(user, "moderator_profile", None)

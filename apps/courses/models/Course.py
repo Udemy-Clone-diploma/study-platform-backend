@@ -41,6 +41,7 @@ class Course(models.Model):
         DRAFT = "draft", "Draft"
         REVIEW = "review", "Review"
         NEEDS_REVISION = "needs_revision", "Needs Revision (returned by moderator)"
+        REJECTED = "rejected", "Rejected"
         PUBLISHED = "published", "Published"
         HIDDEN = "hidden", "Hidden (active but not listed)"
         ARCHIVED = "archived", "Archived"

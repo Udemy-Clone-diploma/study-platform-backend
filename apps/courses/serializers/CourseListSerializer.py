@@ -26,6 +26,9 @@ class CourseListSerializer(serializers.ModelSerializer):
     students_enrolled_last_30_days = serializers.IntegerField(read_only=True, default=0)
 
     pending_edit_status = serializers.SerializerMethodField()
+    moderator_id = serializers.IntegerField(
+        source="moderator_profile_id", read_only=True, allow_null=True,
+    )
 
     class Meta:
         model = Course
@@ -38,7 +41,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             "rating_avg", "rating_count", "students_count",
             "students_enrolled_last_30_days", "status",
             "published_at", "created_at", "tags", "enrolled_at",
-            "pending_edit_status",
+            "pending_edit_status", "moderator_id",
         ]
 
     def get_image(self, obj) -> str | None:
