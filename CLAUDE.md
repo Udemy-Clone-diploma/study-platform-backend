@@ -24,6 +24,9 @@ python manage.py makemigrations --check --dry-run
 
 # Resolve parallel migration leaves (e.g. two PRs added 0007_*)
 python manage.py makemigrations --merge --no-input
+
+# Seed demo data for local dev (idempotent; safe to re-run)
+python manage.py seed
 ```
 
 ## Architecture
@@ -36,7 +39,9 @@ python manage.py makemigrations --merge --no-input
 - `curriculum/`: `Module` and `Lesson` models (moved out of `courses` via `SeparateDatabaseAndState`) plus `GET /courses/<slug>/lessons/<id>/` detail endpoint with preview / enrollment access control. Owns the `lessons_count` recompute signal.
 - `enrollments/`: `Enrollment` through-model (`StudentProfile` ↔ `Course`) with access-status lifecycle (active/pending/expired/revoked), `EnrollmentViewSet` for CRUD by students and admins, plus the signals that recompute `Course.students_count`.
 - `reviews/`: `Review` model, paginated `GET` / authenticated `POST /courses/<slug>/reviews/`, and the signal that recomputes `Course.rating_avg` + `Course.rating_count`.
-- `common/`: shared DRF utilities (e.g. `StandardResultsSetPagination`). Cross-app helpers go here, not inside a feature app.
+- `common/`: shared DRF utilities (e.g. `StandardResultsSetPagination`). Cross-app helpers go here, not inside a feature app. Also hosts the demo seeder (`apps/common/management/commands/seed.py`).
+
+**Demo seeding**: `python manage.py seed` populates a fresh dev DB with every role (admin/teacher/moderator/student + profiles), courses spanning all `course_type` values and statuses (draft/review/needs_revision/published), pricing plans (group/individual, USD/EUR/UAH, installments), cohorts, modules/lessons (video + text, preview + locked, `meeting_url`), enrollments with progress, and reviews. It is idempotent (every row is `get_or_create` on a natural key) and lets the denormalization signals fill `lessons_count` / `students_count` / `rating_*` / `lessons_completed_count`, so it stays correct as those rules change. It is deliberately NOT wired into `post_migrate` (that would inject demo rows into prod and the test DB and slow the suite); run it manually after a schema reset: `python manage.py migrate && python manage.py seed`. When you add or rename a model field the seeder should populate, update `seed.py` in the same change.
 
 **Shared utilities** (`apps/common/`): import these before reinventing — `ActiveManager` (single soft-delete manager), `parse_limit` + `MAX_TOP_N_LIMIT` (top-N `?limit=N` parser, raises `InvalidLimitError`), `absolute_media_url(field_file, request)` for ImageField/FileField URL building, `UUIDUploadTo("<prefix>")` for `upload_to` on file fields.
 
