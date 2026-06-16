@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.common.sanitize import sanitize_html
 from apps.courses.models import Category, Course, Tag
 
 
@@ -28,6 +29,9 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             "status", "tag_ids",
         ]
         read_only_fields = ["lessons_count"]
+
+    def validate_full_description(self, value):
+        return sanitize_html(value)
 
     def validate(self, attrs):
         mode = attrs.get("mode", getattr(self.instance, "mode", None))
