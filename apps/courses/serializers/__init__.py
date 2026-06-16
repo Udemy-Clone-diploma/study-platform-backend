@@ -8,6 +8,7 @@ from .RejectedCourseRecordSerializer import RejectedCourseRecordSerializer
 from .RejectedCourseSerializer import RejectedCourseSerializer
 from .CoursePendingEditSerializer import CoursePendingEditReadSerializer, CoursePendingEditWriteSerializer
 from .CourseTeacherSerializer import CourseTeacherSerializer
+from .EnrolledCourseListSerializer import EnrolledCourseListSerializer
 from .ModerationReviewSerializer import ModerationReviewSerializer
 from .PricingPlanSerializer import PricingPlanSerializer
 from .TagSerializer import TagSerializer
@@ -24,6 +25,7 @@ __all__ = [
     "CoursePendingEditReadSerializer",
     "CoursePendingEditWriteSerializer",
     "CourseTeacherSerializer",
+    "EnrolledCourseListSerializer",
     "ModerationReviewSerializer",
     "PricingPlanSerializer",
     "TagSerializer",

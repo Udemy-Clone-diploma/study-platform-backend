@@ -8,3 +8,7 @@ class NotEnrolledError(ReviewsError):
 
 class ReviewAlreadyExistsError(ReviewsError):
     """Student already submitted a review for this course."""
+
+
+class ReviewEligibilityNotMetError(ReviewsError):
+    """Student has not completed enough of the course to leave a review."""

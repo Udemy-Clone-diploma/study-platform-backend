@@ -8,13 +8,14 @@ class LessonCreateUpdateSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = [
             "title", "content_type", "content", "video", "video_url",
-            "body_html", "duration_minutes", "min_score", "is_preview",
+            "body_html", "meeting_url", "duration_minutes", "min_score", "is_preview",
         ]
         extra_kwargs = {
             "content": {"required": False},
             "video": {"required": False},
             "video_url": {"required": False},
             "body_html": {"required": False},
+            "meeting_url": {"required": False},
             "duration_minutes": {"required": False},
             "min_score": {"required": False},
             "is_preview": {"required": False},

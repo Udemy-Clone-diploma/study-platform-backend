@@ -28,3 +28,6 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Claude Code local settings
+.claude/
