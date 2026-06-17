@@ -6,7 +6,11 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from apps.courses.models import Course
-from apps.reviews.exceptions import NotEnrolledError, ReviewAlreadyExistsError
+from apps.reviews.exceptions import (
+    NotEnrolledError,
+    ReviewAlreadyExistsError,
+    ReviewEligibilityNotMetError,
+)
 from apps.reviews.models import Review
 from apps.reviews.serializers import ReviewSerializer
 from apps.reviews.services import ReviewService
@@ -48,6 +52,16 @@ class CourseReviewsView(ListCreateAPIView):
         except NotEnrolledError:
             return Response(
                 {"detail": "Only enrolled students can review this course."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except ReviewEligibilityNotMetError:
+            return Response(
+                {
+                    "detail": (
+                        "Complete at least 30% of the course's lessons "
+                        "before leaving a review."
+                    )
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
         except ReviewAlreadyExistsError:

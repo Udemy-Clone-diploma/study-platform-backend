@@ -1,5 +1,7 @@
+from datetime import timedelta
+
 from django.db import transaction
-from django.db.models import Min, OuterRef, Q, Subquery
+from django.db.models import Count, Min, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -7,6 +9,7 @@ from apps.courses.constants import (
     DEFAULT_FEATURED_CATEGORIES_LIMIT,
     DEFAULT_NEW_COURSES_LIMIT,
     DEFAULT_POPULAR_COURSES_LIMIT,
+    POPULARITY_WINDOW_DAYS,
 )
 from apps.courses.exceptions import CoursesError
 from apps.courses.models import (
@@ -50,6 +53,27 @@ class CourseService:
         return queryset.annotate(
             min_price=Min("pricing_plans__price"),
             min_currency=Subquery(cheapest_plan),
+        )
+
+    @staticmethod
+    def annotate_recent_enrollments(queryset):
+        """Annotate each course with ``students_enrolled_last_30_days``.
+
+        Counts non-soft-deleted enrollments whose ``access_granted_at`` falls
+        inside the rolling popularity window. Subsequent state changes (revoke
+        or expire) do not retroactively decrement the count, matching a
+        "what started recently" intuition rather than "what is currently held."
+        """
+        cutoff = timezone.now() - timedelta(days=POPULARITY_WINDOW_DAYS)
+        return queryset.annotate(
+            students_enrolled_last_30_days=Count(
+                "enrollments",
+                filter=Q(
+                    enrollments__access_granted_at__gte=cutoff,
+                    enrollments__is_deleted=False,
+                ),
+                distinct=True,
+            ),
         )
 
     @staticmethod
@@ -522,22 +546,28 @@ class CourseService:
 
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
-        enrolled_at_sq = Subquery(
-            Enrollment.objects.with_active_access()
-            .filter(student_profile=student_profile, course=OuterRef("pk"))
-            .values("access_granted_at")[:1]
+        active_enrollments = Enrollment.objects.with_active_access().filter(
+            student_profile=student_profile,
         )
-        active_course_ids = (
-            Enrollment.objects.with_active_access()
-            .filter(student_profile=student_profile)
-            .values_list("course_id", flat=True)
-        )
-        return cls.annotate_min_price(
-            Course.objects.filter(pk__in=active_course_ids)
+        enrolled_at_subquery = active_enrollments.filter(
+            course_id=OuterRef("pk"),
+        ).values("access_granted_at")[:1]
+        completed_subquery = active_enrollments.filter(
+            course_id=OuterRef("pk"),
+        ).values("lessons_completed_count")[:1]
+
+        queryset = (
+            Course.objects.filter(
+                pk__in=active_enrollments.values_list("course_id", flat=True),
+            )
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
-            .annotate(enrolled_at=enrolled_at_sq)
+            .annotate(
+                enrolled_at=Subquery(enrolled_at_subquery),
+                enrollment_lessons_completed=Subquery(completed_subquery),
+            )
         )
+        return cls.annotate_min_price(queryset)
 
     @classmethod
     def get_new_courses(
@@ -556,9 +586,16 @@ class CourseService:
         limit: int = DEFAULT_POPULAR_COURSES_LIMIT,
         context: dict | None = None,
     ) -> list[dict]:
-        courses = cls.annotate_min_price(
-            Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
-        ).order_by("-rating_avg")[:limit]
+        # Popularity is the rolling 30-day enrollment count, not lifetime
+        # students_count, so a course that was hot last year doesn't crowd
+        # out something gaining traction this month. rating_avg is the
+        # tiebreaker for cold-start courses with zero recent enrollments.
+        queryset = Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
+        queryset = cls.annotate_min_price(queryset)
+        queryset = cls.annotate_recent_enrollments(queryset)
+        courses = queryset.order_by(
+            "-students_enrolled_last_30_days", "-rating_avg",
+        )[:limit]
         return CourseListSerializer(courses, many=True, context=context or {}).data
 
     @staticmethod

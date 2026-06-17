@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.curriculum.models import Lesson
+
 from .LessonDocumentSerializer import LessonDocumentSerializer
 from .LessonItemSerializer import LessonItemSerializer
 
@@ -13,5 +14,5 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = [
             "id", "title", "order", "duration_minutes", "is_preview",
-            "min_score", "documents", "items",
+            "min_score", "meeting_url", "documents", "items",
         ]

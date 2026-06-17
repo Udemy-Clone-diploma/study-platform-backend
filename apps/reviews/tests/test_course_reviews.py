@@ -6,7 +6,8 @@ from rest_framework.test import APITestCase
 
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_teacher
-from apps.enrollments.models import Enrollment
+from apps.curriculum.models import Lesson, Module
+from apps.enrollments.models import Enrollment, LessonCompletion
 from apps.reviews.models import Review
 from apps.reviews.tests._factories import make_student
 
@@ -43,14 +44,19 @@ class CourseReviewsWriteTests(APITestCase):
             slug="rw-course",
             status=Course.StatusChoices.PUBLISHED,
         )
+        self.module = Module.objects.create(course=self.course, title="M1", order=1)
+        self.lesson = Lesson.objects.create(module=self.module, title="L1", order=1)
         self.student_user, self.student_profile = make_student(email="rw_student@example.com")
         self.outsider_user, _ = make_student(email="rw_outsider@example.com")
 
-    def _enroll(self, student_profile):
-        return Enrollment.objects.create(
+    def _enroll(self, student_profile, *, complete_lessons: bool = True):
+        enrollment = Enrollment.objects.create(
             student_profile=student_profile,
             course=self.course,
         )
+        if complete_lessons:
+            LessonCompletion.objects.create(enrollment=enrollment, lesson=self.lesson)
+        return enrollment
 
     def test_anonymous_cannot_post(self):
         response = self.client.post(

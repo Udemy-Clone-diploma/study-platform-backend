@@ -11,6 +11,7 @@ class Lesson(models.Model):
     duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
     min_score = models.PositiveSmallIntegerField(null=True, blank=True)
     is_preview = models.BooleanField(default=False)
+    meeting_url = models.URLField(blank=True, null=True)
 
     module = models.ForeignKey(
         Module,

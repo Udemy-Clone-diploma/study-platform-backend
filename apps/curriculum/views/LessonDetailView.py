@@ -36,7 +36,8 @@ class LessonDetailView(APIView):
                 {"detail": "Lesson not found."}, status=status.HTTP_404_NOT_FOUND,
             )
 
-        if not lesson.is_preview and not self._has_full_access(request.user, course):
+        has_enrollment_access = self._has_full_access(request.user, course)
+        if not lesson.is_preview and not has_enrollment_access:
             return Response(
                 {"detail": "Enrollment required to access this lesson."},
                 status=status.HTTP_403_FORBIDDEN,
