@@ -310,9 +310,13 @@ class CourseService:
         ):
             raise CoursesError("Only courses in 'review', 'needs_revision', or 'rejected' status can be moderated.")
         course.status = Course.StatusChoices.REJECTED if final_action == "rejected" else Course.StatusChoices.NEEDS_REVISION
-        course.moderator_profile = None
+        if final_action == "rejected":
+            course.moderator_profile = None
         course.moderator_comment = final_comment
-        course.save(update_fields=["status", "moderator_profile", "moderator_comment"])
+        update_fields = ["status", "moderator_comment"]
+        if final_action == "rejected":
+            update_fields.append("moderator_profile")
+        course.save(update_fields=update_fields)
         if final_action == "rejected":
             ModerationReview.objects.filter(course=course).delete()
             RejectedCourseRecord.objects.create(

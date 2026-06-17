@@ -42,14 +42,12 @@ class LessonDetailAccessTests(APITestCase):
             title="Preview",
             order=1,
             is_preview=True,
-            body_html="<p>Preview content</p>",
         )
         self.locked_lesson = Lesson.objects.create(
             module=self.module,
             title="Locked",
             order=2,
             is_preview=False,
-            body_html="<p>Locked content</p>",
         )
 
     def _url(self, course_slug, lesson_id):
