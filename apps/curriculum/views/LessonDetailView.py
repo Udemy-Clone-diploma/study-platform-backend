@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from apps.courses.models import Course
 from apps.curriculum.models import Lesson
-from apps.curriculum.serializers import LessonDetailSerializer
+from apps.curriculum.serializers import LessonSerializer
 from apps.enrollments.services import EnrollmentService
 from apps.users.models import StudentProfile, User
 
@@ -15,7 +15,7 @@ from apps.users.models import StudentProfile, User
 class LessonDetailView(APIView):
     permission_classes = [AllowAny]
 
-    @extend_schema(responses=LessonDetailSerializer)
+    @extend_schema(responses=LessonSerializer)
     def get(self, request, slug: str, lesson_id: int):
         course = Course.objects.filter(
             slug=slug, status=Course.StatusChoices.PUBLISHED,
@@ -28,6 +28,7 @@ class LessonDetailView(APIView):
         lesson = (
             Lesson.objects.filter(pk=lesson_id, module__course=course)
             .select_related("module")
+            .prefetch_related("items", "documents")
             .first()
         )
         if lesson is None:
@@ -41,7 +42,7 @@ class LessonDetailView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response(LessonDetailSerializer(lesson).data)
+        return Response(LessonSerializer(lesson).data)
 
     @staticmethod
     def _has_full_access(user, course: Course) -> bool:

@@ -26,7 +26,7 @@ from .CourseRejectedView import (
     TeacherRejectionRecordsView,
 )
 from .WishlistView import WishlistListView, WishlistToggleView
-from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListView, LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
+from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListView, LessonItemViewSet, LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
 
 __all__ = [
     "CategoryViewSet",
@@ -50,6 +50,7 @@ __all__ = [
     "FeaturedCategoriesView",
     "LessonDocumentDetailView",
     "LessonDocumentListView",
+    "LessonItemViewSet",
     "LessonViewSet",
     "ModuleViewSet",
     "NewCoursesView",

@@ -56,7 +56,7 @@ class PendingEditService:
     def _build_modules_snapshot(course) -> list:
         modules = (
             course.modules
-            .prefetch_related("lessons", "tests", "tests__questions")
+            .prefetch_related("lessons", "lessons__items", "tests", "tests__questions")
             .order_by("order")
         )
         result = []
@@ -65,14 +65,19 @@ class PendingEditService:
                 {
                     "id": lesson.id,
                     "title": lesson.title,
-                    "content": lesson.content,
-                    "video_url": lesson.video_url,
-                    "body_html": lesson.body_html or "",
                     "duration_minutes": lesson.duration_minutes,
                     "min_score": lesson.min_score,
                     "is_preview": lesson.is_preview,
-                    "content_type": lesson.content_type,
                     "order": lesson.order,
+                    "items_snapshot": [
+                        {
+                            "id": item.id,
+                            "item_type": item.item_type,
+                            "content": item.content or "",
+                            "video_url": item.video_url,
+                        }
+                        for item in lesson.items.all()
+                    ],
                 }
                 for lesson in mod.lessons.order_by("order")
             ]
@@ -155,6 +160,21 @@ class PendingEditService:
     @classmethod
     def update_modules_snapshot(cls, pending_edit: CoursePendingEdit, modules_data: list) -> CoursePendingEdit:
         cls._ensure_editable(pending_edit)
+        # Preserve items_snapshot from the original snapshot so the moderator
+        # can always compare against the state at pending-edit creation time.
+        existing_lessons = {
+            lesson["id"]: lesson
+            for mod in (pending_edit.modules_snapshot or [])
+            for lesson in mod.get("lessons", [])
+            if lesson.get("id") is not None
+        }
+        for mod in modules_data:
+            for lesson in mod.get("lessons", []):
+                lesson_id = lesson.get("id")
+                if lesson_id is not None and "items_snapshot" not in lesson:
+                    existing = existing_lessons.get(lesson_id, {})
+                    if "items_snapshot" in existing:
+                        lesson["items_snapshot"] = existing["items_snapshot"]
         pending_edit.modules_snapshot = modules_data
         pending_edit.save(update_fields=["modules_snapshot", "updated_at"])
         return pending_edit
@@ -210,6 +230,7 @@ class PendingEditService:
         cls._apply_modules_snapshot(course, pending_edit.modules_snapshot)
 
         effective_moderator = moderator_profile or pending_edit.moderator_profile
+        ModerationReview.objects.filter(course=course).delete()
         ApprovedCourseRecord.objects.create(
             course=course,
             teacher_profile=course.teacher_profile,
@@ -303,13 +324,9 @@ class PendingEditService:
                     {"module": module},
                     lesson_data.get("id"),
                     title=lesson_data.get("title", ""),
-                    content=lesson_data.get("content", ""),
-                    video_url=lesson_data.get("video_url"),
-                    body_html=lesson_data.get("body_html", "") or "",
                     duration_minutes=lesson_data.get("duration_minutes"),
                     min_score=lesson_data.get("min_score"),
                     is_preview=lesson_data.get("is_preview", False),
-                    content_type=lesson_data.get("content_type", "text"),
                     order=lesson_data.get("order", l_idx),
                 )
 

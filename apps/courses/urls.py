@@ -28,6 +28,7 @@ from apps.courses.views import (
     CourseViewSet,
     EnrolledCoursesView,
     FeaturedCategoriesView,
+    LessonItemViewSet,
     LessonViewSet,
     ModuleViewSet,
     NewCoursesView,
@@ -51,6 +52,9 @@ modules_router.register(r"modules", ModuleViewSet, basename="course-modules")
 
 lessons_router = DefaultRouter()
 lessons_router.register(r"lessons", LessonViewSet, basename="module-lessons")
+
+lesson_items_router = DefaultRouter()
+lesson_items_router.register(r"items", LessonItemViewSet, basename="lesson-items")
 
 tests_router = DefaultRouter()
 tests_router.register(r"tests", TestViewSet, basename="module-tests")
@@ -112,6 +116,10 @@ urlpatterns = [
     path("", include(router.urls)),
     path("courses/<slug:course_slug>/", include(modules_router.urls)),
     path("courses/<slug:course_slug>/modules/<int:module_pk>/", include(lessons_router.urls)),
+    path(
+        "courses/<slug:course_slug>/modules/<int:module_pk>/lessons/<int:lesson_pk>/",
+        include(lesson_items_router.urls),
+    ),
     path(
         "courses/<slug:course_slug>/modules/<int:module_pk>/lessons/<int:lesson_pk>/documents/",
         LessonDocumentListView.as_view(),

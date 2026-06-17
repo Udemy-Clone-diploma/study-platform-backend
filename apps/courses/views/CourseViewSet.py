@@ -50,6 +50,10 @@ class CourseViewSet(
             queryset = queryset.prefetch_related(
                 "modules",
                 "modules__lessons",
+                "modules__lessons__documents",
+                "modules__lessons__items",
+                "modules__lessons__items__test",
+                "modules__lessons__items__test__questions",
                 "modules__tests",
                 "modules__tests__questions",
                 "pricing_plans",
