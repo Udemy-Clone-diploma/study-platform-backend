@@ -67,6 +67,7 @@ class CartApiTests(APITestCase):
         self.assertEqual(response.data["items"][0]["course_id"], self.course.pk)
         self.assertEqual(response.data["items"][0]["pricing_plan_id"], self.course_plan.pk)
         self.assertEqual(response.data["items"][0]["unit_price"], "25.00")
+        self.assertEqual(response.data["items"][0]["course"]["level"], Course.LevelChoices.BEGINNER)
 
     def test_cannot_add_draft_course_to_cart(self):
         response = self.client.post(

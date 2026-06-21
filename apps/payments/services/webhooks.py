@@ -208,7 +208,7 @@ class WebhookService(PaymentBaseService):
         payment_intent_id: str,
     ) -> tuple[Payment, str]:
         payment = (
-            Payment.objects.select_for_update()
+            Payment.objects.select_for_update(of=("self",))
             .select_related("order", "installment")
             .filter(
                 pk=payment_id,

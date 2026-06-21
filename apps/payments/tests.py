@@ -739,3 +739,165 @@ class PaymentCheckoutTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.StatusChoices.PROCESSING)
+
+
+class OrderInvoiceTests(APITestCase):
+    def setUp(self):
+        _, teacher_profile = make_teacher(email="invoice_teacher@example.com")
+        self.course = make_course(
+            teacher_profile,
+            title="Invoice Course",
+            slug="invoice-course",
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        self.plan = make_pricing_plan(self.course, price="25.00")
+        self.student_user, self.student_profile = make_student(
+            email="invoice_student@example.com"
+        )
+        self.order = Order.objects.create(
+            user=self.student_user,
+            student_profile=self.student_profile,
+            total_amount=self.plan.price,
+            currency=self.plan.currency,
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            course=self.course,
+            pricing_plan=self.plan,
+            course_title=self.course.title,
+            course_slug=self.course.slug,
+            pricing_plan_kind=self.plan.kind,
+            unit_amount=self.plan.price,
+            currency=self.plan.currency,
+        )
+
+    def test_student_can_download_own_order_invoice(self):
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.get(reverse("orders-invoice", args=[self.order.pk]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertEqual(
+            response["Content-Disposition"],
+            f'attachment; filename="invoice-{self.order.id}.pdf"',
+        )
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_student_cannot_download_another_students_invoice(self):
+        other_user, _ = make_student(email="other_invoice_student@example.com")
+        self.client.force_authenticate(user=other_user)
+
+        response = self.client.get(reverse("orders-invoice", args=[self.order.pk]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_missing_order_invoice_returns_404(self):
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.get(reverse("orders-invoice", args=[999999]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class PaymentReceiptTests(APITestCase):
+    def setUp(self):
+        _, teacher_profile = make_teacher(email="receipt_teacher@example.com")
+        self.course = make_course(
+            teacher_profile,
+            title="Receipt Course",
+            slug="receipt-course",
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        self.plan = make_pricing_plan(self.course, price="25.00")
+        self.student_user, self.student_profile = make_student(
+            email="receipt_student@example.com"
+        )
+        self.order = Order.objects.create(
+            user=self.student_user,
+            student_profile=self.student_profile,
+            total_amount=self.plan.price,
+            currency=self.plan.currency,
+            status=Order.StatusChoices.PAID,
+            completed_at=timezone.now(),
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            course=self.course,
+            pricing_plan=self.plan,
+            course_title=self.course.title,
+            course_slug=self.course.slug,
+            pricing_plan_kind=self.plan.kind,
+            unit_amount=self.plan.price,
+            currency=self.plan.currency,
+        )
+        self.payment = self._create_payment(Payment.StatusChoices.SUCCEEDED)
+
+    def _create_payment(self, status_value: str) -> Payment:
+        payment = Payment.objects.create(
+            user=self.student_user,
+            student_profile=self.student_profile,
+            order=self.order,
+            amount=self.plan.price,
+            currency=self.plan.currency,
+            status=status_value,
+            stripe_payment_intent_id="pi_receipt_123",
+            processed_at=timezone.now() if status_value == Payment.StatusChoices.SUCCEEDED else None,
+        )
+        PaymentItem.objects.create(
+            payment=payment,
+            course=self.course,
+            pricing_plan=self.plan,
+            course_title=self.course.title,
+            course_slug=self.course.slug,
+            pricing_plan_kind=self.plan.kind,
+            unit_amount=self.plan.price,
+            currency=self.plan.currency,
+        )
+        return payment
+
+    def test_student_can_download_receipt_for_own_successful_payment(self):
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.get(reverse("payments-receipt", args=[self.payment.pk]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertEqual(
+            response["Content-Disposition"],
+            f'attachment; filename="receipt-{self.order.id}-{self.payment.id}.pdf"',
+        )
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_student_cannot_download_another_students_receipt(self):
+        other_user, _ = make_student(email="other_receipt_student@example.com")
+        self.client.force_authenticate(user=other_user)
+
+        response = self.client.get(reverse("payments-receipt", args=[self.payment.pk]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_pending_payment_receipt_returns_conflict(self):
+        pending_payment = self._create_payment(Payment.StatusChoices.PENDING)
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.get(reverse("payments-receipt", args=[pending_payment.pk]))
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["detail"], "Receipt is available only after successful payment.")
+
+    def test_failed_payment_receipt_returns_conflict(self):
+        failed_payment = self._create_payment(Payment.StatusChoices.FAILED)
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.get(reverse("payments-receipt", args=[failed_payment.pk]))
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["detail"], "Receipt is available only after successful payment.")
+
+    def test_missing_payment_receipt_returns_404(self):
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.get(reverse("payments-receipt", args=[999999]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

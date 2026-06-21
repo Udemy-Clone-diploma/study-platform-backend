@@ -1,6 +1,7 @@
 import logging
 
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
+from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -67,6 +68,23 @@ class PaymentViewSet(
         }:
             return [IsStudent()]
         return super().get_permissions()
+
+    @extend_schema(summary="Download a receipt PDF for a successful payment")
+    @action(detail=True, methods=["get"], url_path="receipt")
+    def receipt(self, request, *args, **kwargs):
+        payment = self.get_object()
+        try:
+            pdf = PaymentService.generate_payment_receipt_pdf(payment)
+        except PaymentError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        filename_id = payment.order_id or payment.id
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'attachment; filename="receipt-{filename_id}-{payment.id}.pdf"'
+        )
+        response["Content-Length"] = str(len(pdf))
+        return response
 
     @extend_schema(
         request=CheckoutSessionCreateSerializer,
@@ -227,6 +245,16 @@ class OrderViewSet(
         }:
             return [IsStudent()]
         return super().get_permissions()
+
+    @extend_schema(summary="Download an order invoice as a PDF")
+    @action(detail=True, methods=["get"], url_path="invoice")
+    def invoice(self, request, *args, **kwargs):
+        order = self.get_object()
+        pdf = PaymentService.generate_order_invoice_pdf(order)
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="invoice-{order.id}.pdf"'
+        response["Content-Length"] = str(len(pdf))
+        return response
 
     @extend_schema(
         request=CheckoutSessionCreateSerializer,

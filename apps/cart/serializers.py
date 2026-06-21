@@ -39,6 +39,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "title": obj.course.title,
             "slug": obj.course.slug,
             "image": absolute_media_url(obj.course.image, request),
+            "level": obj.course.level,
             "price": f"{obj.unit_price:.2f}",
             "currency": obj.currency,
         }

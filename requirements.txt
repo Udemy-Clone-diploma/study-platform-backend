@@ -22,6 +22,7 @@ pycparser==3.0
 PyJWT==2.9.0
 python-decouple==3.8
 PyYAML==6.0.3
+reportlab==4.4.10
 referencing==0.37.0
 rpds-py==0.30.0
 sqlparse==0.5.5
