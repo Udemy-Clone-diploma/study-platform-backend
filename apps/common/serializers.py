@@ -7,6 +7,7 @@ class MessageSerializer(serializers.Serializer):
 
 class AccessTokenSerializer(serializers.Serializer):
     access = serializers.CharField()
+    refresh = serializers.CharField(required=False)
 
 
 class TokenPairSerializer(serializers.Serializer):

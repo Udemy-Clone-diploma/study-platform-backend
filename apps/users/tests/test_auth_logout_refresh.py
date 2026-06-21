@@ -52,7 +52,7 @@ class AuthRefreshTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
-        self.assertNotIn("refresh", response.data)
+        self.assertIn("refresh", response.data)
 
     def test_refresh_includes_role_in_new_access_token(self):
         from rest_framework_simplejwt.tokens import AccessToken as AT
@@ -61,3 +61,12 @@ class AuthRefreshTests(APITestCase):
 
         decoded = AT(response.data["access"])
         self.assertEqual(decoded["role"], self.user.role)
+
+    def test_refresh_rotates_and_blacklists_old_refresh_token(self):
+        response = self.client.post(self.url, {"refresh": self.refresh})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("refresh", response.data)
+
+        old_refresh_response = self.client.post(self.url, {"refresh": self.refresh})
+        self.assertEqual(old_refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
