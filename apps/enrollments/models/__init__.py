@@ -5,6 +5,7 @@ from .Enrollment import (
     Enrollment,
     EnrollmentQuerySet,
 )
+from .LessonCompletion import LessonCompletion
 
 __all__ = [
     "ActiveEnrollmentManager",
@@ -12,4 +13,5 @@ __all__ = [
     "CourseCompletion",
     "Enrollment",
     "EnrollmentQuerySet",
+    "LessonCompletion",
 ]

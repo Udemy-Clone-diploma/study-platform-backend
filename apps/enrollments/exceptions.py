@@ -20,3 +20,11 @@ class EnrollmentRoleError(EnrollmentsError):
 
 class InvalidAccessWindowError(EnrollmentsError):
     """The provided access end date is before the access grant date."""
+
+
+class ActiveEnrollmentRequiredError(EnrollmentsError):
+    """Caller does not hold an active enrollment for the target course."""
+
+
+class LessonNotInCourseError(EnrollmentsError):
+    """The requested lesson does not belong to the target course."""
