@@ -69,7 +69,8 @@ class CartItem(models.Model):
     def selected_pricing_plan(self):
         if self.pricing_plan_id:
             return self.pricing_plan
-        return self.course.pricing_plans.order_by("price", "id").first()
+        from apps.courses.models import PricingPlan
+        return PricingPlan.objects.filter(delivery_format__course=self.course).order_by("price", "id").first()
 
     @property
     def unit_price(self) -> Decimal:

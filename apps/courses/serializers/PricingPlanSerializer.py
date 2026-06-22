@@ -8,7 +8,6 @@ class PricingPlanSerializer(serializers.ModelSerializer):
         model = PricingPlan
         fields = [
             "id",
-            "kind",
             "price",
             "currency",
             "installment_count",

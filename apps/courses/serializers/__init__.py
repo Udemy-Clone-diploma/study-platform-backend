@@ -1,6 +1,7 @@
 from .CategorySerializer import CategorySerializer
 from .CohortSerializer import CohortSerializer
 from .CourseCreateUpdateSerializer import CourseCreateUpdateSerializer
+from .CourseDeliveryFormatSerializer import CourseDeliveryFormatSerializer, CourseDeliveryFormatWriteSerializer
 from .CourseDetailSerializer import CourseDetailSerializer
 from .ApprovedCourseRecordSerializer import ApprovedCourseRecordSerializer
 from .CourseListSerializer import CourseListSerializer
@@ -17,6 +18,8 @@ __all__ = [
     "CategorySerializer",
     "CohortSerializer",
     "CourseCreateUpdateSerializer",
+    "CourseDeliveryFormatSerializer",
+    "CourseDeliveryFormatWriteSerializer",
     "CourseDetailSerializer",
     "ApprovedCourseRecordSerializer",
     "CourseListSerializer",

@@ -6,9 +6,9 @@ from apps.curriculum.serializers import ModuleSerializer
 
 from .CategorySerializer import CategorySerializer
 from .CohortSerializer import CohortSerializer
+from .CourseDeliveryFormatSerializer import CourseDeliveryFormatSerializer
 from .CourseTeacherSerializer import CourseTeacherSerializer
 from .ModerationReviewSerializer import ModerationReviewSerializer
-from .PricingPlanSerializer import PricingPlanSerializer
 from .TagSerializer import TagSerializer
 
 
@@ -18,7 +18,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     teacher = CourseTeacherSerializer(source="teacher_profile", read_only=True)
     moderator_id = serializers.SerializerMethodField()
     modules = ModuleSerializer(many=True, read_only=True)
-    pricing_plans = PricingPlanSerializer(many=True, read_only=True)
+    delivery_formats = CourseDeliveryFormatSerializer(many=True, read_only=True)
     cohorts = CohortSerializer(many=True, read_only=True)
     image = serializers.SerializerMethodField()
     total_duration_minutes = serializers.SerializerMethodField()
@@ -35,7 +35,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "rating_avg", "rating_count", "students_count", "status",
             "moderator_comment",
             "created_at", "updated_at", "published_at",
-            "tags", "modules", "pricing_plans", "cohorts",
+            "tags", "modules", "delivery_formats", "cohorts",
             "moderation_review",
         ]
 

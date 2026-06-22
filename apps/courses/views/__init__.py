@@ -2,6 +2,7 @@ from .CategoryViewSet import CategoryViewSet
 from .CourseModerationView import CourseApproveView, CourseAssignModeratorView, CourseRejectView, SaveReviewDraftView
 from .ModerationCoursesView import MyModerationCoursesView, MyRejectedModerationCoursesView, UnassignedModerationCoursesView
 from .CohortView import CohortDetailView, CohortListCreateView
+from .DeliveryFormatView import DeliveryFormatDetailView, DeliveryFormatListCreateView
 from .CoursePendingEditView import (
     CoursePendingEditApproveView,
     CoursePendingEditRejectView,
@@ -39,6 +40,8 @@ __all__ = [
     "UnassignedModerationCoursesView",
     "CohortDetailView",
     "CohortListCreateView",
+    "DeliveryFormatDetailView",
+    "DeliveryFormatListCreateView",
     "CoursePendingEditApproveView",
     "CoursePendingEditRejectView",
     "CoursePendingEditSubmitView",

@@ -12,6 +12,8 @@ class Lesson(models.Model):
     min_score = models.PositiveSmallIntegerField(null=True, blank=True)
     is_preview = models.BooleanField(default=False)
     meeting_url = models.URLField(blank=True, null=True)
+    unlock_after_days = models.PositiveIntegerField(null=True, blank=True)
+    requires_previous = models.BooleanField(default=False)
 
     module = models.ForeignKey(
         Module,

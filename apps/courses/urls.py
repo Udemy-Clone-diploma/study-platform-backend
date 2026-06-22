@@ -26,6 +26,8 @@ from apps.courses.views import (
     CoursePendingEditView,
     CoursePendingEditWithdrawView,
     CourseViewSet,
+    DeliveryFormatDetailView,
+    DeliveryFormatListCreateView,
     EnrolledCoursesView,
     FeaturedCategoriesView,
     LessonItemViewSet,
@@ -88,6 +90,16 @@ urlpatterns = [
     path("courses/<slug:slug>/pending-edit/withdraw/", CoursePendingEditWithdrawView.as_view(), name="pending-edit-withdraw"),
     path("courses/<slug:slug>/pending-edit/approve/", CoursePendingEditApproveView.as_view(), name="pending-edit-approve"),
     path("courses/<slug:slug>/pending-edit/reject/", CoursePendingEditRejectView.as_view(), name="pending-edit-reject"),
+    path(
+        "courses/<slug:slug>/delivery-formats/",
+        DeliveryFormatListCreateView.as_view(),
+        name="delivery-formats-list",
+    ),
+    path(
+        "courses/<slug:slug>/delivery-formats/<int:id>/",
+        DeliveryFormatDetailView.as_view(),
+        name="delivery-formats-detail",
+    ),
     path(
         "courses/<slug:slug>/pricing-plans/",
         PricingPlanListCreateView.as_view(),

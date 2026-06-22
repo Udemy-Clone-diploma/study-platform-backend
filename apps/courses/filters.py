@@ -22,7 +22,7 @@ class CourseFilter(django_filters.FilterSet):
     level = CharInFilter(field_name="level", lookup_expr="in")
     language = CharInFilter(field_name="language", lookup_expr="in")
     course_type = CharInFilter(field_name="course_type", lookup_expr="in")
-    plan_kind = CharInFilter(field_name="pricing_plans__kind", lookup_expr="in")
+    format_type = CharInFilter(field_name="delivery_formats__format_type", lookup_expr="in")
     price_min = django_filters.NumberFilter(field_name="min_price", lookup_expr="gte")
     price_max = django_filters.NumberFilter(field_name="min_price", lookup_expr="lte")
     with_certificate = django_filters.BooleanFilter(field_name="with_certificate")
@@ -56,7 +56,7 @@ class CourseFilter(django_filters.FilterSet):
             "level",
             "language",
             "course_type",
-            "plan_kind",
+            "format_type",
             "price_min",
             "price_max",
             "with_certificate",

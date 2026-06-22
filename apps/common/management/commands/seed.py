@@ -17,7 +17,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from apps.courses.models import Category, Cohort, Course, PricingPlan, Tag
+from apps.courses.models import Category, Cohort, Course, CourseDeliveryFormat, PricingPlan, Tag
 from apps.curriculum.models import Lesson, Module
 from apps.enrollments.models import Enrollment, LessonCompletion
 from apps.reviews.models import Review
@@ -94,11 +94,13 @@ class Command(BaseCommand):
             with_certificate=True, is_on_sale=True, duration_hours=60,
         )
         self._curriculum(django_course, with_meeting=True)
-        self._plan(django_course, PricingPlan.KindChoices.GROUP,
-                   Decimal("149.99"), "USD", installment_count=4, installment_amount=Decimal("40.00"))
-        self._plan(django_course, PricingPlan.KindChoices.INDIVIDUAL, Decimal("299.00"), "USD")
-        self._cohort(django_course, Cohort.DeliveryModeChoices.GROUP, 3, 5, 10, group_size=15, days_ahead=30)
-        self._cohort(django_course, Cohort.DeliveryModeChoices.INDIVIDUAL, 4, 3, 6, days_ahead=14)
+        grp_fmt_django = self._format_with_price(
+            django_course, "group", Decimal("149.99"), "USD",
+            installment_count=4, installment_amount=Decimal("40.00"),
+        )
+        self._format_with_price(django_course, "individual", Decimal("299.00"), "USD")
+        self._cohort(django_course, 3, 5, 10, group_size=15, days_ahead=30, delivery_format=grp_fmt_django)
+        self._cohort(django_course, 4, 3, 6, days_ahead=14)
         self._enroll(students[0], django_course, completed=2)
         self._enroll(students[1], django_course, completed=1)
         self._enroll(students[2], django_course, completed=0)
@@ -120,8 +122,7 @@ class Command(BaseCommand):
             with_certificate=True, duration_hours=35,
         )
         self._curriculum(react_course)
-        self._plan(react_course, PricingPlan.KindChoices.GROUP, Decimal("120.00"), "EUR")
-        self._cohort(react_course, Cohort.DeliveryModeChoices.GROUP, 2, 4, 8, group_size=30, days_ahead=45)
+        self._format_with_price(react_course, "self_paced", Decimal("120.00"), "EUR")
         self._enroll(students[1], react_course, completed=3)
         self._enroll(students[3], react_course, completed=0)
         self._review(react_course, students[1].user, 5, "Clicked for me finally.")
@@ -141,10 +142,12 @@ class Command(BaseCommand):
             duration_hours=24,
         )
         self._curriculum(ux_course, with_meeting=True)
-        self._plan(ux_course, PricingPlan.KindChoices.INDIVIDUAL,
-                   Decimal("5000.00"), "UAH", installment_count=5, installment_amount=Decimal("1100.00"))
-        self._plan(ux_course, PricingPlan.KindChoices.GROUP, Decimal("3000.00"), "UAH")
-        self._cohort(ux_course, Cohort.DeliveryModeChoices.BOTH, 2, 6, 12, group_size=12, days_ahead=21)
+        self._format_with_price(
+            ux_course, "individual", Decimal("5000.00"), "UAH",
+            installment_count=5, installment_amount=Decimal("1100.00"),
+        )
+        grp_fmt_ux = self._format_with_price(ux_course, "group", Decimal("3000.00"), "UAH")
+        self._cohort(ux_course, 2, 6, 12, group_size=12, days_ahead=21, delivery_format=grp_fmt_ux)
         self._enroll(students[4], ux_course, completed=1)
         self._review(ux_course, students[4].user, 4, "Loved the hands-on critiques.")
 
@@ -163,8 +166,8 @@ class Command(BaseCommand):
             with_certificate=True, duration_hours=50,
         )
         self._curriculum(data_course)
-        self._plan(data_course, PricingPlan.KindChoices.GROUP, Decimal("199.00"), "USD")
-        self._cohort(data_course, Cohort.DeliveryModeChoices.GROUP, 3, 5, 9, group_size=20, days_ahead=60)
+        grp_fmt_data = self._format_with_price(data_course, "group", Decimal("199.00"), "USD")
+        self._cohort(data_course, 3, 5, 9, group_size=20, days_ahead=60, delivery_format=grp_fmt_data)
         self._enroll(students[2], data_course, completed=0)
         self._enroll(students[3], data_course, completed=2)
 
@@ -286,22 +289,27 @@ class Command(BaseCommand):
                     },
                 )
 
-    def _plan(self, course, kind, price, currency, installment_count=None,
-              installment_amount=None):
-        return PricingPlan.objects.get_or_create(
-            course=course, kind=kind,
+    def _format_with_price(self, course, format_type, price, currency,
+                            installment_count=None, installment_amount=None):
+        fmt, _ = CourseDeliveryFormat.objects.get_or_create(
+            course=course, format_type=format_type,
+        )
+        PricingPlan.objects.update_or_create(
+            delivery_format=fmt,
             defaults={"price": price, "currency": currency,
                       "installment_count": installment_count,
                       "installment_amount": installment_amount},
-        )[0]
+        )
+        return fmt
 
-    def _cohort(self, course, delivery_mode, months, hpw_min, hpw_max,
-                group_size=None, days_ahead=30):
+    def _cohort(self, course, months, hpw_min, hpw_max,
+                group_size=None, days_ahead=30, delivery_format=None):
         start = (timezone.now() + timedelta(days=days_ahead)).date()
         return Cohort.objects.get_or_create(
-            course=course, delivery_mode=delivery_mode, start_date=start,
+            course=course, start_date=start,
             defaults={"duration_months": months, "hours_per_week_min": hpw_min,
-                      "hours_per_week_max": hpw_max, "group_size": group_size},
+                      "hours_per_week_max": hpw_max, "group_size": group_size,
+                      "delivery_format": delivery_format},
         )[0]
 
     def _enroll(self, student, course, completed=0):

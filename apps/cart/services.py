@@ -22,7 +22,8 @@ class CartService:
             "course__teacher_profile__user",
             "course__category",
             "pricing_plan",
-        ).prefetch_related("course__pricing_plans", "course__tags")
+            "pricing_plan__delivery_format",
+        ).prefetch_related("course__delivery_formats", "course__delivery_formats__pricing", "course__tags")
 
     @classmethod
     def get_base_queryset(cls):
@@ -95,7 +96,7 @@ class CartService:
         existing_currencies = {
             item.currency
             for item in cart.items.select_related("pricing_plan", "course").prefetch_related(
-                "course__pricing_plans"
+                "course__delivery_formats", "course__delivery_formats__pricing"
             )
             if item.currency
         }

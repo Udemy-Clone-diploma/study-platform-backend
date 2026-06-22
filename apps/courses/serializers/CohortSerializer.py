@@ -8,12 +8,13 @@ class CohortSerializer(serializers.ModelSerializer):
         model = Cohort
         fields = [
             "id",
+            "delivery_format",
             "duration_months",
             "hours_per_week_min",
             "hours_per_week_max",
             "group_size",
-            "delivery_mode",
             "start_date",
+            "enrollment_deadline",
         ]
 
     def validate(self, attrs):

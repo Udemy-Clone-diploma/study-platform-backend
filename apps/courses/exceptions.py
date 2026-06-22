@@ -10,5 +10,9 @@ class DuplicatePricingKindError(CoursesError):
     """A PricingPlan already exists for this course and kind."""
 
 
+class DuplicateDeliveryFormatError(CoursesError):
+    """A CourseDeliveryFormat with this format_type already exists for this course."""
+
+
 class PendingEditLockedError(CoursesError):
     """Operation not allowed because the pending edit is currently under moderation."""

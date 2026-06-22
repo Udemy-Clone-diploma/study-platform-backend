@@ -31,8 +31,9 @@ class CheckoutService(PaymentBaseService):
         queryset = cart.items.select_related(
             "course",
             "pricing_plan",
+            "pricing_plan__delivery_format",
             "course__teacher_profile__user",
-        ).prefetch_related("course__pricing_plans")
+        ).prefetch_related("course__delivery_formats__pricing")
 
         if selected_cart_item_ids is not None:
             unique_item_ids = list(dict.fromkeys(selected_cart_item_ids))
@@ -208,7 +209,7 @@ class CheckoutService(PaymentBaseService):
                     pricing_plan=item.selected_pricing_plan,
                     course_title=item.course.title,
                     course_slug=item.course.slug,
-                    pricing_plan_kind=item.selected_pricing_plan.kind,
+                    pricing_plan_kind=item.selected_pricing_plan.delivery_format.format_type,
                     unit_amount=item_totals[item.id],
                     currency=currency,
                 )
