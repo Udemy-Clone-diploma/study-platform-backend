@@ -24,7 +24,7 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     for field in [
         "title", "subtitle", "short_description", "full_description",
         "level", "language", "mode", "delivery_type", "course_type",
-        "duration_hours", "with_certificate", "is_on_sale",
+        "with_certificate", "is_on_sale",
     ]:
         if getattr(pending_edit, field) != getattr(course, field):
             changed.append(field)
@@ -212,7 +212,7 @@ class PendingEditService:
         for field in [
             "title", "subtitle", "short_description", "full_description",
             "level", "language", "mode", "delivery_type", "course_type",
-            "duration_hours", "with_certificate", "is_on_sale", "category",
+            "with_certificate", "is_on_sale", "category",
         ]:
             setattr(course, field, getattr(pending_edit, field))
 
