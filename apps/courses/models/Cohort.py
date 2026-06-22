@@ -18,12 +18,13 @@ class Cohort(models.Model):
         blank=True,
         related_name="cohorts",
     )
-    duration_months = models.PositiveSmallIntegerField()
-    hours_per_week_min = models.PositiveSmallIntegerField()
-    hours_per_week_max = models.PositiveSmallIntegerField()
+    name = models.CharField(max_length=100, null=True, blank=True)
+    duration_months = models.PositiveSmallIntegerField(default=0)
+    hours_per_week = models.PositiveSmallIntegerField(default=0)
     group_size = models.PositiveSmallIntegerField(null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     enrollment_deadline = models.DateField(null=True, blank=True)
+    is_enrollment_open = models.BooleanField(default=True)
 
     class Meta:
         db_table = "cohorts"

@@ -53,6 +53,13 @@ class CartItem(models.Model):
         blank=True,
         related_name="cart_items",
     )
+    cohort = models.ForeignKey(
+        "courses.Cohort",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cart_items",
+    )
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

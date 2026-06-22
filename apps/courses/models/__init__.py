@@ -1,6 +1,7 @@
 from .ApprovedCourseRecord import ApprovedCourseRecord
 from .Category import Category
 from .Cohort import Cohort
+from .CohortMember import CohortMember
 from .Course import Course
 from .CourseDeliveryFormat import CourseDeliveryFormat
 from .CoursePendingEdit import CoursePendingEdit
@@ -10,7 +11,7 @@ from .RejectedCourseRecord import RejectedCourseRecord
 from .Tag import Tag
 
 __all__ = [
-    "ApprovedCourseRecord", "Category", "Cohort", "Course", "CourseDeliveryFormat",
-    "CoursePendingEdit", "ModerationReview", "PricingPlan",
-    "RejectedCourseRecord", "Tag",
+    "ApprovedCourseRecord", "Category", "Cohort", "CohortMember",
+    "Course", "CourseDeliveryFormat", "CoursePendingEdit", "ModerationReview",
+    "PricingPlan", "RejectedCourseRecord", "Tag",
 ]

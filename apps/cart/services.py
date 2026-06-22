@@ -23,6 +23,7 @@ class CartService:
             "course__category",
             "pricing_plan",
             "pricing_plan__delivery_format",
+            "cohort",
         ).prefetch_related("course__delivery_formats", "course__delivery_formats__pricing", "course__tags")
 
     @classmethod
@@ -112,6 +113,7 @@ class CartService:
         cart: Cart,
         course: Course,
         pricing_plan: PricingPlan | None = None,
+        cohort=None,
     ) -> Cart:
         cls._validate_course_is_available(course)
         cls._validate_student_is_not_enrolled(cart.student_profile, course)
@@ -120,7 +122,7 @@ class CartService:
         _, created = CartItem.objects.get_or_create(
             cart=cart,
             course=course,
-            defaults={"pricing_plan": pricing_plan},
+            defaults={"pricing_plan": pricing_plan, "cohort": cohort},
         )
         if not created:
             raise serializers.ValidationError(
@@ -142,6 +144,7 @@ class CartService:
             cart,
             validated_data["course"],
             validated_data.get("pricing_plan"),
+            validated_data.get("cohort"),
         )
         return cls.serialize_cart(cart, context=context)
 

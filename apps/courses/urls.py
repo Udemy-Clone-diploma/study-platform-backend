@@ -17,6 +17,9 @@ from apps.courses.views import (
     MyRejectedModerationCoursesView,
     UnassignedModerationCoursesView,
     CohortDetailView,
+    CohortMemberDetailView,
+    CohortMemberListCreateView,
+    CourseEnrolledStudentsView,
     LessonDocumentDetailView,
     LessonDocumentListView,
     CohortListCreateView,
@@ -119,6 +122,21 @@ urlpatterns = [
         "courses/<slug:slug>/cohorts/<int:id>/",
         CohortDetailView.as_view(),
         name="cohorts-detail",
+    ),
+    path(
+        "courses/<slug:slug>/cohorts/<int:cohort_id>/members/",
+        CohortMemberListCreateView.as_view(),
+        name="cohort-members-list",
+    ),
+    path(
+        "courses/<slug:slug>/cohorts/<int:cohort_id>/members/<int:member_id>/",
+        CohortMemberDetailView.as_view(),
+        name="cohort-members-detail",
+    ),
+    path(
+        "courses/<slug:slug>/enrolled-students/",
+        CourseEnrolledStudentsView.as_view(),
+        name="course-enrolled-students",
     ),
     path(
         "categories/featured/",

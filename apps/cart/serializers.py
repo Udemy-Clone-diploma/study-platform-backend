@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.cart.models import Cart, CartItem
 from apps.common.files import absolute_media_url
-from apps.courses.models import Course, PricingPlan
+from apps.courses.models import Cohort, Course, PricingPlan
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -100,10 +100,18 @@ class CartItemAddSerializer(serializers.Serializer):
         allow_null=True,
         write_only=True,
     )
+    cohort_id = serializers.PrimaryKeyRelatedField(
+        queryset=Cohort.objects.select_related("course"),
+        source="cohort",
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
 
     def validate(self, attrs):
         course = attrs["course"]
         pricing_plan = attrs.get("pricing_plan")
+        cohort = attrs.get("cohort")
 
         if pricing_plan is not None and pricing_plan.delivery_format.course_id != course.id:
             raise serializers.ValidationError(
@@ -115,6 +123,20 @@ class CartItemAddSerializer(serializers.Serializer):
             pricing_plan = _PricingPlan.objects.filter(delivery_format__course=course).order_by("price", "id").first()
             if pricing_plan is not None:
                 attrs["pricing_plan"] = pricing_plan
+
+        if cohort is not None:
+            if cohort.course_id != course.id:
+                raise serializers.ValidationError(
+                    {"cohort_id": "Cohort does not belong to this course."}
+                )
+            if not cohort.is_enrollment_open:
+                raise serializers.ValidationError(
+                    {"cohort_id": "This cohort is not open for enrollment."}
+                )
+            if cohort.group_size is not None and cohort.members.count() >= cohort.group_size:
+                raise serializers.ValidationError(
+                    {"cohort_id": "This cohort is full."}
+                )
 
         return attrs
 

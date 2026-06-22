@@ -33,6 +33,7 @@ class CheckoutService(PaymentBaseService):
             "pricing_plan",
             "pricing_plan__delivery_format",
             "course__teacher_profile__user",
+            "cohort",
         ).prefetch_related("course__delivery_formats__pricing")
 
         if selected_cart_item_ids is not None:
@@ -207,6 +208,7 @@ class CheckoutService(PaymentBaseService):
                     order=order,
                     course=item.course,
                     pricing_plan=item.selected_pricing_plan,
+                    cohort=item.cohort,
                     course_title=item.course.title,
                     course_slug=item.course.slug,
                     pricing_plan_kind=item.selected_pricing_plan.delivery_format.format_type,
@@ -250,13 +252,14 @@ class CheckoutService(PaymentBaseService):
                     payment=payment,
                     course=item.course,
                     pricing_plan=item.pricing_plan,
+                    cohort=item.cohort,
                     course_title=item.course_title,
                     course_slug=item.course_slug,
                     pricing_plan_kind=item.pricing_plan_kind,
                     unit_amount=item.unit_amount,
                     currency=item.currency,
                 )
-                for item in order.items.select_related("course", "pricing_plan")
+                for item in order.items.select_related("course", "pricing_plan", "cohort")
             ]
         )
 

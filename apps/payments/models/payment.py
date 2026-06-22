@@ -171,6 +171,13 @@ class PaymentItem(models.Model):
         blank=True,
         related_name="payment_items",
     )
+    cohort = models.ForeignKey(
+        "courses.Cohort",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_items",
+    )
     course_title = models.CharField(max_length=255)
     course_slug = models.SlugField()
     pricing_plan_kind = models.CharField(max_length=20, blank=True, default="")

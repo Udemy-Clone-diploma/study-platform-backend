@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.cart.models import CartItem
+from apps.courses.models import CohortMember
 from apps.enrollments.models import Enrollment
 from apps.payments.models import (
     Order,
@@ -278,9 +279,9 @@ class WebhookService(PaymentBaseService):
     def _grant_enrollments(payment: Payment) -> None:
         order = payment.order if payment.order_id else None
         items = (
-            order.items.select_related("course")
+            order.items.select_related("course", "cohort")
             if order is not None
-            else payment.items.select_related("course")
+            else payment.items.select_related("course", "cohort")
         )
         access_order_id = order.id if order is not None else payment.id
 
@@ -307,6 +308,12 @@ class WebhookService(PaymentBaseService):
                         "access_until",
                         "access_granted_at",
                     ]
+                )
+
+            if item.cohort_id:
+                CohortMember.objects.get_or_create(
+                    cohort_id=item.cohort_id,
+                    enrollment=enrollment,
                 )
 
     @staticmethod
