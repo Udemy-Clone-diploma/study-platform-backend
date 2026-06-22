@@ -6,6 +6,8 @@ from django.views.generic import RedirectView
 from django.views.static import serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.payments.views import StripeWebhookView
+
 
 def health(request):
     return JsonResponse(
@@ -17,11 +19,15 @@ def health(request):
 urlpatterns = [
     path("", RedirectView.as_view(url="/api/v1/", permanent=False)),
     path("health", health, name="health"),
+    path("webhook", StripeWebhookView.as_view(), name="stripe-webhook-root"),
+    path("webhook/", StripeWebhookView.as_view(), name="stripe-webhook-root-slash"),
     path("admin/", admin.site.urls),
     path("api/v1/", include("apps.users.urls")),
     path("api/v1/", include("apps.courses.urls")),
+    path("api/v1/", include("apps.cart.urls")),
     path("api/v1/", include("apps.curriculum.urls")),
     path("api/v1/", include("apps.enrollments.urls")),
+    path("api/v1/", include("apps.payments.urls")),
     path("api/v1/", include("apps.reviews.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

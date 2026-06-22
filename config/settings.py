@@ -49,9 +49,11 @@ LOCAL_APPS = [
     "apps.common",
     "apps.users",
     "apps.courses",
+    "apps.cart",
     "apps.curriculum",
     "apps.enrollments",
     "apps.reviews",
+    "apps.payments",
 ]
 
 THIRD_PARTY_APPS = [
@@ -177,7 +179,9 @@ SPECTACULAR_SETTINGS = {
         {"name": "Users", "description": "Admin user management and top teachers listing."},
         {"name": "Courses", "description": "Course CRUD, new courses, and popular courses."},
         {"name": "Categories", "description": "Course category listing and featured categories."},
+        {"name": "Cart", "description": "Student course cart operations."},
         {"name": "Enrollments", "description": "Course enrollment access records."},
+        {"name": "Payments", "description": "Stripe checkout sessions and payment history."},
     ],
     "ENUM_NAME_OVERRIDES": {
         "UserLanguageEnum": "apps.users.models.User.LanguageChoices",
@@ -214,6 +218,13 @@ EMAIL_VERIFICATION_TIMEOUT = int(timedelta(days=2).total_seconds())
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+
+INVOICE_COMPANY_NAME = config("INVOICE_COMPANY_NAME", default="Nexo4You")
+INVOICE_COMPANY_EMAIL = config("INVOICE_COMPANY_EMAIL", default="")
+INVOICE_COMPANY_ADDRESS = config("INVOICE_COMPANY_ADDRESS", default="")
+
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
     default=FRONTEND_URL,
@@ -235,3 +246,6 @@ EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "noreply@localhost"
+
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="")
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="")
