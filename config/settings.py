@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -52,6 +53,7 @@ LOCAL_APPS = [
     "apps.cart",
     "apps.curriculum",
     "apps.enrollments",
+    "apps.homework",
     "apps.reviews",
     "apps.payments",
 ]
@@ -205,10 +207,21 @@ MEDIA_ROOT = BASE_DIR / "media"
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="")
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default=None)
+
+
+if DEBUG:
+    DEFAULT_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
+else:
+    if not AWS_STORAGE_BUCKET_NAME:
+        raise ImproperlyConfigured(
+            "AWS_STORAGE_BUCKET_NAME must be set when DEBUG=False."
+        )
+    DEFAULT_STORAGE_BACKEND = "storages.backends.s3.S3Storage"
+
 STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
+    "default": {"BACKEND": DEFAULT_STORAGE_BACKEND},
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
@@ -246,6 +259,3 @@ EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "noreply@localhost"
-
-AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="")
-AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="")
