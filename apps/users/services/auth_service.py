@@ -59,8 +59,8 @@ class AuthService:
         token.blacklist()
 
     @staticmethod
-    def refresh_access_token(refresh_token_str: str) -> str:
-        """Validates refresh token and user state. Returns new access token string."""
+    def refresh_access_token(refresh_token_str: str) -> dict:
+        """Validates refresh token and user state. Returns refreshed token payload."""
         token = RefreshToken(refresh_token_str)
         user_id = token[jwt_settings.USER_ID_CLAIM]  # type: ignore
         user = User.all_objects.get(pk=user_id)
@@ -73,7 +73,17 @@ class AuthService:
 
         access = token.access_token
         access["role"] = user.role
-        return str(access)
+        payload = {"access": str(access)}
+
+        if jwt_settings.ROTATE_REFRESH_TOKENS:
+            if jwt_settings.BLACKLIST_AFTER_ROTATION:
+                token.blacklist()
+
+            refresh = RefreshToken.for_user(user)
+            refresh["role"] = user.role
+            payload["refresh"] = str(refresh)
+
+        return payload
 
     @staticmethod
     def verify_email(uidb64: str, token: str) -> None:
