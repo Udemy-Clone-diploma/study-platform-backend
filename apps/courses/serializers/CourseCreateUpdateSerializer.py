@@ -28,7 +28,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             "with_certificate", "is_on_sale",
             "status", "tag_ids",
         ]
-        read_only_fields = ["lessons_count"]
+        read_only_fields = ["lessons_count", "duration_hours"]
 
     def validate_full_description(self, value):
         return sanitize_html(value)

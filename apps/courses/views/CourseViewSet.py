@@ -64,7 +64,8 @@ class CourseViewSet(
                 "modules__lessons__items__test__questions",
                 "modules__tests",
                 "modules__tests__questions",
-                "pricing_plans",
+                "delivery_formats",
+                "delivery_formats__pricing",
                 "cohorts",
             )
         return queryset

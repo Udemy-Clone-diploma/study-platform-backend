@@ -158,7 +158,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -177,7 +177,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -195,7 +195,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=other_plan,
             course_title=other_course.title,
             course_slug=other_course.slug,
-            pricing_plan_kind=other_plan.kind,
+            pricing_plan_kind=other_plan.delivery_format.format_type,
             unit_amount=other_plan.price,
             currency=other_plan.currency,
         )
@@ -213,7 +213,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -282,7 +282,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount="25.00",
             currency=self.plan.currency,
         )
@@ -340,7 +340,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -393,7 +393,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount="25.00",
             currency=self.plan.currency,
         )
@@ -421,7 +421,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount="25.00",
             currency=self.plan.currency,
         )
@@ -526,7 +526,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -578,7 +578,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -630,7 +630,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -649,7 +649,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -713,7 +713,7 @@ class PaymentCheckoutTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -766,7 +766,7 @@ class OrderInvoiceTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -827,7 +827,7 @@ class PaymentReceiptTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )
@@ -850,7 +850,7 @@ class PaymentReceiptTests(APITestCase):
             pricing_plan=self.plan,
             course_title=self.course.title,
             course_slug=self.course.slug,
-            pricing_plan_kind=self.plan.kind,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
             unit_amount=self.plan.price,
             currency=self.plan.currency,
         )

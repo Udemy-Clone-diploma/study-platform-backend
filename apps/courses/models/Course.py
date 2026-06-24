@@ -100,7 +100,7 @@ class Course(models.Model):
         choices=CourseTypeChoices.choices,
     )
 
-    duration_hours = models.PositiveIntegerField()
+    duration_hours = models.PositiveIntegerField(null=True, blank=True, default=0)
 
     lessons_count = models.PositiveIntegerField(default=0)
 

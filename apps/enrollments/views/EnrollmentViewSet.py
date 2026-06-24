@@ -4,6 +4,7 @@ from rest_framework import filters, mixins, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.courses.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
     DuplicateEnrollmentError,
@@ -84,6 +85,16 @@ class EnrollmentViewSet(
             return Response(
                 {"course_id": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except SlotNotAvailableError as exc:
+            return Response(
+                {"schedule_slot_id": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except SlotAlreadyBookedError as exc:
+            return Response(
+                {"schedule_slot_id": str(exc)},
+                status=status.HTTP_409_CONFLICT,
             )
 
         return Response(

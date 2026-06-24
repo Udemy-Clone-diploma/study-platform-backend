@@ -25,6 +25,9 @@ class LessonItemSerializer(serializers.ModelSerializer):
             "duration_minutes",
             # TEST
             "test",
+            # META
+            "created_at",
+            "updated_at",
         ]
 
     def get_video_url(self, obj) -> str | None:

@@ -44,7 +44,7 @@ class CoursePendingEditWriteSerializer(serializers.ModelSerializer):
         fields = [
             "title", "subtitle", "short_description", "full_description", "image",
             "level", "language", "mode", "delivery_type", "course_type",
-            "duration_hours", "with_certificate", "is_on_sale",
+            "with_certificate", "is_on_sale",
             "category_id", "tag_ids",
             "modules_snapshot",
         ]

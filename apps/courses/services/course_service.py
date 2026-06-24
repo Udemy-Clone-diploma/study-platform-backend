@@ -21,6 +21,7 @@ from apps.courses.models import (
     PricingPlan,
     RejectedCourseRecord,
 )
+from apps.courses.models import CourseDeliveryFormat
 from apps.courses.serializers import (
     CategorySerializer,
     CourseCreateUpdateSerializer,
@@ -46,12 +47,12 @@ class CourseService:
     @staticmethod
     def annotate_min_price(queryset):
         cheapest_plan = (
-            PricingPlan.objects.filter(course=OuterRef("pk"))
+            PricingPlan.objects.filter(delivery_format__course=OuterRef("pk"))
             .order_by("price")
             .values("currency")[:1]
         )
         return queryset.annotate(
-            min_price=Min("pricing_plans__price"),
+            min_price=Min("delivery_formats__pricing__price"),
             min_currency=Subquery(cheapest_plan),
         )
 

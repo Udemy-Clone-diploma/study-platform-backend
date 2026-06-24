@@ -22,13 +22,22 @@ class CourseFilter(django_filters.FilterSet):
     level = CharInFilter(field_name="level", lookup_expr="in")
     language = CharInFilter(field_name="language", lookup_expr="in")
     course_type = CharInFilter(field_name="course_type", lookup_expr="in")
-    plan_kind = CharInFilter(field_name="pricing_plans__kind", lookup_expr="in")
+    format_type = CharInFilter(field_name="delivery_formats__format_type", lookup_expr="in")
     price_min = django_filters.NumberFilter(field_name="min_price", lookup_expr="gte")
     price_max = django_filters.NumberFilter(field_name="min_price", lookup_expr="lte")
     with_certificate = django_filters.BooleanFilter(field_name="with_certificate")
     is_on_sale = django_filters.BooleanFilter(field_name="is_on_sale")
     rating_min = django_filters.NumberFilter(field_name="rating_avg", lookup_expr="gte")
+    plan_kind = django_filters.CharFilter(method="filter_plan_kind")
     search = django_filters.CharFilter(method="filter_search")
+
+    def filter_plan_kind(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            delivery_formats__format_type=value,
+            delivery_formats__pricing__isnull=False,
+        ).distinct()
 
     def filter_search(self, queryset, name, value):
         query = value.strip()
@@ -56,11 +65,12 @@ class CourseFilter(django_filters.FilterSet):
             "level",
             "language",
             "course_type",
-            "plan_kind",
+            "format_type",
             "price_min",
             "price_max",
             "with_certificate",
             "is_on_sale",
             "rating_min",
+            "plan_kind",
             "search",
         ]
