@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
 
-from .models import Category, Cohort, Course, CoursePendingEdit, PricingPlan, Tag
+from .models import Category, Cohort, Course, CourseDeliveryFormat, CoursePendingEdit, PricingPlan, Tag
 
 
 class SoftDeleteAdminMixin:
@@ -33,19 +33,27 @@ class CategoryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 class PricingPlanInline(admin.TabularInline):
     model = PricingPlan
     extra = 0
-    fields = ("kind", "price", "currency", "installment_count", "installment_amount")
+    fields = ("price", "currency", "installment_count", "installment_amount")
+    fk_name = "delivery_format"
+
+
+class CourseDeliveryFormatInline(admin.TabularInline):
+    model = CourseDeliveryFormat
+    extra = 0
+    fields = ("format_type", "start_type", "access_duration_days", "start_date", "enrollment_deadline", "max_students")
+    show_change_link = True
 
 
 class CohortInline(admin.TabularInline):
     model = Cohort
     extra = 0
     fields = (
-        "delivery_mode",
+        "delivery_format",
         "duration_months",
-        "hours_per_week_min",
-        "hours_per_week_max",
+        "hours_per_week",
         "group_size",
         "start_date",
+        "enrollment_deadline",
     )
 
 
@@ -55,16 +63,26 @@ class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_filter = ("status", "is_deleted", "level", "language")
     search_fields = ("title", "slug")
     prepopulated_fields = {"slug": ("title",)}
-    inlines = [PricingPlanInline, CohortInline]
+    inlines = [CourseDeliveryFormatInline, CohortInline]
+
+
+@admin.register(CourseDeliveryFormat)
+class CourseDeliveryFormatAdmin(admin.ModelAdmin):
+    list_display = ("course", "format_type", "start_date", "enrollment_deadline")
+    list_filter = ("format_type",)
+    search_fields = ("course__title", "course__slug")
+    list_select_related = ("course",)
+    raw_id_fields = ("course",)
+    inlines = [PricingPlanInline]
 
 
 @admin.register(PricingPlan)
 class PricingPlanAdmin(admin.ModelAdmin):
-    list_display = ("course", "kind", "price", "currency", "installment_count")
-    list_filter = ("kind", "currency")
-    search_fields = ("course__title", "course__slug")
-    list_select_related = ("course",)
-    raw_id_fields = ("course",)
+    list_display = ("delivery_format", "price", "currency", "installment_count")
+    list_filter = ("currency",)
+    search_fields = ("delivery_format__course__title",)
+    list_select_related = ("delivery_format", "delivery_format__course")
+    raw_id_fields = ("delivery_format",)
 
 
 @admin.register(CoursePendingEdit)
@@ -111,9 +129,9 @@ class CoursePendingEditAdmin(admin.ModelAdmin):
 @admin.register(Cohort)
 class CohortAdmin(admin.ModelAdmin):
     list_display = (
-        "course", "delivery_mode", "duration_months", "start_date", "group_size",
+        "course", "duration_months", "start_date", "group_size",
     )
-    list_filter = ("delivery_mode",)
+    list_filter = ("delivery_format__format_type",)
     search_fields = ("course__title", "course__slug")
-    list_select_related = ("course",)
-    raw_id_fields = ("course",)
+    list_select_related = ("course", "delivery_format")
+    raw_id_fields = ("course", "delivery_format")

@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.cart.models import Cart, CartItem
 from apps.common.files import absolute_media_url
-from apps.courses.models import Course, PricingPlan
+from apps.courses.models import Cohort, Course, PricingPlan
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -46,7 +46,9 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     def get_pricing_plan_kind(self, obj: CartItem) -> str | None:
         plan = obj.selected_pricing_plan
-        return plan.kind if plan else None
+        if plan is None:
+            return None
+        return plan.delivery_format.format_type
 
     def get_installment_count(self, obj: CartItem) -> int | None:
         plan = obj.selected_pricing_plan
@@ -87,13 +89,20 @@ class CartSerializer(serializers.ModelSerializer):
 class CartItemAddSerializer(serializers.Serializer):
     course_id = serializers.PrimaryKeyRelatedField(
         queryset=Course.objects.select_related("teacher_profile__user", "category")
-        .prefetch_related("pricing_plans", "tags"),
+        .prefetch_related("delivery_formats", "delivery_formats__pricing", "tags"),
         source="course",
         write_only=True,
     )
     pricing_plan_id = serializers.PrimaryKeyRelatedField(
-        queryset=PricingPlan.objects.select_related("course"),
+        queryset=PricingPlan.objects.select_related("delivery_format__course"),
         source="pricing_plan",
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    cohort_id = serializers.PrimaryKeyRelatedField(
+        queryset=Cohort.objects.select_related("course"),
+        source="cohort",
         required=False,
         allow_null=True,
         write_only=True,
@@ -102,16 +111,32 @@ class CartItemAddSerializer(serializers.Serializer):
     def validate(self, attrs):
         course = attrs["course"]
         pricing_plan = attrs.get("pricing_plan")
+        cohort = attrs.get("cohort")
 
-        if pricing_plan is not None and pricing_plan.course_id != course.id:
+        if pricing_plan is not None and pricing_plan.delivery_format.course_id != course.id:
             raise serializers.ValidationError(
                 {"pricing_plan_id": "Pricing plan does not belong to this course."}
             )
 
         if pricing_plan is None:
-            pricing_plan = course.pricing_plans.order_by("price", "id").first()
+            from apps.courses.models import PricingPlan as _PricingPlan
+            pricing_plan = _PricingPlan.objects.filter(delivery_format__course=course).order_by("price", "id").first()
             if pricing_plan is not None:
                 attrs["pricing_plan"] = pricing_plan
+
+        if cohort is not None:
+            if cohort.course_id != course.id:
+                raise serializers.ValidationError(
+                    {"cohort_id": "Cohort does not belong to this course."}
+                )
+            if not cohort.is_enrollment_open:
+                raise serializers.ValidationError(
+                    {"cohort_id": "This cohort is not open for enrollment."}
+                )
+            if cohort.group_size is not None and cohort.members.count() >= cohort.group_size:
+                raise serializers.ValidationError(
+                    {"cohort_id": "This cohort is full."}
+                )
 
         return attrs
 

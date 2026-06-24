@@ -43,7 +43,15 @@ class LessonDetailView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response(LessonSerializer(lesson).data)
+        return Response(
+            LessonSerializer(
+                lesson,
+                context={
+                    "request": request,
+                    "has_enrollment_access": has_enrollment_access,
+                },
+            ).data
+        )
 
     @staticmethod
     def _has_full_access(user, course: Course) -> bool:

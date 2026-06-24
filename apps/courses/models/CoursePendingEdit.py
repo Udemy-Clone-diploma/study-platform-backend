@@ -37,7 +37,7 @@ class CoursePendingEdit(models.Model):
     mode = models.CharField(max_length=20)
     delivery_type = models.CharField(max_length=20)
     course_type = models.CharField(max_length=30)
-    duration_hours = models.PositiveIntegerField()
+    duration_hours = models.PositiveIntegerField(null=True, blank=True, default=0)
     with_certificate = models.BooleanField(default=False)
     is_on_sale = models.BooleanField(default=False)
     category = models.ForeignKey(

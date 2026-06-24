@@ -1,24 +1,17 @@
 from django.db import models
 
-from .Course import Course
-
 
 class PricingPlan(models.Model):
-    class KindChoices(models.TextChoices):
-        GROUP = "group", "Group"
-        INDIVIDUAL = "individual", "Individual"
-
     class CurrencyChoices(models.TextChoices):
         USD = "USD", "USD"
         EUR = "EUR", "EUR"
         UAH = "UAH", "UAH"
 
-    course = models.ForeignKey(
-        Course,
+    delivery_format = models.OneToOneField(
+        "courses.CourseDeliveryFormat",
         on_delete=models.CASCADE,
-        related_name="pricing_plans",
+        related_name="pricing",
     )
-    kind = models.CharField(max_length=20, choices=KindChoices.choices)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(
         max_length=3,
@@ -32,11 +25,6 @@ class PricingPlan(models.Model):
 
     class Meta:
         db_table = "pricing_plans"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["course", "kind"], name="unique_pricing_plan_per_kind",
-            ),
-        ]
 
     def __str__(self):
-        return f"{self.course.title} - {self.kind}"
+        return f"{self.delivery_format} – {self.price} {self.currency}"

@@ -1,32 +1,28 @@
 from rest_framework import serializers
 
-from apps.courses.models import Cohort
+from apps.courses.models import Cohort, CohortMember
+from apps.courses.serializers.CohortGroupSerializer import CohortMemberSerializer
 
 
 class CohortSerializer(serializers.ModelSerializer):
+    members = CohortMemberSerializer(many=True, read_only=True)
+    members_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Cohort
         fields = [
             "id",
+            "delivery_format",
+            "name",
             "duration_months",
-            "hours_per_week_min",
-            "hours_per_week_max",
+            "hours_per_week",
             "group_size",
-            "delivery_mode",
             "start_date",
+            "enrollment_deadline",
+            "is_enrollment_open",
+            "members_count",
+            "members",
         ]
 
-    def validate(self, attrs):
-        hours_min = attrs.get(
-            "hours_per_week_min",
-            getattr(self.instance, "hours_per_week_min", None),
-        )
-        hours_max = attrs.get(
-            "hours_per_week_max",
-            getattr(self.instance, "hours_per_week_max", None),
-        )
-        if hours_min is not None and hours_max is not None and hours_min > hours_max:
-            raise serializers.ValidationError(
-                {"hours_per_week_min": "hours_per_week_min cannot exceed hours_per_week_max."}
-            )
-        return attrs
+    def get_members_count(self, obj):
+        return obj.members.count()

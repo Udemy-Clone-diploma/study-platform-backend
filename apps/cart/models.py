@@ -53,6 +53,13 @@ class CartItem(models.Model):
         blank=True,
         related_name="cart_items",
     )
+    cohort = models.ForeignKey(
+        "courses.Cohort",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cart_items",
+    )
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -69,7 +76,8 @@ class CartItem(models.Model):
     def selected_pricing_plan(self):
         if self.pricing_plan_id:
             return self.pricing_plan
-        return self.course.pricing_plans.order_by("price", "id").first()
+        from apps.courses.models import PricingPlan
+        return PricingPlan.objects.filter(delivery_format__course=self.course).order_by("price", "id").first()
 
     @property
     def unit_price(self) -> Decimal:

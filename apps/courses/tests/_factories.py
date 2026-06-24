@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from apps.courses.models import Category, Cohort, Course, PricingPlan
+from apps.courses.models import Category, Cohort, Course, CourseDeliveryFormat, PricingPlan
 from apps.users.models import TeacherProfile, User
 
 
@@ -48,34 +48,31 @@ def make_course(teacher_profile, *, title="Course", slug="course", **overrides):
 def make_pricing_plan(
     course,
     *,
-    kind=PricingPlan.KindChoices.GROUP,
+    format_type="group",
     price="100.00",
     currency=PricingPlan.CurrencyChoices.USD,
     **overrides,
 ):
-    return PricingPlan.objects.create(
-        course=course,
-        kind=kind,
-        price=price,
-        currency=currency,
-        **overrides,
+    fmt, _ = CourseDeliveryFormat.objects.get_or_create(
+        course=course, format_type=format_type,
     )
+    plan, _ = PricingPlan.objects.update_or_create(
+        delivery_format=fmt,
+        defaults={"price": price, "currency": currency, **overrides},
+    )
+    return plan
 
 
 def make_cohort(
     course,
     *,
     duration_months=3,
-    hours_per_week_min=5,
-    hours_per_week_max=10,
-    delivery_mode=Cohort.DeliveryModeChoices.GROUP,
+    hours_per_week=5,
     **overrides,
 ):
     return Cohort.objects.create(
         course=course,
         duration_months=duration_months,
-        hours_per_week_min=hours_per_week_min,
-        hours_per_week_max=hours_per_week_max,
-        delivery_mode=delivery_mode,
+        hours_per_week=hours_per_week,
         **overrides,
     )

@@ -22,16 +22,8 @@ class PricingPlanReadTests(APITestCase):
             slug="draft",
             status=Course.StatusChoices.DRAFT,
         )
-        make_pricing_plan(
-            self.published,
-            kind=PricingPlan.KindChoices.GROUP,
-            price="100.00",
-        )
-        make_pricing_plan(
-            self.published,
-            kind=PricingPlan.KindChoices.INDIVIDUAL,
-            price="200.00",
-        )
+        make_pricing_plan(self.published, format_type="group", price="100.00")
+        make_pricing_plan(self.published, format_type="individual", price="200.00")
 
     def test_anonymous_can_list_plans_for_published_course(self):
         response = self.client.get(
@@ -74,7 +66,6 @@ class PricingPlanWriteTests(APITestCase):
 
     def _payload(self, **overrides):
         data = {
-            "kind": PricingPlan.KindChoices.GROUP,
             "price": "150.00",
             "currency": PricingPlan.CurrencyChoices.USD,
         }
@@ -89,44 +80,14 @@ class PricingPlanWriteTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_other_teacher_cannot_create(self):
-        self.client.force_authenticate(user=self.other_profile.user)
-        response = self.client.post(
-            reverse("pricing-plans-list", args=[self.course.slug]),
-            self._payload(),
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_owner_can_create(self):
+    def test_authenticated_post_returns_405(self):
         self.client.force_authenticate(user=self.owner_profile.user)
         response = self.client.post(
             reverse("pricing-plans-list", args=[self.course.slug]),
             self._payload(),
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["kind"], PricingPlan.KindChoices.GROUP)
-        self.assertEqual(response.data["price"], "150.00")
-
-    def test_admin_can_create_on_any_course(self):
-        self.client.force_authenticate(user=self.admin)
-        response = self.client.post(
-            reverse("pricing-plans-list", args=[self.course.slug]),
-            self._payload(),
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_duplicate_kind_returns_409(self):
-        make_pricing_plan(self.course, kind=PricingPlan.KindChoices.GROUP)
-        self.client.force_authenticate(user=self.owner_profile.user)
-        response = self.client.post(
-            reverse("pricing-plans-list", args=[self.course.slug]),
-            self._payload(),
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_owner_can_patch(self):
         plan = make_pricing_plan(self.course, price="100.00")
@@ -160,53 +121,46 @@ class PricingPlanInstallmentValidationTests(APITestCase):
         )
         self.client.force_authenticate(user=self.owner_profile.user)
 
-    def test_installment_count_only_rejected(self):
+    def test_post_returns_405(self):
         response = self.client.post(
             reverse("pricing-plans-list", args=[self.course.slug]),
-            {
-                "kind": PricingPlan.KindChoices.GROUP,
-                "price": "100.00",
-                "installment_count": 3,
-            },
+            {"price": "100.00", "installment_count": 3},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_patch_installment_validation_count_only_rejected(self):
+        plan = make_pricing_plan(self.course, price="100.00")
+        response = self.client.patch(
+            reverse("pricing-plans-detail", args=[self.course.slug, plan.pk]),
+            {"installment_count": 3},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_installment_count_below_two_rejected(self):
-        response = self.client.post(
-            reverse("pricing-plans-list", args=[self.course.slug]),
-            {
-                "kind": PricingPlan.KindChoices.GROUP,
-                "price": "100.00",
-                "installment_count": 1,
-                "installment_amount": "100.00",
-            },
+    def test_patch_installment_count_below_two_rejected(self):
+        plan = make_pricing_plan(self.course, price="100.00")
+        response = self.client.patch(
+            reverse("pricing-plans-detail", args=[self.course.slug, plan.pk]),
+            {"installment_count": 1, "installment_amount": "100.00"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_installments_must_cover_price(self):
-        response = self.client.post(
-            reverse("pricing-plans-list", args=[self.course.slug]),
-            {
-                "kind": PricingPlan.KindChoices.GROUP,
-                "price": "100.00",
-                "installment_count": 3,
-                "installment_amount": "20.00",
-            },
+    def test_patch_installments_must_cover_price(self):
+        plan = make_pricing_plan(self.course, price="100.00")
+        response = self.client.patch(
+            reverse("pricing-plans-detail", args=[self.course.slug, plan.pk]),
+            {"installment_count": 3, "installment_amount": "20.00"},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_valid_installment_plan_accepted(self):
-        response = self.client.post(
-            reverse("pricing-plans-list", args=[self.course.slug]),
-            {
-                "kind": PricingPlan.KindChoices.INDIVIDUAL,
-                "price": "100.00",
-                "installment_count": 4,
-                "installment_amount": "25.00",
-            },
+    def test_patch_valid_installment_plan_accepted(self):
+        plan = make_pricing_plan(self.course, format_type="individual", price="100.00")
+        response = self.client.patch(
+            reverse("pricing-plans-detail", args=[self.course.slug, plan.pk]),
+            {"installment_count": 4, "installment_amount": "25.00"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

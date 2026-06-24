@@ -21,13 +21,14 @@ from apps.courses.models import (
     PricingPlan,
     RejectedCourseRecord,
 )
+from apps.courses.models import CourseDeliveryFormat
 from apps.courses.serializers import (
     CategorySerializer,
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
     CourseListSerializer,
 )
-from apps.curriculum.models import Lesson, Module, Question, Test
+from apps.curriculum.models import Lesson, LessonItem, Module, Question, Test
 from apps.enrollments.models import Enrollment
 from apps.users.models import User
 
@@ -46,12 +47,12 @@ class CourseService:
     @staticmethod
     def annotate_min_price(queryset):
         cheapest_plan = (
-            PricingPlan.objects.filter(course=OuterRef("pk"))
+            PricingPlan.objects.filter(delivery_format__course=OuterRef("pk"))
             .order_by("price")
             .values("currency")[:1]
         )
         return queryset.annotate(
-            min_price=Min("pricing_plans__price"),
+            min_price=Min("delivery_formats__pricing__price"),
             min_currency=Subquery(cheapest_plan),
         )
 
@@ -375,6 +376,7 @@ class CourseService:
             mode=course.mode,
             delivery_type=course.delivery_type,
             course_type=course.course_type,
+            duration_hours=course.duration_hours,
             with_certificate=course.with_certificate,
             is_on_sale=course.is_on_sale,
             status=Course.StatusChoices.DRAFT,
@@ -384,6 +386,10 @@ class CourseService:
         )
         new_course.tags.set(course.tags.all())
 
+        # First pass: copy modules and their tests, recording old->new test ids so
+        # TEST-type lesson items can be remapped to the freshly copied tests.
+        module_map: dict[int, Module] = {}
+        test_map: dict[int, Test] = {}
         for old_mod in course.modules.order_by("order"):
             new_mod = Module.objects.create(
                 course=new_course,
@@ -391,20 +397,7 @@ class CourseService:
                 description=old_mod.description,
                 order=old_mod.order,
             )
-            for old_lesson in old_mod.lessons.order_by("order"):
-                Lesson.objects.create(
-                    module=new_mod,
-                    title=old_lesson.title,
-                    content=old_lesson.content,
-                    video_url=old_lesson.video_url,
-                    original_video_name=old_lesson.original_video_name,
-                    duration_minutes=old_lesson.duration_minutes,
-                    min_score=old_lesson.min_score,
-                    is_preview=old_lesson.is_preview,
-                    content_type=old_lesson.content_type,
-                    body_html=old_lesson.body_html,
-                    order=old_lesson.order,
-                )
+            module_map[old_mod.id] = new_mod
             for old_test in old_mod.tests.order_by("order"):
                 new_test = Test.objects.create(
                     module=new_mod,
@@ -413,6 +406,7 @@ class CourseService:
                     passing_score=old_test.passing_score,
                     order=old_test.order,
                 )
+                test_map[old_test.id] = new_test
                 for old_q in old_test.questions.order_by("order"):
                     Question.objects.create(
                         test=new_test,
@@ -423,6 +417,33 @@ class CourseService:
                         correct_bool=old_q.correct_bool,
                         sample_answer=old_q.sample_answer,
                         order=old_q.order,
+                    )
+
+        # Second pass: copy lessons and their items, now that every test exists.
+        for old_mod in course.modules.order_by("order"):
+            new_mod = module_map[old_mod.id]
+            for old_lesson in old_mod.lessons.order_by("order"):
+                new_lesson = Lesson.objects.create(
+                    module=new_mod,
+                    title=old_lesson.title,
+                    duration_minutes=old_lesson.duration_minutes,
+                    min_score=old_lesson.min_score,
+                    is_preview=old_lesson.is_preview,
+                    meeting_url=old_lesson.meeting_url,
+                    order=old_lesson.order,
+                )
+                for old_item in old_lesson.items.order_by("order"):
+                    LessonItem.objects.create(
+                        lesson=new_lesson,
+                        item_type=old_item.item_type,
+                        order=old_item.order,
+                        content=old_item.content,
+                        body_html=old_item.body_html,
+                        video=old_item.video,
+                        video_url=old_item.video_url,
+                        original_video_name=old_item.original_video_name,
+                        duration_minutes=old_item.duration_minutes,
+                        test=test_map.get(old_item.test_id),
                     )
 
         return new_course

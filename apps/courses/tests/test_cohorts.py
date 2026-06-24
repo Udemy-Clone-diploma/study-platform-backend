@@ -39,9 +39,7 @@ class CohortWriteTests(APITestCase):
     def _payload(self, **overrides):
         data = {
             "duration_months": 4,
-            "hours_per_week_min": 5,
-            "hours_per_week_max": 10,
-            "delivery_mode": Cohort.DeliveryModeChoices.GROUP,
+            "hours_per_week": 8,
         }
         data.update(overrides)
         return data
@@ -63,16 +61,6 @@ class CohortWriteTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-    def test_hours_min_must_be_le_max(self):
-        self.client.force_authenticate(user=self.owner_profile.user)
-        response = self.client.post(
-            reverse("cohorts-list", args=[self.course.slug]),
-            self._payload(hours_per_week_min=20, hours_per_week_max=10),
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("hours_per_week_min", response.data)
 
     def test_owner_can_patch(self):
         cohort = make_cohort(self.course, duration_months=2)

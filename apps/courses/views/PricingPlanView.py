@@ -3,7 +3,6 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.courses.exceptions import DuplicatePricingKindError
 from apps.courses.models import PricingPlan
 from apps.courses.serializers import PricingPlanSerializer
 from apps.courses.services import PricingPlanService
@@ -13,6 +12,8 @@ from ._course_scoped import ensure_can_modify_course, get_course_for_request
 
 @extend_schema(tags=["PricingPlans"])
 class PricingPlanListCreateView(generics.ListCreateAPIView):
+    """Legacy endpoint: pricing plans nested under a course via delivery_format."""
+
     serializer_class = PricingPlanSerializer
 
     def get_permissions(self):
@@ -22,29 +23,19 @@ class PricingPlanListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
-        return PricingPlan.objects.filter(course=course)
+        return PricingPlan.objects.filter(delivery_format__course=course)
 
     def create(self, request, *args, **kwargs):
-        course = get_course_for_request(self, self.kwargs["slug"])
-        ensure_can_modify_course(request.user, course)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            PricingPlanService.validate_installment_fields(serializer.validated_data)
-        except ValueError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            plan = PricingPlanService.create_for_course(course, serializer.validated_data)
-        except DuplicatePricingKindError as exc:
-            return Response({"kind": str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response(
-            PricingPlanSerializer(plan).data,
-            status=status.HTTP_201_CREATED,
+            {"detail": "Use /delivery-formats/ to manage pricing."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
 
 @extend_schema(tags=["PricingPlans"])
 class PricingPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Legacy endpoint for reading / patching an individual pricing plan."""
+
     serializer_class = PricingPlanSerializer
     lookup_url_kwarg = "id"
     http_method_names = ["get", "patch", "delete"]
@@ -56,11 +47,11 @@ class PricingPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
-        return PricingPlan.objects.filter(course=course)
+        return PricingPlan.objects.filter(delivery_format__course=course)
 
     def partial_update(self, request, *args, **kwargs):
         plan = self.get_object()
-        ensure_can_modify_course(request.user, plan.course)
+        ensure_can_modify_course(request.user, plan.delivery_format.course)
         serializer = self.get_serializer(plan, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         try:
@@ -74,6 +65,6 @@ class PricingPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         plan = self.get_object()
-        ensure_can_modify_course(request.user, plan.course)
+        ensure_can_modify_course(request.user, plan.delivery_format.course)
         plan.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

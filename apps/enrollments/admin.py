@@ -9,6 +9,7 @@ class EnrollmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = (
         "student_profile",
         "course",
+        "delivery_format",
         "order_id",
         "access_status",
         "access_granted_at",
@@ -17,7 +18,7 @@ class EnrollmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
         "is_deleted",
     )
     list_filter = ("access_status", "is_deleted", "course")
-    list_select_related = ("student_profile__user", "course")
+    list_select_related = ("student_profile__user", "course", "delivery_format")
     search_fields = ("student_profile__user__email", "course__title", "course__slug")
 
 

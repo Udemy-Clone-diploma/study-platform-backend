@@ -1,9 +1,11 @@
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils.timezone import now as tz_now
 
 from apps.cart.models import CartItem
-from apps.courses.models import Course
+from apps.courses.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
+from apps.courses.models import Course, PricingPlan
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
     DuplicateEnrollmentError,
@@ -94,6 +96,15 @@ class EnrollmentService:
         )
         cls._validate_course_is_available(course, request_user)
 
+        delivery_format = validated_data.get("delivery_format")
+        if (
+            delivery_format
+            and delivery_format.enrollment_deadline
+            and request_user.role != User.RoleChoices.ADMINISTRATOR
+            and delivery_format.enrollment_deadline < tz_now().date()
+        ):
+            raise CourseNotEnrollableError("Enrollment for this format has closed.")
+
         if Enrollment.objects.filter(
             student_profile=student_profile,
             course=course,
@@ -105,6 +116,7 @@ class EnrollmentService:
         enrollment_data = {
             "student_profile": student_profile,
             "course": course,
+            "delivery_format": validated_data.get("delivery_format"),
         }
 
         if request_user.role == User.RoleChoices.ADMINISTRATOR:
@@ -119,7 +131,32 @@ class EnrollmentService:
                 }
             )
 
-        return Enrollment.objects.create(**enrollment_data)
+        enrollment = Enrollment.objects.create(**enrollment_data)
+
+        # If a schedule_slot_id was supplied (individual delivery format),
+        # book the slot atomically so no other student can claim it.
+        schedule_slot_id = validated_data.get("schedule_slot_id")
+        if schedule_slot_id is not None:
+            cls._book_schedule_slot(enrollment, schedule_slot_id)
+
+        return enrollment
+
+    @staticmethod
+    def _book_schedule_slot(enrollment: "Enrollment", slot_id: int) -> None:
+        from apps.courses.models import ScheduleSlot
+        from apps.courses.services import ScheduleService
+
+        try:
+            slot = ScheduleSlot.objects.select_for_update().get(
+                pk=slot_id,
+                delivery_format__course=enrollment.course,
+            )
+        except ScheduleSlot.DoesNotExist:
+            raise SlotNotAvailableError(
+                "The requested schedule slot does not exist or does not belong to this course."
+            )
+
+        ScheduleService.book_slot(slot, enrollment)
 
     @classmethod
     @transaction.atomic
@@ -133,7 +170,10 @@ class EnrollmentService:
             raise EnrollmentRoleError("Only students can enroll in free courses.")
         if course.status != Course.StatusChoices.PUBLISHED or course.is_deleted:
             raise CourseNotEnrollableError("Only published courses are available for enrollment.")
-        if not course.pricing_plans.filter(price=Decimal("0.00")).exists():
+        if not PricingPlan.objects.filter(
+            delivery_format__course=course,
+            price=Decimal("0.00"),
+        ).exists():
             raise FreeEnrollmentUnavailableError("This course is not available for free enrollment.")
 
         student_profile = cls._student_profile_for_user(user)
