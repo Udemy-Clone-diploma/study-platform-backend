@@ -103,7 +103,7 @@ class CourseFilterTests(APITestCase):
 
         make_pricing_plan(
             self.course_design,
-            kind=PricingPlan.KindChoices.INDIVIDUAL,
+            format_type="individual",
             price="50.00",
         )
 

@@ -99,8 +99,8 @@ class Command(BaseCommand):
             installment_count=4, installment_amount=Decimal("40.00"),
         )
         ind_fmt_django = self._format_with_price(django_course, "individual", Decimal("299.00"), "USD")
-        self._cohort(django_course, 3, 5, 10, group_size=15, days_ahead=30, delivery_format=grp_fmt_django)
-        self._cohort(django_course, 4, 3, 6, days_ahead=14)
+        self._cohort(django_course, 3, 5, group_size=15, days_ahead=30, delivery_format=grp_fmt_django)
+        self._cohort(django_course, 4, 4, days_ahead=14)
         self._enroll(students[0], django_course, completed=2, delivery_format=grp_fmt_django)
         self._enroll(students[1], django_course, completed=1, delivery_format=grp_fmt_django)
         self._enroll(students[2], django_course, completed=0, delivery_format=ind_fmt_django)
@@ -147,7 +147,7 @@ class Command(BaseCommand):
             installment_count=5, installment_amount=Decimal("1100.00"),
         )
         grp_fmt_ux = self._format_with_price(ux_course, "group", Decimal("3000.00"), "UAH")
-        self._cohort(ux_course, 2, 6, 12, group_size=12, days_ahead=21, delivery_format=grp_fmt_ux)
+        self._cohort(ux_course, 2, 6, group_size=12, days_ahead=21, delivery_format=grp_fmt_ux)
         self._enroll(students[4], ux_course, completed=1, delivery_format=grp_fmt_ux)
         self._review(ux_course, students[4].user, 4, "Loved the hands-on critiques.")
 
@@ -167,7 +167,7 @@ class Command(BaseCommand):
         )
         self._curriculum(data_course)
         grp_fmt_data = self._format_with_price(data_course, "group", Decimal("199.00"), "USD")
-        self._cohort(data_course, 3, 5, 9, group_size=20, days_ahead=60, delivery_format=grp_fmt_data)
+        self._cohort(data_course, 3, 5, group_size=20, days_ahead=60, delivery_format=grp_fmt_data)
         self._enroll(students[2], data_course, completed=0, delivery_format=grp_fmt_data)
         self._enroll(students[3], data_course, completed=2, delivery_format=grp_fmt_data)
 
@@ -316,14 +316,13 @@ class Command(BaseCommand):
         )
         return fmt
 
-    def _cohort(self, course, months, hpw_min, hpw_max,
+    def _cohort(self, course, months, hours_per_week,
                 group_size=None, days_ahead=30, delivery_format=None):
         start = (timezone.now() + timedelta(days=days_ahead)).date()
         return Cohort.objects.get_or_create(
             course=course, start_date=start,
-            defaults={"duration_months": months, "hours_per_week_min": hpw_min,
-                      "hours_per_week_max": hpw_max, "group_size": group_size,
-                      "delivery_format": delivery_format},
+            defaults={"duration_months": months, "hours_per_week": hours_per_week,
+                      "group_size": group_size, "delivery_format": delivery_format},
         )[0]
 
     def _enroll(self, student, course, completed=0, delivery_format=None):

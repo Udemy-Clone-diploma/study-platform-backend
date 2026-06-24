@@ -50,8 +50,7 @@ class CohortInline(admin.TabularInline):
     fields = (
         "delivery_format",
         "duration_months",
-        "hours_per_week_min",
-        "hours_per_week_max",
+        "hours_per_week",
         "group_size",
         "start_date",
         "enrollment_deadline",
