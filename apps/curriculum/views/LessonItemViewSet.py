@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.curriculum.exceptions import LessonAlreadyHasTestError
 from apps.curriculum.models import Lesson, LessonItem, Module
 from apps.curriculum.serializers import LessonItemCreateUpdateSerializer, LessonItemSerializer
 from apps.curriculum.services import LessonItemService
@@ -25,9 +26,14 @@ class LessonItemViewSet(viewsets.GenericViewSet):
 
     def create(self, request, *args, **kwargs):
         lesson = self._get_lesson(request, kwargs)
-        serializer = LessonItemCreateUpdateSerializer(data=request.data)
+        serializer = LessonItemCreateUpdateSerializer(
+            data=request.data, context={"request": request, "lesson": lesson},
+        )
         serializer.is_valid(raise_exception=True)
-        item = LessonItemService.create_item(lesson, serializer.validated_data)
+        try:
+            item = LessonItemService.create_item(lesson, serializer.validated_data)
+        except LessonAlreadyHasTestError as exc:
+            return Response({"item_type": str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response(
             LessonItemSerializer(item, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
@@ -36,8 +42,17 @@ class LessonItemViewSet(viewsets.GenericViewSet):
     def partial_update(self, request, *args, **kwargs):
         lesson = self._get_lesson(request, kwargs)
         item = get_object_or_404(LessonItem, pk=kwargs["pk"], lesson=lesson)
-        serializer = LessonItemCreateUpdateSerializer(item, data=request.data, partial=True)
+        serializer = LessonItemCreateUpdateSerializer(
+            item, data=request.data, partial=True,
+            context={"request": request, "lesson": lesson},
+        )
         serializer.is_valid(raise_exception=True)
+        new_type = serializer.validated_data.get("item_type", item.item_type)
+        if new_type == LessonItem.ItemType.TEST:
+            try:
+                LessonItemService.assert_single_test(lesson, exclude_pk=item.pk)
+            except LessonAlreadyHasTestError as exc:
+                return Response({"item_type": str(exc)}, status=status.HTTP_409_CONFLICT)
         item = serializer.save()
         return Response(LessonItemSerializer(item, context={"request": request}).data)
 

@@ -1,3 +1,8 @@
+import os
+
+# Tests always use local file storage and must not require production S3 settings.
+os.environ["DEBUG"] = "True"
+
 from config.settings import *  # noqa: F401, F403
 
 DATABASES = {

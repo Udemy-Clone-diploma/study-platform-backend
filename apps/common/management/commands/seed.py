@@ -18,7 +18,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.courses.models import Category, Cohort, Course, CourseDeliveryFormat, PricingPlan, Tag
-from apps.curriculum.models import Lesson, Module
+from apps.curriculum.models import Lesson, LessonItem, Module
 from apps.enrollments.models import Enrollment, LessonCompletion
 from apps.reviews.models import Review
 from apps.users.models import (
@@ -274,20 +274,34 @@ class Command(BaseCommand):
             )
             for l_order in (1, 2, 3):
                 is_text = l_order == 3
-                Lesson.objects.get_or_create(
+                lesson, _ = Lesson.objects.get_or_create(
                     module=module, order=l_order,
                     defaults={
                         "title": f"Lesson {m_order}.{l_order}",
                         "duration_minutes": 12 + l_order,
                         "is_preview": m_order == 1 and l_order == 1,
-                        "content_type": (Lesson.ContentTypeChoices.TEXT if is_text
-                                         else Lesson.ContentTypeChoices.VIDEO),
-                        "video_url": None if is_text else "https://example.com/video.mp4",
-                        "body_html": "<p>Read-along lesson notes.</p>" if is_text else None,
                         "meeting_url": ("https://meet.example.com/live"
                                         if with_meeting and not is_text else None),
                     },
                 )
+                if is_text:
+                    LessonItem.objects.get_or_create(
+                        lesson=lesson, order=1,
+                        defaults={
+                            "item_type": LessonItem.ItemType.TEXT,
+                            "content": "Read-along lesson notes.",
+                            "body_html": "<p>Read-along lesson notes.</p>",
+                        },
+                    )
+                else:
+                    LessonItem.objects.get_or_create(
+                        lesson=lesson, order=1,
+                        defaults={
+                            "item_type": LessonItem.ItemType.VIDEO,
+                            "video_url": "https://example.com/video.mp4",
+                            "duration_minutes": 12 + l_order,
+                        },
+                    )
 
     def _format_with_price(self, course, format_type, price, currency,
                             installment_count=None, installment_amount=None):
