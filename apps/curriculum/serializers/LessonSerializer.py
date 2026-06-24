@@ -14,5 +14,6 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = [
             "id", "title", "order", "duration_minutes", "is_preview",
-            "min_score", "meeting_url", "documents", "items",
+            "min_score", "meeting_url", "unlock_after_days", "requires_previous",
+            "is_manually_locked", "documents", "items",
         ]

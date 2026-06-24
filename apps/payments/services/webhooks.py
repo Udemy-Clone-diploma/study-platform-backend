@@ -279,23 +279,32 @@ class WebhookService(PaymentBaseService):
     def _grant_enrollments(payment: Payment) -> None:
         order = payment.order if payment.order_id else None
         items = (
-            order.items.select_related("course", "cohort")
+            order.items.select_related("course", "cohort", "pricing_plan__delivery_format")
             if order is not None
-            else payment.items.select_related("course", "cohort")
+            else payment.items.select_related("course", "cohort", "pricing_plan__delivery_format")
         )
         access_order_id = order.id if order is not None else payment.id
 
         for item in items:
             if item.course is None:
                 continue
+            delivery_format = (
+                item.pricing_plan.delivery_format
+                if item.pricing_plan_id and item.pricing_plan
+                else None
+            )
             enrollment, created = Enrollment.objects.get_or_create(
                 student_profile=payment.student_profile,
                 course=item.course,
                 defaults={
                     "order_id": access_order_id,
                     "access_status": Enrollment.AccessStatusChoices.ACTIVE,
+                    "delivery_format": delivery_format,
                 },
             )
+            if not created and enrollment.delivery_format_id is None and delivery_format:
+                enrollment.delivery_format = delivery_format
+                enrollment.save(update_fields=["delivery_format"])
             if not created and enrollment.access_status != Enrollment.AccessStatusChoices.ACTIVE:
                 enrollment.access_status = Enrollment.AccessStatusChoices.ACTIVE
                 enrollment.order_id = access_order_id

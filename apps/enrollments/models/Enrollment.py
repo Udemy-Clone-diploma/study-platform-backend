@@ -44,6 +44,14 @@ class Enrollment(models.Model):
         db_column="id_course",
     )
 
+    delivery_format = models.ForeignKey(
+        "courses.CourseDeliveryFormat",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="enrollments",
+    )
+
     order_id = models.PositiveBigIntegerField(
         db_column="id_order",
         null=True,

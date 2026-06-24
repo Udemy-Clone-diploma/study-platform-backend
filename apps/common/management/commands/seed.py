@@ -98,12 +98,12 @@ class Command(BaseCommand):
             django_course, "group", Decimal("149.99"), "USD",
             installment_count=4, installment_amount=Decimal("40.00"),
         )
-        self._format_with_price(django_course, "individual", Decimal("299.00"), "USD")
+        ind_fmt_django = self._format_with_price(django_course, "individual", Decimal("299.00"), "USD")
         self._cohort(django_course, 3, 5, 10, group_size=15, days_ahead=30, delivery_format=grp_fmt_django)
         self._cohort(django_course, 4, 3, 6, days_ahead=14)
-        self._enroll(students[0], django_course, completed=2)
-        self._enroll(students[1], django_course, completed=1)
-        self._enroll(students[2], django_course, completed=0)
+        self._enroll(students[0], django_course, completed=2, delivery_format=grp_fmt_django)
+        self._enroll(students[1], django_course, completed=1, delivery_format=grp_fmt_django)
+        self._enroll(students[2], django_course, completed=0, delivery_format=ind_fmt_django)
         self._review(django_course, students[0].user, 5, "Best Django course I have taken.")
         self._review(django_course, students[1].user, 4, "Very practical, dense in a good way.")
 
@@ -122,9 +122,9 @@ class Command(BaseCommand):
             with_certificate=True, duration_hours=35,
         )
         self._curriculum(react_course)
-        self._format_with_price(react_course, "self_paced", Decimal("120.00"), "EUR")
-        self._enroll(students[1], react_course, completed=3)
-        self._enroll(students[3], react_course, completed=0)
+        sp_fmt_react = self._format_with_price(react_course, "self_paced", Decimal("120.00"), "EUR")
+        self._enroll(students[1], react_course, completed=3, delivery_format=sp_fmt_react)
+        self._enroll(students[3], react_course, completed=0, delivery_format=sp_fmt_react)
         self._review(react_course, students[1].user, 5, "Clicked for me finally.")
 
         # Published, individual delivery, UAH pricing with installments.
@@ -148,7 +148,7 @@ class Command(BaseCommand):
         )
         grp_fmt_ux = self._format_with_price(ux_course, "group", Decimal("3000.00"), "UAH")
         self._cohort(ux_course, 2, 6, 12, group_size=12, days_ahead=21, delivery_format=grp_fmt_ux)
-        self._enroll(students[4], ux_course, completed=1)
+        self._enroll(students[4], ux_course, completed=1, delivery_format=grp_fmt_ux)
         self._review(ux_course, students[4].user, 4, "Loved the hands-on critiques.")
 
         # Published qualification course, USD.
@@ -168,8 +168,8 @@ class Command(BaseCommand):
         self._curriculum(data_course)
         grp_fmt_data = self._format_with_price(data_course, "group", Decimal("199.00"), "USD")
         self._cohort(data_course, 3, 5, 9, group_size=20, days_ahead=60, delivery_format=grp_fmt_data)
-        self._enroll(students[2], data_course, completed=0)
-        self._enroll(students[3], data_course, completed=2)
+        self._enroll(students[2], data_course, completed=0, delivery_format=grp_fmt_data)
+        self._enroll(students[3], data_course, completed=2, delivery_format=grp_fmt_data)
 
         # Non-published states so moderation flows have data to show.
         self._course(
@@ -312,11 +312,15 @@ class Command(BaseCommand):
                       "delivery_format": delivery_format},
         )[0]
 
-    def _enroll(self, student, course, completed=0):
-        enrollment, _ = Enrollment.objects.get_or_create(
+    def _enroll(self, student, course, completed=0, delivery_format=None):
+        enrollment, created = Enrollment.objects.get_or_create(
             student_profile=student, course=course,
-            defaults={"access_status": Enrollment.AccessStatusChoices.ACTIVE},
+            defaults={"access_status": Enrollment.AccessStatusChoices.ACTIVE,
+                      "delivery_format": delivery_format},
         )
+        if not created and delivery_format and enrollment.delivery_format_id is None:
+            enrollment.delivery_format = delivery_format
+            enrollment.save(update_fields=["delivery_format"])
         if completed:
             lessons = list(Lesson.objects.filter(module__course=course).order_by(
                 "module__order", "order")[:completed])

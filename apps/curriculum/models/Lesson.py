@@ -14,6 +14,7 @@ class Lesson(models.Model):
     meeting_url = models.URLField(blank=True, null=True)
     unlock_after_days = models.PositiveIntegerField(null=True, blank=True)
     requires_previous = models.BooleanField(default=False)
+    is_manually_locked = models.BooleanField(default=False)
 
     module = models.ForeignKey(
         Module,

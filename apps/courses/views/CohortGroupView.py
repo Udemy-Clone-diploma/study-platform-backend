@@ -38,6 +38,12 @@ class CohortMemberListCreateView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if CohortMember.objects.filter(cohort__course=course, enrollment=enrollment).exists():
+            return Response(
+                {"detail": "Student is already assigned to another cohort of this course."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         member = CohortMember.objects.create(cohort=cohort, enrollment=enrollment)
         return Response(CohortMemberSerializer(member).data, status=status.HTTP_201_CREATED)
 
@@ -67,7 +73,10 @@ class CourseEnrolledStudentsView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         course = get_course_for_request(self, self.kwargs["slug"])
         ensure_can_modify_course(request.user, course)
-        enrollments = Enrollment.objects.filter(course=course).select_related(
+        qs = Enrollment.objects.filter(course=course).select_related(
             "student_profile__user"
         )
-        return Response(EnrolledStudentSerializer(enrollments, many=True).data)
+        format_id = request.query_params.get("format_id")
+        if format_id:
+            qs = qs.filter(delivery_format_id=format_id)
+        return Response(EnrolledStudentSerializer(qs, many=True).data)
