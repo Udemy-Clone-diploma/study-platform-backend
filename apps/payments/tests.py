@@ -100,6 +100,16 @@ class PaymentCheckoutTests(APITestCase):
         self.assertEqual(intent_kwargs["payment"], payment)
         self.assertEqual(intent_kwargs["user"], self.student_user)
 
+    def test_payment_intent_rejects_free_course(self):
+        self.plan.price = "0.00"
+        self.plan.save(update_fields=["price"])
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.post(reverse("payments-create-payment-intent"), {})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Payment.objects.count(), 0)
+
     @patch.object(PaymentService, "_create_stripe_payment_intent")
     def test_create_payment_intent_from_selected_cart_items(self, create_stripe_payment_intent):
         other_course = make_course(

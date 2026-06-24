@@ -17,7 +17,7 @@ from apps.enrollments.serializers import (
     EnrollmentUpdateSerializer,
 )
 from apps.enrollments.services import EnrollmentService
-from apps.users.permissions import IsAdmin, IsStudentOrAdmin
+from apps.users.permissions import IsAdmin
 
 
 @extend_schema(tags=["Enrollments"])
@@ -44,7 +44,10 @@ class EnrollmentViewSet(
 
     def get_permissions(self):
         if self.action == "create":
-            return [IsStudentOrAdmin()]
+            # Course access is granted by a successful payment webhook.  Manual
+            # enrollment is reserved for administrators (for example, support
+            # or a separately approved free-access workflow).
+            return [IsAdmin()]
         if self.action in {"partial_update", "destroy"}:
             return [IsAdmin()]
         return [IsAuthenticated()]
