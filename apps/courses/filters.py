@@ -28,7 +28,16 @@ class CourseFilter(django_filters.FilterSet):
     with_certificate = django_filters.BooleanFilter(field_name="with_certificate")
     is_on_sale = django_filters.BooleanFilter(field_name="is_on_sale")
     rating_min = django_filters.NumberFilter(field_name="rating_avg", lookup_expr="gte")
+    plan_kind = django_filters.CharFilter(method="filter_plan_kind")
     search = django_filters.CharFilter(method="filter_search")
+
+    def filter_plan_kind(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            delivery_formats__format_type=value,
+            delivery_formats__pricing__isnull=False,
+        ).distinct()
 
     def filter_search(self, queryset, name, value):
         query = value.strip()
@@ -62,5 +71,6 @@ class CourseFilter(django_filters.FilterSet):
             "with_certificate",
             "is_on_sale",
             "rating_min",
+            "plan_kind",
             "search",
         ]
