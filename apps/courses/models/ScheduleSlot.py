@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 
 from .CourseDeliveryFormat import CourseDeliveryFormat
@@ -52,8 +54,6 @@ class ScheduleSlot(models.Model):
     original_end_time   = models.TimeField(null=True, blank=True)
     is_rescheduled      = models.BooleanField(default=False)
 
-    meeting_link = models.URLField(blank=True, null=True)
-
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
 
@@ -68,6 +68,33 @@ class ScheduleSlot(models.Model):
             f"{self.delivery_format} – {day} "
             f"{self.start_time:%H:%M}–{self.end_time:%H:%M} ({status})"
         )
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            try:
+                old = ScheduleSlot.objects.get(pk=self.pk)
+                time_changed = old.start_time != self.start_time or old.end_time != self.end_time
+                day_changed  = old.day_of_week != self.day_of_week
+            except ScheduleSlot.DoesNotExist:
+                time_changed = day_changed = False
+        else:
+            time_changed = day_changed = False
+
+        super().save(*args, **kwargs)
+
+        if time_changed or day_changed:
+            from apps.courses.models.Session import Session
+            today = date.today()
+            future = Session.objects.filter(
+                slot=self,
+                date__gte=today,
+                status=Session.Status.SCHEDULED,
+                rescheduled_from_date__isnull=True,
+            )
+            if day_changed:
+                future.delete()
+            else:
+                future.update(start_time=self.start_time, end_time=self.end_time)
 
     @property
     def is_available(self) -> bool:

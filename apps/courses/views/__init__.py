@@ -7,7 +7,7 @@ from .CohortGroupView import (
     CohortMemberListCreateView,
     CourseEnrolledStudentsView,
 )
-from .CohortScheduleView import CohortScheduleDetailView, CohortScheduleListCreateView
+from .CohortScheduleView import CohortScheduleConflictView, CohortScheduleDetailView, CohortScheduleListCreateView
 from .DeliveryFormatView import DeliveryFormatDetailView, DeliveryFormatListCreateView
 from .CoursePendingEditView import (
     CoursePendingEditApproveView,
@@ -23,7 +23,7 @@ from .FeaturedCategoriesView import FeaturedCategoriesView
 from .NewCoursesView import NewCoursesView
 from .PopularCoursesView import PopularCoursesView
 from .PricingPlanView import PricingPlanDetailView, PricingPlanListCreateView
-from .ScheduleSlotView import EnrollmentPeriodView, ScheduleSlotAssignView, ScheduleSlotDetailView, ScheduleSlotListCreateView
+from .ScheduleSlotView import EnrollmentPeriodView, ScheduleSlotAssignView, ScheduleSlotConflictView, ScheduleSlotDetailView, ScheduleSlotListCreateView, ScheduleSlotPersonalConflictView
 from .TeacherCoursesView import TeacherCoursesView
 from .TeacherUnavailabilityView import TeacherUnavailabilityDetailView, TeacherUnavailabilityListCreateView
 from .CourseRejectedView import (
@@ -35,7 +35,13 @@ from .CourseRejectedView import (
     TeacherRejectionRecordsView,
 )
 from .WishlistView import WishlistListView, WishlistToggleView
-from .CalendarView import CalendarView
+from .CalendarView import (
+    CalendarView, CalendarEventUpdateView,
+    PersonalEventView, PersonalEventDetailView, PersonalEventConflictView,
+    ExtraSessionView,
+    EventInviteView, InvitationListView, InvitationRespondView,
+    EventInvitationStatusView, EventParticipantsView,
+)
 from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListView, LessonItemViewSet, LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
 
 __all__ = [
@@ -78,6 +84,7 @@ __all__ = [
     "ScheduleSlotAssignView",
     "ScheduleSlotDetailView",
     "ScheduleSlotListCreateView",
+    "ScheduleSlotPersonalConflictView",
     "QuestionViewSet",
     "TeacherCoursesView",
     "TeacherUnavailabilityDetailView",
@@ -92,4 +99,14 @@ __all__ = [
     "WishlistListView",
     "WishlistToggleView",
     "CalendarView",
+    "CalendarEventUpdateView",
+    "PersonalEventView",
+    "PersonalEventDetailView",
+    "PersonalEventConflictView",
+    "ExtraSessionView",
+    "EventInviteView",
+    "InvitationListView",
+    "InvitationRespondView",
+    "EventInvitationStatusView",
+    "EventParticipantsView",
 ]

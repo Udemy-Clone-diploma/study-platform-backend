@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 
 from .Cohort import Cohort
@@ -29,8 +31,6 @@ class CohortSchedule(models.Model):
     day_of_week  = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
     start_time   = models.TimeField()
     end_time     = models.TimeField()
-    meeting_link = models.URLField(blank=True, null=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -42,6 +42,33 @@ class CohortSchedule(models.Model):
                 name="unique_cohort_schedule_slot",
             )
         ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            try:
+                old = CohortSchedule.objects.get(pk=self.pk)
+                time_changed = old.start_time != self.start_time or old.end_time != self.end_time
+                day_changed  = old.day_of_week != self.day_of_week
+            except CohortSchedule.DoesNotExist:
+                time_changed = day_changed = False
+        else:
+            time_changed = day_changed = False
+
+        super().save(*args, **kwargs)
+
+        if time_changed or day_changed:
+            from apps.courses.models.Session import Session
+            today = date.today()
+            future = Session.objects.filter(
+                schedule=self,
+                date__gte=today,
+                status=Session.Status.SCHEDULED,
+                rescheduled_from_date__isnull=True,
+            )
+            if day_changed:
+                future.delete()
+            else:
+                future.update(start_time=self.start_time, end_time=self.end_time)
 
     def __str__(self):
         day = self.get_day_of_week_display()

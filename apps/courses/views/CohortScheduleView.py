@@ -1,3 +1,5 @@
+from datetime import time as time_type
+
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
@@ -105,3 +107,41 @@ class CohortScheduleDetailView(APIView):
         schedule = _get_cohort_schedule(cohort, schedule_id)
         schedule.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(tags=["Schedule"])
+class CohortScheduleConflictView(APIView):
+    """
+    GET – check for schedule conflicts at the given day+time (teacher / admin only).
+    Returns categorised conflict info without blocking.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, slug, cohort_id):
+        cohort = _get_cohort(self, slug, cohort_id)
+        ensure_can_modify_course(request.user, cohort.course)
+
+        try:
+            day_of_week = int(request.query_params["day_of_week"])
+            start_str   = request.query_params["start_time"]
+            end_str     = request.query_params["end_time"]
+            sh, sm = map(int, start_str.split(":"))
+            eh, em = map(int, end_str.split(":"))
+            start_t = time_type(sh, sm)
+            end_t   = time_type(eh, em)
+        except (KeyError, ValueError, AttributeError):
+            return Response(
+                {"detail": "day_of_week, start_time, end_time are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        schedule_id_param = request.query_params.get("schedule_id")
+        exclude_id = int(schedule_id_param) if schedule_id_param and schedule_id_param.isdigit() else None
+
+        conflicts = ScheduleService.get_schedule_conflicts(
+            cohort.course.teacher_profile, day_of_week, start_t, end_t,
+            exclude_cohort_schedule_id=exclude_id,
+            cohort_start_date=cohort.start_date,
+            cohort_duration_months=cohort.duration_months,
+        )
+        return Response(conflicts)
