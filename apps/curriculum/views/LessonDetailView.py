@@ -36,7 +36,12 @@ class LessonDetailView(APIView):
                 {"detail": "Lesson not found."}, status=status.HTTP_404_NOT_FOUND,
             )
 
-        has_enrollment_access = self._has_full_access(request.user, course)
+        # Teachers / staff see the full test (answers included); enrolled students get
+        # answers hidden plus their own attempt status. Everyone else is read-only.
+        is_privileged = self._is_privileged(request.user, course)
+        student_profile = self._enrolled_student_profile(request.user, course)
+        has_enrollment_access = is_privileged or student_profile is not None
+
         if not lesson.is_preview and not has_enrollment_access:
             return Response(
                 {"detail": "Enrollment required to access this lesson."},
@@ -49,12 +54,14 @@ class LessonDetailView(APIView):
                 context={
                     "request": request,
                     "has_enrollment_access": has_enrollment_access,
+                    "hide_answers": not is_privileged,
+                    "student_profile": student_profile,
                 },
             ).data
         )
 
     @staticmethod
-    def _has_full_access(user, course: Course) -> bool:
+    def _is_privileged(user, course: Course) -> bool:
         if not user or not user.is_authenticated:
             return False
         if user.role in (
@@ -64,10 +71,18 @@ class LessonDetailView(APIView):
             return True
         if user.role == User.RoleChoices.TEACHER:
             return course.teacher_profile.user_id == user.id
-        if user.role == User.RoleChoices.STUDENT:
-            try:
-                student_profile = user.student_profile
-            except StudentProfile.DoesNotExist:
-                return False
-            return EnrollmentService.student_has_course_access(student_profile, course)
         return False
+
+    @staticmethod
+    def _enrolled_student_profile(user, course: Course) -> StudentProfile | None:
+        if not user or not user.is_authenticated:
+            return None
+        if user.role != User.RoleChoices.STUDENT:
+            return None
+        try:
+            student_profile = user.student_profile
+        except StudentProfile.DoesNotExist:
+            return None
+        if EnrollmentService.student_has_course_access(student_profile, course):
+            return student_profile
+        return None

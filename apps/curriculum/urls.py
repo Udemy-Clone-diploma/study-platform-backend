@@ -1,11 +1,25 @@
 from django.urls import path
 
-from apps.curriculum.views import LessonDetailView
+from apps.curriculum.views import (
+    LessonDetailView,
+    TestAttemptDetailView,
+    TestAttemptView,
+)
 
 urlpatterns = [
     path(
         "courses/<slug:slug>/lessons/<int:lesson_id>/",
         LessonDetailView.as_view(),
         name="course-lesson-detail",
+    ),
+    path(
+        "courses/<slug:slug>/tests/<int:test_id>/attempts/",
+        TestAttemptView.as_view(),
+        name="course-test-attempts",
+    ),
+    path(
+        "courses/<slug:slug>/tests/<int:test_id>/attempts/<int:attempt_id>/",
+        TestAttemptDetailView.as_view(),
+        name="course-test-attempt-detail",
     ),
 ]
