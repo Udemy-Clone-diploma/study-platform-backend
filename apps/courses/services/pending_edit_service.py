@@ -38,6 +38,17 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     return changed
 
 
+def _correct_indices(q_data: dict) -> list:
+    """Read the answer key from a question snapshot, tolerating the legacy
+    ``correct_index`` scalar in any pending-edit snapshot taken before the
+    switch to ``correct_indices``."""
+    indices = q_data.get("correct_indices")
+    if indices:
+        return indices
+    legacy = q_data.get("correct_index")
+    return [legacy] if legacy is not None else []
+
+
 def _restore_or_create(Model, parent_lookup: dict, id_val, **kwargs):
     if id_val:
         obj = Model.all_objects.filter(id=id_val, **parent_lookup).first()
@@ -89,9 +100,10 @@ class PendingEditService:
                         "question_type": q.question_type,
                         "text": q.text,
                         "options": q.options or [],
-                        "correct_index": q.correct_index,
+                        "correct_indices": q.correct_indices or [],
                         "correct_bool": q.correct_bool,
                         "sample_answer": q.sample_answer or "",
+                        "accepted_answers": q.accepted_answers or [],
                         "order": q.order,
                     }
                     for q in test.questions.order_by("order")
@@ -101,6 +113,9 @@ class PendingEditService:
                     "title": test.title,
                     "description": test.description,
                     "passing_score": test.passing_score,
+                    "duration_minutes": test.duration_minutes,
+                    "allow_retakes": test.allow_retakes,
+                    "max_attempts": test.max_attempts,
                     "order": test.order,
                     "questions": questions,
                 })
@@ -339,6 +354,9 @@ class PendingEditService:
                     title=test_data.get("title", ""),
                     description=test_data.get("description", ""),
                     passing_score=test_data.get("passing_score", 70),
+                    duration_minutes=test_data.get("duration_minutes"),
+                    allow_retakes=test_data.get("allow_retakes", False),
+                    max_attempts=test_data.get("max_attempts"),
                     order=test_data.get("order", t_idx),
                 )
 
@@ -348,11 +366,12 @@ class PendingEditService:
                         Question,
                         {"test": test},
                         q_data.get("id"),
-                        question_type=q_data.get("question_type", "multiple_choice"),
+                        question_type=q_data.get("question_type", "single_choice"),
                         text=q_data.get("text", ""),
                         options=q_data.get("options", []),
-                        correct_index=q_data.get("correct_index"),
+                        correct_indices=_correct_indices(q_data),
                         correct_bool=q_data.get("correct_bool"),
                         sample_answer=q_data.get("sample_answer", ""),
+                        accepted_answers=q_data.get("accepted_answers", []),
                         order=q_data.get("order", q_idx),
                     )
