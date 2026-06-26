@@ -8,25 +8,38 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.models import (
+from apps.schedule.models import (
     CohortSchedule, EventInvitation, PersonalEvent, ScheduleSlot,
     Session, TeacherUnavailability,
 )
-from apps.courses.serializers import TeacherUnavailabilitySerializer
+from apps.schedule.serializers import TeacherUnavailabilitySerializer
 from apps.users.models import User
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+def _teacher_unavailable_on(teacher_profile, event_date: date, start_time, end_time) -> bool:
+    """Return True if any unavailability block covers the given date and time window."""
+    time_q = Q(start_time__lt=end_time) & Q(end_time__gt=start_time)
+    return TeacherUnavailability.objects.filter(
+        time_q,
+        teacher_profile=teacher_profile,
+    ).filter(
+        Q(recurrence_type=TeacherUnavailability.RecurrenceType.WEEKLY,
+          day_of_week=event_date.weekday())
+        | Q(recurrence_type=TeacherUnavailability.RecurrenceType.ONE_TIME,
+            date=event_date)
+        | Q(recurrence_type=TeacherUnavailability.RecurrenceType.DATE_RANGE,
+            date__lte=event_date, date_to__gte=event_date)
+    ).exists()
+
+
 def _default_week_start() -> date:
-    """Most recent Sunday (week anchor when no explicit date is given)."""
     today = date.today()
-    # weekday(): 0=Mon…6=Sun  →  days since last Sun = (weekday+1)%7
     return today - timedelta(days=(today.weekday() + 1) % 7)
 
 
 def _week_bounds(week_start_str: str | None) -> tuple[date, date]:
-    """Return (week_start, week_end) where the caller determines the anchor day."""
     if week_start_str:
         try:
             week_start = date.fromisoformat(week_start_str)
@@ -38,11 +51,6 @@ def _week_bounds(week_start_str: str | None) -> tuple[date, date]:
 
 
 def _event_date_for_slot(week_start: date, week_end: date, day_of_week: int) -> date | None:
-    """Find which occurrence of *day_of_week* (0=Mon…6=Sun) falls within [week_start, week_end].
-
-    The window may start on any weekday, so the Monday-anchored occurrence might be
-    outside the range; in that case we check the following Monday as well.
-    """
     monday = week_start - timedelta(days=week_start.weekday())
     for extra in (0, 7):
         candidate = monday + timedelta(days=day_of_week + extra)
@@ -98,7 +106,6 @@ def _build_session_event(session: Session, *, slot=None, sched=None, student=Non
         course_slug  = sched.cohort.course.slug
         cohort_name  = sched.cohort.name or f"Cohort #{sched.cohort.id}"
     else:
-        # Extra session (manually created by teacher, course FK is set)
         event_type   = "extra_session"
         course_title = session.course.title if session.course_id else None
         course_slug  = session.course.slug  if session.course_id else None
@@ -135,7 +142,6 @@ def _build_personal_event(
     invitation: EventInvitation | None = None,
     event_type: str = "personal",
 ) -> dict:
-    # Invitees always see the "shared" variant
     final_type = "personal_shared" if invitation else event_type
     owner = event.owner
     return {
@@ -246,14 +252,15 @@ class CalendarView(APIView):
         return Response({"week_start": week_start.isoformat(), "events": events, "unavailability": unavailability})
 
     def _teacher_events(self, user, week_start: date, week_end: date) -> list:
+        teacher_profile = user.teacher_profile
         slots = list(
             ScheduleSlot.objects
-            .filter(delivery_format__course__teacher_profile=user.teacher_profile)
+            .filter(delivery_format__course__teacher_profile=teacher_profile)
             .select_related("delivery_format__course", "booked_by__student_profile__user")
         )
         cohort_schedules = list(
             CohortSchedule.objects
-            .filter(cohort__course__teacher_profile=user.teacher_profile)
+            .filter(cohort__course__teacher_profile=teacher_profile)
             .select_related("cohort__course")
         )
 
@@ -272,9 +279,13 @@ class CalendarView(APIView):
 
             session = existing_slot.get((slot.id, event_date))
             if session is None:
+                unavailable = _teacher_unavailable_on(
+                    teacher_profile, event_date, slot.start_time, slot.end_time
+                )
                 session = Session.objects.create(
                     slot=slot, date=event_date,
                     start_time=slot.start_time, end_time=slot.end_time,
+                    status=Session.Status.CANCELLED if unavailable else Session.Status.SCHEDULED,
                 )
 
             student = None
@@ -295,16 +306,19 @@ class CalendarView(APIView):
 
             session = existing_sched.get((sched.id, event_date))
             if session is None:
+                unavailable = _teacher_unavailable_on(
+                    teacher_profile, event_date, sched.start_time, sched.end_time
+                )
                 session = Session.objects.create(
                     schedule=sched, date=event_date,
                     start_time=sched.start_time, end_time=sched.end_time,
+                    status=Session.Status.CANCELLED if unavailable else Session.Status.SCHEDULED,
                 )
 
             events.append(_build_session_event(session, sched=sched))
             built_ids.add(session.id)
             sched_map[sched.id] = sched
 
-        # Replacement sessions (rescheduled from another week into this one)
         for session in _load_replacement_sessions(
             [s.id for s in slots], [s.id for s in cohort_schedules], week_start, week_end, built_ids
         ):
@@ -314,8 +328,6 @@ class CalendarView(APIView):
             elif session.schedule_id and session.schedule_id in sched_map:
                 events.append(_build_session_event(session, sched=sched_map[session.schedule_id]))
 
-        # Extra sessions (manually created for courses owned by this teacher).
-        # Include both originals (rescheduled_from_date IS NULL) and their replacements.
         extra_sessions = (
             Session.objects
             .filter(
@@ -329,7 +341,6 @@ class CalendarView(APIView):
         for session in extra_sessions:
             events.append(_build_session_event(session))
 
-        # Personal events
         events.extend(self._personal_events(user, week_start, week_end))
         return events
 
@@ -337,12 +348,15 @@ class CalendarView(APIView):
         slots = list(
             ScheduleSlot.objects
             .filter(booked_by__student_profile=user.student_profile)
-            .select_related("delivery_format__course", "booked_by")
+            .select_related(
+                "delivery_format__course__teacher_profile",
+                "booked_by",
+            )
         )
         cohort_schedules = list(
             CohortSchedule.objects
             .filter(cohort__members__enrollment__student_profile=user.student_profile)
-            .select_related("cohort__course")
+            .select_related("cohort__course__teacher_profile")
             .distinct()
         )
 
@@ -361,9 +375,14 @@ class CalendarView(APIView):
 
             session = existing_slot.get((slot.id, event_date))
             if session is None:
+                teacher = slot.delivery_format.course.teacher_profile
+                unavailable = _teacher_unavailable_on(
+                    teacher, event_date, slot.start_time, slot.end_time
+                )
                 session = Session.objects.create(
                     slot=slot, date=event_date,
                     start_time=slot.start_time, end_time=slot.end_time,
+                    status=Session.Status.CANCELLED if unavailable else Session.Status.SCHEDULED,
                 )
 
             events.append(_build_session_event(session, slot=slot, is_available=False))
@@ -379,9 +398,14 @@ class CalendarView(APIView):
 
             session = existing_sched.get((sched.id, event_date))
             if session is None:
+                teacher = sched.cohort.course.teacher_profile
+                unavailable = _teacher_unavailable_on(
+                    teacher, event_date, sched.start_time, sched.end_time
+                )
                 session = Session.objects.create(
                     schedule=sched, date=event_date,
                     start_time=sched.start_time, end_time=sched.end_time,
+                    status=Session.Status.CANCELLED if unavailable else Session.Status.SCHEDULED,
                 )
 
             events.append(_build_session_event(session, sched=sched))
@@ -396,8 +420,6 @@ class CalendarView(APIView):
             elif session.schedule_id and session.schedule_id in sched_map:
                 events.append(_build_session_event(session, sched=sched_map[session.schedule_id]))
 
-        # Extra sessions assigned to this student directly or via their cohort.
-        # Include both originals and their replacements (slot/schedule IS NULL).
         extra_sessions = (
             Session.objects
             .filter(
@@ -416,14 +438,12 @@ class CalendarView(APIView):
         for session in extra_sessions:
             events.append(_build_session_event(session))
 
-        # Personal events
         events.extend(self._personal_events(user, week_start, week_end))
         return events
 
     def _personal_events(self, user, week_start: date, week_end: date) -> list:
         events = []
 
-        # Own personal events — annotate whether they have any invitations
         own_events = PersonalEvent.objects.filter(
             owner=user, date__range=[week_start, week_end],
         ).select_related("owner").annotate(
@@ -433,7 +453,6 @@ class CalendarView(APIView):
             et = "personal_shared" if ev.has_invites else "personal"
             events.append(_build_personal_event(ev, event_type=et))
 
-        # Accepted invitations to others' events
         for inv in (
             EventInvitation.objects
             .filter(invitee=user, status=EventInvitation.Status.ACCEPTED, event__date__range=[week_start, week_end])
@@ -447,21 +466,9 @@ class CalendarView(APIView):
 # ── Personal Event CRUD ────────────────────────────────────────────────────────
 
 def _check_personal_event_conflicts(user, ev_date, start_t, end_t, exclude_event_id=None):
-    """
-    Returns a non-empty list of conflict descriptions if the given date+time
-    overlaps with events that a PersonalEvent must not overlap:
-      - another PersonalEvent owned by the same user
-      - a booked ScheduleSlot (individual session) for the teacher
-      - a CohortSchedule (group session) for the teacher
-
-    PersonalEvent CAN overlap with free (unbooked) slots and TeacherUnavailability,
-    so those are intentionally excluded.
-    """
-    from datetime import time as time_type
     time_q = Q(start_time__lt=end_t) & Q(end_time__gt=start_t)
     conflicts = []
 
-    # Other personal events owned by the same user on the same date
     own_qs = PersonalEvent.objects.filter(Q(owner=user) & Q(date=ev_date) & time_q)
     if exclude_event_id:
         own_qs = own_qs.exclude(pk=exclude_event_id)
@@ -469,12 +476,25 @@ def _check_personal_event_conflicts(user, ev_date, start_t, end_t, exclude_event
         conflicts.append({"type": "personal", "title": e.title,
                           "start_time": _fmt(e.start_time), "end_time": _fmt(e.end_time)})
 
+    # Check accepted invitations to other people's events
+    inv_time_q = Q(event__start_time__lt=end_t) & Q(event__end_time__gt=start_t)
+    accepted_inv_qs = EventInvitation.objects.filter(
+        inv_time_q,
+        invitee=user,
+        status=EventInvitation.Status.ACCEPTED,
+        event__date=ev_date,
+    ).select_related("event")
+    if exclude_event_id:
+        accepted_inv_qs = accepted_inv_qs.exclude(event_id=exclude_event_id)
+    for inv in accepted_inv_qs:
+        conflicts.append({"type": "shared_event", "title": inv.event.title,
+                          "start_time": _fmt(inv.event.start_time), "end_time": _fmt(inv.event.end_time)})
+
     if hasattr(user, "teacher_profile"):
         tp = user.teacher_profile
         ev_weekday = ev_date.weekday()
         day_q = Q(day_of_week=ev_weekday)
 
-        # Booked individual slots (active on this date)
         inactive_slot = Session.objects.filter(
             slot=OuterRef("pk"), date=ev_date,
             status__in=[Session.Status.CANCELLED, Session.Status.RESCHEDULED],
@@ -486,7 +506,6 @@ def _check_personal_event_conflicts(user, ev_date, start_t, end_t, exclude_event
             conflicts.append({"type": "individual", "title": slot.delivery_format.course.title,
                                "start_time": _fmt(slot.start_time), "end_time": _fmt(slot.end_time)})
 
-        # Group schedules active on this date
         inactive_sched = Session.objects.filter(
             schedule=OuterRef("pk"), date=ev_date,
             status__in=[Session.Status.CANCELLED, Session.Status.RESCHEDULED],
@@ -563,7 +582,6 @@ class PersonalEventDetailView(APIView):
 
         data = request.data
 
-        # Resolve the date/time values that will apply after the update
         try:
             ev_date = _date.fromisoformat(data["date"]) if "date" in data else ev.date
             start_str = data.get("start_time", _fmt(ev.start_time))
@@ -575,7 +593,9 @@ class PersonalEventDetailView(APIView):
         except (ValueError, AttributeError):
             return Response({"detail": "Invalid date or time."}, status=400)
 
-        if "date" in data or "start_time" in data or "end_time" in data:
+        time_changed = "date" in data or "start_time" in data or "end_time" in data
+
+        if time_changed:
             conflicts = _check_personal_event_conflicts(
                 request.user, ev_date, start_t, end_t, exclude_event_id=pk
             )
@@ -586,7 +606,21 @@ class PersonalEventDetailView(APIView):
             if field in data:
                 setattr(ev, field, data[field] or None if field == "meeting_link" else data[field])
         ev.save()
-        return Response({"status": "ok"})
+
+        reset_invitees = []
+        if time_changed:
+            affected = (
+                EventInvitation.objects
+                .filter(event=ev, status=EventInvitation.Status.ACCEPTED)
+                .select_related("invitee")
+            )
+            for inv in affected:
+                inv.status = EventInvitation.Status.PENDING
+                inv.responded_at = None
+                inv.save(update_fields=["status", "responded_at"])
+                reset_invitees.append(inv.invitee.email)
+
+        return Response({"status": "ok", "reset_invitations": reset_invitees})
 
     def delete(self, request, pk: int):
         ev = self._get_event(pk, request.user)
@@ -601,13 +635,6 @@ class PersonalEventConflictView(APIView):
     """
     GET /calendar/events/personal/conflicts/
     ?date=YYYY-MM-DD&start_time=HH:MM&end_time=HH:MM[&exclude_id=N][&include_free_slots=true]
-
-    Returns conflicts that would block creating/updating a personal event:
-      - active sessions (group or individual) the user is part of at that time
-      - other personal events (owned or accepted/pending invitations) at that time
-    Pass include_free_slots=true to also include unbooked ScheduleSlots (used when
-    validating extra-session creation, where free slots must also be respected).
-    Unavailability blocks are always excluded (checked separately on the frontend).
     """
 
     permission_classes = [IsAuthenticated]
@@ -632,7 +659,7 @@ class PersonalEventConflictView(APIView):
         include_free_slots = request.query_params.get("include_free_slots") == "true"
 
         user = request.user
-        ev_weekday = ev_date.weekday()  # 0=Mon … 6=Sun
+        ev_weekday = ev_date.weekday()
         time_q = Q(start_time__lt=end_t) & Q(end_time__gt=start_t)
 
         session_list = []
@@ -640,8 +667,6 @@ class PersonalEventConflictView(APIView):
         if hasattr(user, "teacher_profile"):
             tp = user.teacher_profile
 
-            # 1. Recurring group sessions: CohortSchedule on this weekday + time,
-            #    unless overridden by a cancelled/rescheduled Session for this exact date.
             inactive_for_sched = Session.objects.filter(
                 schedule=OuterRef("pk"),
                 date=ev_date,
@@ -659,8 +684,6 @@ class PersonalEventConflictView(APIView):
                     "end_time":   sched.end_time.strftime("%H:%M"),
                 })
 
-            # 2. Recurring individual sessions: booked ScheduleSlots on this weekday + time,
-            #    unless overridden by a cancelled/rescheduled Session for this exact date.
             inactive_for_slot = Session.objects.filter(
                 slot=OuterRef("pk"),
                 date=ev_date,
@@ -678,7 +701,6 @@ class PersonalEventConflictView(APIView):
                     "end_time":   slot.end_time.strftime("%H:%M"),
                 })
 
-            # 2b. Free individual slots (unbooked) — only when explicitly requested.
             if include_free_slots:
                 for slot in ScheduleSlot.objects.filter(
                     time_q & Q(day_of_week=ev_weekday) & Q(booked_by__isnull=True),
@@ -692,7 +714,6 @@ class PersonalEventConflictView(APIView):
                         "end_time":   slot.end_time.strftime("%H:%M"),
                     })
 
-            # 3. One-off extra sessions (no schedule or slot FK) on this exact date.
             for s in Session.objects.filter(
                 time_q & Q(date=ev_date) & Q(status=Session.Status.SCHEDULED),
                 schedule__isnull=True, slot__isnull=True,
@@ -720,7 +741,6 @@ class PersonalEventConflictView(APIView):
                     "end_time":   s.end_time.strftime("%H:%M"),
                 })
 
-        # ── Other personal events owned by user on that date ─────────────
         personal_qs = PersonalEvent.objects.filter(
             Q(owner=user) & Q(date=ev_date) & time_q
         )
@@ -734,7 +754,6 @@ class PersonalEventConflictView(APIView):
             for e in personal_qs
         ]
 
-        # ── Invitations (accepted/pending) for user on that date ─────────
         inv_q = Q(
             invitee=user,
             status__in=[EventInvitation.Status.PENDING, EventInvitation.Status.ACCEPTED],
@@ -893,10 +912,14 @@ class InvitationListView(APIView):
             .order_by("event__date", "event__start_time")
         )
 
+        user = request.user
         data = [
             {
-                "id":           inv.id,
-                "status":       inv.status,
+                "id":        inv.id,
+                "status":    inv.status,
+                "conflicts": _check_personal_event_conflicts(
+                    user, inv.event.date, inv.event.start_time, inv.event.end_time,
+                ),
                 "event": {
                     "id":           f"personal_{inv.event_id}",
                     "title":        inv.event.title,
@@ -931,6 +954,19 @@ class InvitationRespondView(APIView):
         action = request.data.get("action")
         if action not in ("accept", "decline"):
             return Response({"detail": "action must be accept or decline"}, status=400)
+
+        if action == "accept":
+            conflicts = _check_personal_event_conflicts(
+                request.user,
+                inv.event.date,
+                inv.event.start_time,
+                inv.event.end_time,
+            )
+            if conflicts:
+                return Response(
+                    {"detail": "You have a schedule conflict at this time.", "conflicts": conflicts},
+                    status=409,
+                )
 
         inv.status = (
             EventInvitation.Status.ACCEPTED
@@ -1068,7 +1104,6 @@ class CalendarEventUpdateView(APIView):
 
         if action == "cancel":
             if session.rescheduled_from_date:
-                # Cancelling a replacement: mark original as CANCELLED, delete replacement.
                 Session.objects.filter(
                     date=session.rescheduled_from_date,
                     slot=session.slot,
@@ -1083,7 +1118,6 @@ class CalendarEventUpdateView(APIView):
             return Response({"status": "ok"})
 
         if action == "restore":
-            # ── Replacement → restore original, delete replacement ──────────────
             if session.rescheduled_from_date:
                 original = Session.objects.filter(
                     date=session.rescheduled_from_date,
@@ -1094,7 +1128,6 @@ class CalendarEventUpdateView(APIView):
                 ).first()
                 if original is None:
                     return Response({"detail": "Original session not found."}, status=404)
-                # Check nothing else is scheduled at the original slot+date.
                 conflict_qs = Session.objects.filter(
                     date=original.date,
                     status=Session.Status.SCHEDULED,
@@ -1114,11 +1147,9 @@ class CalendarEventUpdateView(APIView):
                 session.delete()
                 return Response({"status": "ok"})
 
-            # ── Original cancelled/rescheduled → restore it ─────────────────────
             if session.status not in (Session.Status.CANCELLED, Session.Status.RESCHEDULED):
                 return Response({"detail": "Session is not cancelled or rescheduled."}, status=400)
 
-            # Check that no other active session occupies this slot on this date.
             conflict_qs = Session.objects.filter(
                 date=session.date,
                 status=Session.Status.SCHEDULED,
@@ -1133,7 +1164,6 @@ class CalendarEventUpdateView(APIView):
             if conflict_qs.exists():
                 return Response({"detail": "Another session is already scheduled at this slot and date."}, status=409)
 
-            # Resolve teacher for unavailability check.
             if session.slot_id:
                 teacher = session.slot.delivery_format.course.teacher_profile
             elif session.schedule_id:
@@ -1141,7 +1171,6 @@ class CalendarEventUpdateView(APIView):
             else:
                 teacher = session.course.teacher_profile
 
-            # Check TeacherUnavailability that covers this specific date+time.
             time_overlap = Q(start_time__lt=session.end_time) & Q(end_time__gt=session.start_time)
             unavail_exists = TeacherUnavailability.objects.filter(
                 time_overlap,
@@ -1162,7 +1191,6 @@ class CalendarEventUpdateView(APIView):
             if unavail_exists:
                 return Response({"detail": "Teacher is marked unavailable at this time."}, status=409)
 
-            # If rescheduled, cancel the replacement so the replacement slot is freed.
             if session.status == Session.Status.RESCHEDULED:
                 Session.objects.filter(
                     rescheduled_from_date=session.date,
@@ -1187,7 +1215,6 @@ class CalendarEventUpdateView(APIView):
 
             new_link = data.get("meeting_link")
 
-            # ── Conflict check for the new date/time ────────────────────────────
             if session.slot_id:
                 teacher = session.slot.delivery_format.course.teacher_profile
             elif session.schedule_id:
@@ -1197,8 +1224,6 @@ class CalendarEventUpdateView(APIView):
 
             time_overlap = Q(start_time__lt=ne) & Q(end_time__gt=ns)
 
-            # All SCHEDULED sessions on the new date that involve this teacher,
-            # excluding the session being moved and its existing replacement (if any).
             session_conflict_qs = Session.objects.filter(
                 time_overlap,
                 date=new_date,
@@ -1209,8 +1234,6 @@ class CalendarEventUpdateView(APIView):
                 Q(course__teacher_profile=teacher)
             ).exclude(pk=session.pk)
 
-            # Exclude the existing replacement so moving it to the same new slot
-            # doesn't conflict with itself (re-reschedule of original case).
             if session.rescheduled_to_date:
                 existing_repl = Session.objects.filter(
                     rescheduled_from_date=session.date,
@@ -1224,11 +1247,9 @@ class CalendarEventUpdateView(APIView):
             if session_conflict_qs.exists():
                 return Response({"detail": "New time conflicts with an existing session."}, status=409)
 
-            # PersonalEvents of the teacher on the new date
             if PersonalEvent.objects.filter(time_overlap, date=new_date, owner=teacher.user).exists():
                 return Response({"detail": "New time conflicts with a personal event."}, status=409)
 
-            # TeacherUnavailability covering the new date
             if TeacherUnavailability.objects.filter(
                 time_overlap,
                 teacher_profile=teacher,
@@ -1246,10 +1267,7 @@ class CalendarEventUpdateView(APIView):
                 )
             ).exists():
                 return Response({"detail": "Teacher is unavailable at the new time."}, status=409)
-            # ────────────────────────────────────────────────────────────────────
 
-            # Re-rescheduling a replacement: update it in place so rescheduled_from_date
-            # always points to the original date, never to another replacement.
             if session.rescheduled_from_date:
                 original_date = session.rescheduled_from_date
                 session.date        = new_date
@@ -1257,7 +1275,6 @@ class CalendarEventUpdateView(APIView):
                 session.end_time    = ne
                 session.meeting_link = new_link or session.meeting_link
                 session.save()
-                # Keep the original session's pointer in sync
                 Session.objects.filter(
                     date=original_date,
                     slot=session.slot,
@@ -1267,8 +1284,6 @@ class CalendarEventUpdateView(APIView):
                 ).update(rescheduled_to_date=new_date)
                 return Response({"status": "ok", "replacement_session_id": session.id})
 
-            # Re-rescheduling an original that was already rescheduled: update the
-            # existing replacement in place instead of cancelling and creating a new one.
             if session.rescheduled_to_date:
                 replacement = Session.objects.filter(
                     rescheduled_from_date=session.date,
@@ -1286,7 +1301,6 @@ class CalendarEventUpdateView(APIView):
                     session.save()
                     return Response({"status": "ok", "replacement_session_id": replacement.id})
 
-            # First-time reschedule: mark original and create the replacement.
             original_date = session.date
             session.status              = Session.Status.RESCHEDULED
             session.rescheduled_to_date = new_date

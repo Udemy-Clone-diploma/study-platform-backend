@@ -8,23 +8,17 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.exceptions import (
-    InvalidScheduleTimeError,
-    TeacherScheduleConflictError,
-)
 from django.db.models import Q
 
-from apps.courses.models import CourseDeliveryFormat, EventInvitation, PersonalEvent, ScheduleSlot
-from apps.courses.serializers import ScheduleSlotSerializer
-from apps.courses.serializers.ScheduleSlotSerializer import (
-    ScheduleSlotRescheduleSerializer,
-    ScheduleSlotWriteSerializer,
-)
-from apps.courses.services import ScheduleService
+from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
+from apps.schedule.models import CohortSchedule, PersonalEvent, EventInvitation, ScheduleSlot, Session
+from apps.schedule.serializers import ScheduleSlotSerializer, ScheduleSlotRescheduleSerializer, ScheduleSlotWriteSerializer
+from apps.schedule.services import ScheduleService
+from apps.courses.models import CourseDeliveryFormat
 from apps.enrollments.models import Enrollment
 from apps.users.models import User
 
-from ._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
 
 
 class _EnrollmentPeriodSerializer(serializers.Serializer):
@@ -185,19 +179,17 @@ class ScheduleSlotPersonalConflictView(APIView):
         ensure_can_modify_course(request.user, slot.delivery_format.course)
 
         user     = request.user
-        dow      = slot.day_of_week          # 0=Mon … 6=Sun
-        iso_dow  = dow + 1                   # Django iso_week_day: 1=Mon … 7=Sun
+        dow      = slot.day_of_week
+        iso_dow  = dow + 1
         start_t  = slot.start_time
         end_t    = slot.end_time
         time_q   = Q(start_time__lt=end_t) & Q(end_time__gt=start_t)
         date_dow = Q(date__iso_week_day=iso_dow)
 
-        # Personal events owned by the teacher on any matching weekday
         personal_qs = PersonalEvent.objects.filter(
             Q(owner=user) & date_dow & time_q
         ).order_by("date")
 
-        # Accepted / pending invitations on matching weekday
         inv_qs = EventInvitation.objects.filter(
             invitee=user,
             status__in=[EventInvitation.Status.PENDING, EventInvitation.Status.ACCEPTED],

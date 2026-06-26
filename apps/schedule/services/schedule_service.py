@@ -3,45 +3,29 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Q
 
-from apps.courses.exceptions import (
+from apps.schedule.exceptions import (
     InvalidScheduleTimeError,
     SlotAlreadyBookedError,
-    SlotNotAvailableError,
     TeacherScheduleConflictError,
 )
-from apps.courses.models import (
-    Cohort,
+from apps.schedule.models import (
     CohortSchedule,
-    CourseDeliveryFormat,
     EventInvitation,
     PersonalEvent,
+    ScheduleOverride,
     ScheduleSlot,
     Session,
-    ScheduleOverride,
     TeacherUnavailability,
 )
+from apps.courses.models import Cohort, CourseDeliveryFormat
 from apps.users.models import TeacherProfile
 
 
 class ScheduleService:
-    """
-    Handles creation, update, and deletion of schedule entities:
-      - ScheduleSlot (individual delivery format)
-      - CohortSchedule (group cohort)
-      - TeacherUnavailability (personal blocks)
-
-    All write operations validate that the teacher has no conflicting sessions
-    at the requested day + time window.
-    """
-
-    # ── Conflict checker ───────────────────────────────────────────────
+       # ── Conflict checker ───────────────────────────────────────────────
 
     @staticmethod
     def _time_overlap_filter(start_time, end_time) -> Q:
-        """
-        Returns a Q filter that matches any row whose [start, end) overlaps [start_time, end_time).
-        Two intervals overlap when one starts before the other ends.
-        """
         return Q(start_time__lt=end_time) & Q(end_time__gt=start_time)
 
     @classmethod
@@ -56,30 +40,14 @@ class ScheduleService:
         exclude_cohort_schedule_id: int | None = None,
         exclude_unavailability_id: int | None = None,
         specific_date=None,
-        ignore_onetime_unavailability: bool = False,
+        ignore_unavailability: bool = False,
     ) -> None:
-        """
-        Raises TeacherScheduleConflictError if the teacher already has ANY session
-        (ScheduleSlot, CohortSchedule, or TeacherUnavailability) on the given
-        day_of_week that overlaps [start_time, end_time).
-
-        When specific_date is provided (for one-time unavailability blocks), slots and
-        cohort schedules are only considered conflicting if their session on that exact
-        date has NOT been cancelled or rescheduled via ScheduleOverride or Session.
-
-        When ignore_onetime_unavailability=True, ONE_TIME and DATE_RANGE unavailabilities
-        are skipped — callers that pass this flag are expected to auto-cancel sessions for
-        those specific conflicting dates themselves.
-
-        exclude_* args allow skipping the row being updated.
-        """
         overlap = cls._time_overlap_filter(start_time, end_time)
         day_q = Q(day_of_week=day_of_week)
 
         _INACTIVE_OVERRIDE = [ScheduleOverride.Status.CANCELLED, ScheduleOverride.Status.RESCHEDULED]
         _INACTIVE_SESSION  = [Session.Status.CANCELLED, Session.Status.RESCHEDULED]
 
-        # --- Individual ScheduleSlots across all courses of this teacher ---
         slot_qs = ScheduleSlot.objects.filter(
             day_q & overlap,
             delivery_format__course__teacher_profile=teacher_profile,
@@ -109,7 +77,6 @@ class ScheduleService:
                         "Teacher already has an individual session at this day and time."
                     )
 
-        # --- CohortSchedules across all group cohorts of this teacher ---
         cohort_qs = CohortSchedule.objects.filter(
             day_q & overlap,
             cohort__course__teacher_profile=teacher_profile,
@@ -139,24 +106,17 @@ class ScheduleService:
                         "Teacher already has a group session at this day and time."
                     )
 
-        # --- TeacherUnavailability blocks ---
-        unavail_qs = TeacherUnavailability.objects.filter(
-            day_q & overlap,
-            teacher_profile=teacher_profile,
-        )
-        if exclude_unavailability_id:
-            unavail_qs = unavail_qs.exclude(pk=exclude_unavailability_id)
-        if ignore_onetime_unavailability:
-            # Recurring slots/schedules: only WEEKLY blocks are a permanent conflict.
-            # ONE_TIME/DATE_RANGE affect specific dates only — the caller will
-            # auto-create CANCELLED sessions for those dates instead of blocking.
-            unavail_qs = unavail_qs.filter(
-                recurrence_type=TeacherUnavailability.RecurrenceType.WEEKLY
+        if not ignore_unavailability:
+            unavail_qs = TeacherUnavailability.objects.filter(
+                day_q & overlap,
+                teacher_profile=teacher_profile,
             )
-        if unavail_qs.exists():
-            raise TeacherScheduleConflictError(
-                "Teacher has a personal unavailability block at this day and time."
-            )
+            if exclude_unavailability_id:
+                unavail_qs = unavail_qs.exclude(pk=exclude_unavailability_id)
+            if unavail_qs.exists():
+                raise TeacherScheduleConflictError(
+                    "Teacher has a personal unavailability block at this day and time."
+                )
 
     @staticmethod
     def _validate_time_range(start_time, end_time) -> None:
@@ -171,11 +131,6 @@ class ScheduleService:
         start_time,
         end_time,
     ) -> list:
-        """
-        Returns specific dates from ONE_TIME/DATE_RANGE unavailabilities that
-        time-overlap with [start_time, end_time) on the given day_of_week.
-        Used to auto-create CANCELLED sessions for those occurrences.
-        """
         overlap = cls._time_overlap_filter(start_time, end_time)
         unavails = TeacherUnavailability.objects.filter(
             teacher_profile=teacher_profile,
@@ -210,13 +165,6 @@ class ScheduleService:
         cohort_start_date=None,
         cohort_duration_months: int | None = None,
     ) -> dict:
-        """
-        Returns categorised conflicts for the given day+time window without raising.
-        Only WEEKLY unavailability blocks count as permanent personal conflicts;
-        ONE_TIME/DATE_RANGE blocks are handled separately via auto-cancelled sessions.
-        Personal calendar events (owned + accepted/pending invitations) within the
-        cohort's active date range are included as personal_events.
-        """
         from datetime import date as _date, timedelta
         import calendar as _cal
 
@@ -265,7 +213,6 @@ class ScheduleService:
                 "end_time": u.end_time.strftime("%H:%M"),
             })
 
-        # Personal calendar events within cohort's active date range
         today = _date.today()
         date_from = max(cohort_start_date, today) if cohort_start_date else today
         if cohort_start_date and cohort_duration_months:
@@ -278,9 +225,7 @@ class ScheduleService:
         else:
             date_to = today + timedelta(days=365)
 
-        # iso_week_day: 1=Monday … 7=Sunday; day_of_week: 0=Monday … 6=Sunday
         iso_dow = day_of_week + 1
-
         user = teacher_profile.user
         event_overlap = Q(start_time__lt=end_time) & Q(end_time__gt=start_time)
         date_range = Q(date__gte=date_from) & Q(date__lte=date_to) & Q(date__iso_week_day=iso_dow)
@@ -334,13 +279,13 @@ class ScheduleService:
         delivery_format: CourseDeliveryFormat,
         validated_data: dict,
     ) -> ScheduleSlot:
-        day      = validated_data["day_of_week"]
-        start    = validated_data["start_time"]
-        end      = validated_data["end_time"]
-        teacher  = delivery_format.course.teacher_profile
+        day     = validated_data["day_of_week"]
+        start   = validated_data["start_time"]
+        end     = validated_data["end_time"]
+        teacher = delivery_format.course.teacher_profile
 
         cls._validate_time_range(start, end)
-        cls._check_teacher_conflict(teacher, day, start, end, ignore_onetime_unavailability=True)
+        cls._check_teacher_conflict(teacher, day, start, end, ignore_unavailability=True)
 
         slot = ScheduleSlot.objects.create(
             delivery_format=delivery_format,
@@ -373,11 +318,10 @@ class ScheduleService:
         teacher = slot.delivery_format.course.teacher_profile
 
         cls._validate_time_range(start, end)
-        cls._check_teacher_conflict(teacher, day, start, end, exclude_slot_id=slot.pk)
+        cls._check_teacher_conflict(teacher, day, start, end, exclude_slot_id=slot.pk, ignore_unavailability=True)
 
-        # If a student is already assigned, personal events on the new weekday+time are a conflict.
         if slot.booked_by_id:
-            iso_dow = day + 1  # Django iso_week_day: 1=Mon … 7=Sun
+            iso_dow = day + 1
             overlap = cls._time_overlap_filter(start, end)
             date_dow = Q(date__iso_week_day=iso_dow)
             user = teacher.user
@@ -390,8 +334,6 @@ class ScheduleService:
         old_start = slot.start_time
         old_end   = slot.end_time
 
-        # Only track reschedule history when a student is already assigned —
-        # editing an unbooked slot is a plain definition change, not a reschedule.
         if slot.booked_by_id and not slot.is_rescheduled:
             slot.original_day_of_week = old_day
             slot.original_start_time  = old_start
@@ -403,7 +345,6 @@ class ScheduleService:
         slot.end_time    = end
         slot.save()
 
-        # Mirror CohortSchedule.save() — keep future sessions in sync.
         day_changed  = old_day != day
         time_changed = old_start != start or old_end != end
         if day_changed or time_changed:
@@ -452,7 +393,7 @@ class ScheduleService:
         teacher = cohort.course.teacher_profile
 
         cls._validate_time_range(start, end)
-        cls._check_teacher_conflict(teacher, day, start, end, ignore_onetime_unavailability=True)
+        cls._check_teacher_conflict(teacher, day, start, end, ignore_unavailability=True)
 
         sched = CohortSchedule.objects.create(
             cohort=cohort,
@@ -487,6 +428,7 @@ class ScheduleService:
         cls._check_teacher_conflict(
             teacher, day, start, end,
             exclude_cohort_schedule_id=cohort_schedule.pk,
+            ignore_unavailability=True,
         )
 
         cohort_schedule.day_of_week = day
@@ -515,7 +457,6 @@ class ScheduleService:
         if recurrence == TeacherUnavailability.RecurrenceType.ONE_TIME:
             day = date.weekday()
         elif recurrence == TeacherUnavailability.RecurrenceType.DATE_RANGE:
-            # Use 0 (Monday) as a placeholder; the date range itself is the authority.
             day = date.weekday()
         else:
             day = validated_data["day_of_week"]
@@ -525,7 +466,6 @@ class ScheduleService:
         if recurrence == TeacherUnavailability.RecurrenceType.ONE_TIME:
             cls._check_teacher_conflict(teacher_profile, day, start, end, specific_date=date)
         elif recurrence == TeacherUnavailability.RecurrenceType.DATE_RANGE:
-            # Check each distinct weekday in the range; raise on the first active conflict.
             from datetime import timedelta as _td
             seen_weekdays: set[int] = set()
             d = validated_data["date"]

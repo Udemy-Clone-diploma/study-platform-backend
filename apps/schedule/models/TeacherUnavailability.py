@@ -36,12 +36,8 @@ class TeacherUnavailability(models.Model):
     recurrence_type = models.CharField(
         max_length=10, choices=RecurrenceType.choices, default=RecurrenceType.WEEKLY
     )
-    # For weekly: which day repeats.
-    # For one_time: derived from `date` and stored here for query convenience.
     day_of_week = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
-    # For one_time: the specific date. For date_range: the start date. Null for weekly.
     date    = models.DateField(null=True, blank=True)
-    # Only for date_range: the inclusive end date.
     date_to = models.DateField(null=True, blank=True)
     start_time = models.TimeField()
     end_time   = models.TimeField()

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.courses.models import ScheduleSlot
+from apps.schedule.models import ScheduleSlot
 
 
 class ScheduleSlotSerializer(serializers.ModelSerializer):

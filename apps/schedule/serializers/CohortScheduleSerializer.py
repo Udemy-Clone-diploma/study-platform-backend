@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.courses.models import CohortSchedule
+from apps.schedule.models import CohortSchedule
 
 
 class CohortScheduleSerializer(serializers.ModelSerializer):

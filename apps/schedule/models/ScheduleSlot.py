@@ -2,8 +2,6 @@ from datetime import date
 
 from django.db import models
 
-from .CourseDeliveryFormat import CourseDeliveryFormat
-
 
 class ScheduleSlot(models.Model):
     """
@@ -27,17 +25,14 @@ class ScheduleSlot(models.Model):
         SUNDAY    = 6, "Sunday"
 
     delivery_format = models.ForeignKey(
-        CourseDeliveryFormat,
+        "courses.CourseDeliveryFormat",
         on_delete=models.CASCADE,
         related_name="schedule_slots",
-        limit_choices_to={"format_type": CourseDeliveryFormat.FormatType.INDIVIDUAL},
     )
     day_of_week = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
     start_time  = models.TimeField()
     end_time    = models.TimeField()
 
-    # Set when a student books this slot (via enrollment after purchase).
-    # None = slot is still available for purchase.
     booked_by = models.ForeignKey(
         "enrollments.Enrollment",
         on_delete=models.SET_NULL,
@@ -46,7 +41,6 @@ class ScheduleSlot(models.Model):
         related_name="scheduled_slots",
     )
 
-    # Original time preserved when slot is rescheduled so teacher/student can see the change.
     original_day_of_week = models.PositiveSmallIntegerField(
         choices=DayOfWeek.choices, null=True, blank=True
     )
@@ -83,7 +77,7 @@ class ScheduleSlot(models.Model):
         super().save(*args, **kwargs)
 
         if time_changed or day_changed:
-            from apps.courses.models.Session import Session
+            from apps.schedule.models.Session import Session
             today = date.today()
             future = Session.objects.filter(
                 slot=self,

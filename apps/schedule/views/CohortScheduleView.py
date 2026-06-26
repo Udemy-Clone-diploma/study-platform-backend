@@ -7,15 +7,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
-from apps.courses.models import Cohort, CohortSchedule
-from apps.courses.serializers.CohortScheduleSerializer import (
-    CohortScheduleSerializer,
-    CohortScheduleWriteSerializer,
-)
-from apps.courses.services import ScheduleService
+from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
+from apps.courses.models import Cohort
+from apps.schedule.models import CohortSchedule
+from apps.schedule.serializers import CohortScheduleSerializer, CohortScheduleWriteSerializer
+from apps.schedule.services import ScheduleService
 
-from ._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
 
 
 def _get_cohort(view, slug: str, cohort_id: int) -> Cohort:

@@ -2,8 +2,6 @@ from datetime import date
 
 from django.db import models
 
-from .Cohort import Cohort
-
 
 class CohortSchedule(models.Model):
     """
@@ -23,8 +21,8 @@ class CohortSchedule(models.Model):
         SATURDAY  = 5, "Saturday"
         SUNDAY    = 6, "Sunday"
 
-    cohort     = models.ForeignKey(
-        Cohort,
+    cohort = models.ForeignKey(
+        "courses.Cohort",
         on_delete=models.CASCADE,
         related_name="schedules",
     )
@@ -57,7 +55,7 @@ class CohortSchedule(models.Model):
         super().save(*args, **kwargs)
 
         if time_changed or day_changed:
-            from apps.courses.models.Session import Session
+            from apps.schedule.models.Session import Session
             today = date.today()
             future = Session.objects.filter(
                 schedule=self,

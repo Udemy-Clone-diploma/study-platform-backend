@@ -13,7 +13,6 @@ class Session(models.Model):
         CANCELLED   = "cancelled",   "Cancelled"
         RESCHEDULED = "rescheduled", "Rescheduled"
 
-    # ── Source: exactly one of slot / schedule / course must be set ───────────
     slot = models.ForeignKey(
         "ScheduleSlot", on_delete=models.CASCADE,
         null=True, blank=True, related_name="sessions",
@@ -22,14 +21,12 @@ class Session(models.Model):
         "CohortSchedule", on_delete=models.CASCADE,
         null=True, blank=True, related_name="sessions",
     )
-    # Direct course FK — set only for manually-created extra sessions
     course = models.ForeignKey(
-        "Course", on_delete=models.CASCADE,
+        "courses.Course", on_delete=models.CASCADE,
         null=True, blank=True, related_name="+",
     )
-    # Audience for extra sessions (at most one)
     cohort = models.ForeignKey(
-        "Cohort", on_delete=models.SET_NULL,
+        "courses.Cohort", on_delete=models.SET_NULL,
         null=True, blank=True, related_name="+",
     )
     student_profile = models.ForeignKey(
