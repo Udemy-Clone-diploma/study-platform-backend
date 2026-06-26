@@ -9,6 +9,9 @@ class Test(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     passing_score = models.PositiveSmallIntegerField(default=70)
+    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+    allow_retakes = models.BooleanField(default=False)
+    max_attempts = models.PositiveSmallIntegerField(null=True, blank=True)
     order = models.PositiveSmallIntegerField()
 
     module = models.ForeignKey(

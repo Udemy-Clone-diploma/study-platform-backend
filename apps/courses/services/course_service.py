@@ -404,6 +404,9 @@ class CourseService:
                     title=old_test.title,
                     description=old_test.description,
                     passing_score=old_test.passing_score,
+                    duration_minutes=old_test.duration_minutes,
+                    allow_retakes=old_test.allow_retakes,
+                    max_attempts=old_test.max_attempts,
                     order=old_test.order,
                 )
                 test_map[old_test.id] = new_test
@@ -413,9 +416,10 @@ class CourseService:
                         question_type=old_q.question_type,
                         text=old_q.text,
                         options=old_q.options,
-                        correct_index=old_q.correct_index,
+                        correct_indices=old_q.correct_indices,
                         correct_bool=old_q.correct_bool,
                         sample_answer=old_q.sample_answer,
+                        accepted_answers=old_q.accepted_answers,
                         order=old_q.order,
                     )
 

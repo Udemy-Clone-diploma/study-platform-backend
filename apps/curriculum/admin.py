@@ -35,7 +35,10 @@ class LessonInline(SoftDeleteAdminMixin, admin.TabularInline):
 class TestInline(SoftDeleteAdminMixin, admin.TabularInline):
     model = Test
     extra = 0
-    fields = ("title", "passing_score", "order", "is_deleted")
+    fields = (
+        "title", "passing_score", "duration_minutes",
+        "allow_retakes", "max_attempts", "order", "is_deleted",
+    )
     show_change_link = True
 
 
@@ -44,7 +47,7 @@ class QuestionInline(SoftDeleteAdminMixin, admin.TabularInline):
     extra = 0
     fields = (
         "question_type", "text", "options",
-        "correct_index", "correct_bool", "sample_answer",
+        "correct_indices", "correct_bool", "sample_answer", "accepted_answers",
         "order", "is_deleted",
     )
     show_change_link = True

@@ -18,7 +18,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.courses.models import Category, Cohort, Course, CourseDeliveryFormat, PricingPlan, Tag
-from apps.curriculum.models import Lesson, LessonItem, Module
+from apps.curriculum.models import Lesson, LessonItem, Module, Question, Test
 from apps.enrollments.models import Enrollment, LessonCompletion
 from apps.reviews.models import Review
 from apps.users.models import (
@@ -265,7 +265,10 @@ class Command(BaseCommand):
         return course
 
     def _curriculum(self, course, with_meeting=False):
-        """Two modules, three lessons each (video + text, first one preview)."""
+        """Two modules, three lessons each (video + text, first one preview).
+
+        Lesson 1.2 also carries a TEST item covering all four question types.
+        """
         for m_order in (1, 2):
             module, _ = Module.objects.get_or_create(
                 course=course, order=m_order,
@@ -302,6 +305,54 @@ class Command(BaseCommand):
                             "duration_minutes": 12 + l_order,
                         },
                     )
+                if m_order == 1 and l_order == 2:
+                    self._test(module, lesson)
+
+    def _test(self, module, lesson):
+        test, _ = Test.objects.get_or_create(
+            module=module, order=1,
+            defaults={
+                "title": "Module 1 knowledge check",
+                "description": "Confirm the basics before moving on.",
+                "passing_score": 70,
+                "duration_minutes": 15,
+                "allow_retakes": True,
+                "max_attempts": 3,
+            },
+        )
+        questions = [
+            {
+                "question_type": Question.TypeChoices.SINGLE_CHOICE,
+                "text": "What is 2 + 2?",
+                "options": ["3", "4", "5", "6"],
+                "correct_indices": [1],
+            },
+            {
+                "question_type": Question.TypeChoices.MULTIPLE_CHOICE,
+                "text": "Which of these are prime numbers?",
+                "options": ["2", "4", "7", "9"],
+                "correct_indices": [0, 2],
+            },
+            {
+                "question_type": Question.TypeChoices.TRUE_FALSE,
+                "text": "The sky appears blue on a clear day.",
+                "correct_bool": True,
+            },
+            {
+                "question_type": Question.TypeChoices.SHORT_ANSWER,
+                "text": "What is the capital of France?",
+                "sample_answer": "Paris",
+                "accepted_answers": ["Paris, France"],
+            },
+        ]
+        for order, data in enumerate(questions, start=1):
+            Question.objects.get_or_create(
+                test=test, order=order, defaults=data,
+            )
+        LessonItem.objects.get_or_create(
+            lesson=lesson, order=2,
+            defaults={"item_type": LessonItem.ItemType.TEST, "test": test},
+        )
 
     def _format_with_price(self, course, format_type, price, currency,
                             installment_count=None, installment_amount=None):

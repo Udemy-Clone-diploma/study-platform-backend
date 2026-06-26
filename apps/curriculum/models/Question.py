@@ -7,6 +7,7 @@ from .Test import Test
 
 class Question(models.Model):
     class TypeChoices(models.TextChoices):
+        SINGLE_CHOICE = "single_choice", "Single Choice"
         MULTIPLE_CHOICE = "multiple_choice", "Multiple Choice"
         TRUE_FALSE = "true_false", "True/False"
         SHORT_ANSWER = "short_answer", "Short Answer"
@@ -20,13 +21,16 @@ class Question(models.Model):
     question_type = models.CharField(
         max_length=20,
         choices=TypeChoices.choices,
-        default=TypeChoices.MULTIPLE_CHOICE,
+        default=TypeChoices.SINGLE_CHOICE,
     )
     text = models.TextField()
     options = models.JSONField(default=list, blank=True)
-    correct_index = models.SmallIntegerField(null=True, blank=True)
+    # Source of truth for single_choice / multiple_choice answers.
+    correct_indices = models.JSONField(default=list, blank=True)
     correct_bool = models.BooleanField(null=True, blank=True)
     sample_answer = models.TextField(blank=True, default="")
+    # Extra acceptable strings for short_answer (matched alongside sample_answer).
+    accepted_answers = models.JSONField(default=list, blank=True)
 
     order = models.PositiveSmallIntegerField()
 
