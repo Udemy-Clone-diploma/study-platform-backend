@@ -23,6 +23,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     total_duration_minutes = serializers.SerializerMethodField()
     moderation_review = ModerationReviewSerializer(read_only=True)
+    is_enrolled = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -37,6 +38,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "created_at", "updated_at", "published_at",
             "tags", "modules", "delivery_formats", "cohorts",
             "moderation_review",
+            "is_enrolled",
         ]
 
     def get_moderator_id(self, obj) -> int | None:
@@ -51,3 +53,10 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             for module in obj.modules.all()
             for lesson in module.lessons.all()
         )
+
+    def get_is_enrolled(self, obj) -> bool:
+        from apps.enrollments.services.enrollment_service import EnrollmentService
+        request = self.context.get("request")
+        if request is None:
+            return False
+        return EnrollmentService.is_enrolled(request.user, obj)
