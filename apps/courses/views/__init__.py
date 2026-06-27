@@ -7,7 +7,6 @@ from .CohortGroupView import (
     CohortMemberListCreateView,
     CourseEnrolledStudentsView,
 )
-from .CohortScheduleView import CohortScheduleDetailView, CohortScheduleListCreateView
 from .DeliveryFormatView import DeliveryFormatDetailView, DeliveryFormatListCreateView
 from .CoursePendingEditView import (
     CoursePendingEditApproveView,
@@ -23,9 +22,7 @@ from .FeaturedCategoriesView import FeaturedCategoriesView
 from .NewCoursesView import NewCoursesView
 from .PopularCoursesView import PopularCoursesView
 from .PricingPlanView import PricingPlanDetailView, PricingPlanListCreateView
-from .ScheduleSlotView import EnrollmentPeriodView, ScheduleSlotAssignView, ScheduleSlotDetailView, ScheduleSlotListCreateView
 from .TeacherCoursesView import TeacherCoursesView
-from .TeacherUnavailabilityView import TeacherUnavailabilityDetailView, TeacherUnavailabilityListCreateView
 from .CourseRejectedView import (
     CourseCopyToDraftView,
     CourseRestoreFromRejectedView,
@@ -35,7 +32,6 @@ from .CourseRejectedView import (
     TeacherRejectionRecordsView,
 )
 from .WishlistView import WishlistListView, WishlistToggleView
-from .CalendarView import CalendarView
 from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListView, LessonItemViewSet, LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
 
 __all__ = [
@@ -52,8 +48,6 @@ __all__ = [
     "CohortMemberDetailView",
     "CohortMemberListCreateView",
     "CourseEnrolledStudentsView",
-    "CohortScheduleDetailView",
-    "CohortScheduleListCreateView",
     "DeliveryFormatDetailView",
     "DeliveryFormatListCreateView",
     "CoursePendingEditApproveView",
@@ -74,14 +68,8 @@ __all__ = [
     "PopularCoursesView",
     "PricingPlanDetailView",
     "PricingPlanListCreateView",
-    "EnrollmentPeriodView",
-    "ScheduleSlotAssignView",
-    "ScheduleSlotDetailView",
-    "ScheduleSlotListCreateView",
     "QuestionViewSet",
     "TeacherCoursesView",
-    "TeacherUnavailabilityDetailView",
-    "TeacherUnavailabilityListCreateView",
     "CourseCopyToDraftView",
     "CourseRestoreFromRejectedView",
     "ModeratorApprovalRecordsView",
@@ -91,5 +79,4 @@ __all__ = [
     "TestViewSet",
     "WishlistListView",
     "WishlistToggleView",
-    "CalendarView",
 ]

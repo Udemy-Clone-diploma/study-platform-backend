@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.courses.models import TeacherUnavailability
+from apps.schedule.models import TeacherUnavailability
 
 
 class TeacherUnavailabilitySerializer(serializers.ModelSerializer):

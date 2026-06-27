@@ -1,6 +1,6 @@
-from django.db import models
+from datetime import date
 
-from .CourseDeliveryFormat import CourseDeliveryFormat
+from django.db import models
 
 
 class ScheduleSlot(models.Model):
@@ -25,17 +25,14 @@ class ScheduleSlot(models.Model):
         SUNDAY    = 6, "Sunday"
 
     delivery_format = models.ForeignKey(
-        CourseDeliveryFormat,
+        "courses.CourseDeliveryFormat",
         on_delete=models.CASCADE,
         related_name="schedule_slots",
-        limit_choices_to={"format_type": CourseDeliveryFormat.FormatType.INDIVIDUAL},
     )
     day_of_week = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
     start_time  = models.TimeField()
     end_time    = models.TimeField()
 
-    # Set when a student books this slot (via enrollment after purchase).
-    # None = slot is still available for purchase.
     booked_by = models.ForeignKey(
         "enrollments.Enrollment",
         on_delete=models.SET_NULL,
@@ -44,15 +41,12 @@ class ScheduleSlot(models.Model):
         related_name="scheduled_slots",
     )
 
-    # Original time preserved when slot is rescheduled so teacher/student can see the change.
     original_day_of_week = models.PositiveSmallIntegerField(
         choices=DayOfWeek.choices, null=True, blank=True
     )
     original_start_time = models.TimeField(null=True, blank=True)
     original_end_time   = models.TimeField(null=True, blank=True)
     is_rescheduled      = models.BooleanField(default=False)
-
-    meeting_link = models.URLField(blank=True, null=True)
 
     created_at  = models.DateTimeField(auto_now_add=True)
     updated_at  = models.DateTimeField(auto_now=True)
@@ -68,6 +62,33 @@ class ScheduleSlot(models.Model):
             f"{self.delivery_format} – {day} "
             f"{self.start_time:%H:%M}–{self.end_time:%H:%M} ({status})"
         )
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            try:
+                old = ScheduleSlot.objects.get(pk=self.pk)
+                time_changed = old.start_time != self.start_time or old.end_time != self.end_time
+                day_changed  = old.day_of_week != self.day_of_week
+            except ScheduleSlot.DoesNotExist:
+                time_changed = day_changed = False
+        else:
+            time_changed = day_changed = False
+
+        super().save(*args, **kwargs)
+
+        if time_changed or day_changed:
+            from apps.schedule.models.Session import Session
+            today = date.today()
+            future = Session.objects.filter(
+                slot=self,
+                date__gte=today,
+                status=Session.Status.SCHEDULED,
+                rescheduled_from_date__isnull=True,
+            )
+            if day_changed:
+                future.delete()
+            else:
+                future.update(start_time=self.start_time, end_time=self.end_time)
 
     @property
     def is_available(self) -> bool:

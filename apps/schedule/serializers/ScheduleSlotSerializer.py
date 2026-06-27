@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.courses.models import ScheduleSlot
+from apps.schedule.models import ScheduleSlot
 
 
 class ScheduleSlotSerializer(serializers.ModelSerializer):
@@ -14,7 +14,6 @@ class ScheduleSlotSerializer(serializers.ModelSerializer):
             "day_of_week",
             "start_time",
             "end_time",
-            "meeting_link",
             "is_available",
             "booked_by_student",
             "is_rescheduled",
@@ -61,10 +60,9 @@ class ScheduleSlotSerializer(serializers.ModelSerializer):
 
 
 class ScheduleSlotWriteSerializer(serializers.Serializer):
-    day_of_week  = serializers.IntegerField(min_value=0, max_value=6)
-    start_time   = serializers.TimeField()
-    end_time     = serializers.TimeField()
-    meeting_link = serializers.URLField(required=False, allow_null=True, allow_blank=True)
+    day_of_week = serializers.IntegerField(min_value=0, max_value=6)
+    start_time  = serializers.TimeField()
+    end_time    = serializers.TimeField()
 
     def validate(self, attrs):
         if attrs["end_time"] <= attrs["start_time"]:
