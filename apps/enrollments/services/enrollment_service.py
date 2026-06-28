@@ -4,8 +4,8 @@ from django.db import transaction
 from django.utils.timezone import now as tz_now
 
 from apps.cart.models import CartItem
-from apps.courses.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.courses.models import Course, PricingPlan
+from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
     DuplicateEnrollmentError,
@@ -143,8 +143,8 @@ class EnrollmentService:
 
     @staticmethod
     def _book_schedule_slot(enrollment: "Enrollment", slot_id: int) -> None:
-        from apps.courses.models import ScheduleSlot
-        from apps.courses.services import ScheduleService
+        from apps.schedule.models import ScheduleSlot
+        from apps.schedule.services import ScheduleService
 
         try:
             slot = ScheduleSlot.objects.select_for_update().get(

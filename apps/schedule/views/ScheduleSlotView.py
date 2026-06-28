@@ -8,21 +8,17 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.exceptions import (
-    InvalidScheduleTimeError,
-    TeacherScheduleConflictError,
-)
-from apps.courses.models import CourseDeliveryFormat, ScheduleSlot
-from apps.courses.serializers import ScheduleSlotSerializer
-from apps.courses.serializers.ScheduleSlotSerializer import (
-    ScheduleSlotRescheduleSerializer,
-    ScheduleSlotWriteSerializer,
-)
-from apps.courses.services import ScheduleService
+from django.db.models import Q
+
+from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
+from apps.schedule.models import CohortSchedule, PersonalEvent, EventInvitation, ScheduleSlot, Session
+from apps.schedule.serializers import ScheduleSlotSerializer, ScheduleSlotRescheduleSerializer, ScheduleSlotWriteSerializer
+from apps.schedule.services import ScheduleService
+from apps.courses.models import CourseDeliveryFormat
 from apps.enrollments.models import Enrollment
 from apps.users.models import User
 
-from ._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
 
 
 class _EnrollmentPeriodSerializer(serializers.Serializer):
@@ -166,6 +162,104 @@ class ScheduleSlotAssignView(APIView):
         slot.booked_by = enrollment
         slot.save(update_fields=["booked_by"])
         return Response(ScheduleSlotSerializer(slot, context={"request": request}).data)
+
+
+@extend_schema(tags=["Schedule"])
+class ScheduleSlotPersonalConflictView(APIView):
+    """
+    GET /courses/{slug}/delivery-formats/{formatId}/schedule-slots/{slotId}/personal-conflicts/
+    Returns teacher's personal events (owned + invited) that overlap with the slot's
+    recurring weekday+time.  Used before assigning a student to warn the teacher.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, slug, format_id, slot_id):
+        slot = _get_slot(self, slug, format_id, slot_id)
+        ensure_can_modify_course(request.user, slot.delivery_format.course)
+
+        user     = request.user
+        dow      = slot.day_of_week
+        iso_dow  = dow + 1
+        start_t  = slot.start_time
+        end_t    = slot.end_time
+        time_q   = Q(start_time__lt=end_t) & Q(end_time__gt=start_t)
+        date_dow = Q(date__iso_week_day=iso_dow)
+
+        personal_qs = PersonalEvent.objects.filter(
+            Q(owner=user) & date_dow & time_q
+        ).order_by("date")
+
+        inv_qs = EventInvitation.objects.filter(
+            invitee=user,
+            status__in=[EventInvitation.Status.PENDING, EventInvitation.Status.ACCEPTED],
+        ).filter(
+            Q(event__date__iso_week_day=iso_dow)
+            & Q(event__start_time__lt=end_t)
+            & Q(event__end_time__gt=start_t)
+        ).select_related("event").order_by("event__date")
+
+        result = []
+        for ev in personal_qs:
+            result.append({
+                "id":           ev.id,
+                "title":        ev.title,
+                "date":         ev.date.isoformat(),
+                "start_time":   ev.start_time.strftime("%H:%M"),
+                "end_time":     ev.end_time.strftime("%H:%M"),
+                "is_owner":     True,
+                "invitation_id": None,
+            })
+        for inv in inv_qs:
+            result.append({
+                "id":           inv.event_id,
+                "title":        inv.event.title,
+                "date":         inv.event.date.isoformat(),
+                "start_time":   inv.event.start_time.strftime("%H:%M"),
+                "end_time":     inv.event.end_time.strftime("%H:%M"),
+                "is_owner":     False,
+                "invitation_id": inv.id,
+            })
+
+        return Response(result)
+
+
+@extend_schema(tags=["Schedule"])
+class ScheduleSlotConflictView(APIView):
+    """
+    GET /courses/{slug}/delivery-formats/{formatId}/schedule-slots/reschedule-conflicts/
+    Returns categorised conflicts for a proposed day+time without blocking.
+    Query params: day_of_week, start_time, end_time, slot_id (self, to exclude)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, slug, format_id):
+        from datetime import time as time_type
+        fmt = _get_delivery_format(self, slug, format_id)
+        ensure_can_modify_course(request.user, fmt.course)
+
+        try:
+            day_of_week = int(request.query_params["day_of_week"])
+            start_str   = request.query_params["start_time"]
+            end_str     = request.query_params["end_time"]
+            sh, sm = map(int, start_str.split(":"))
+            eh, em = map(int, end_str.split(":"))
+            start_t = time_type(sh, sm)
+            end_t   = time_type(eh, em)
+        except (KeyError, ValueError, AttributeError):
+            return Response(
+                {"detail": "day_of_week, start_time, end_time are required."},
+                status=400,
+            )
+
+        slot_id_param = request.query_params.get("slot_id")
+        exclude_id = int(slot_id_param) if slot_id_param and slot_id_param.isdigit() else None
+
+        conflicts = ScheduleService.get_schedule_conflicts(
+            fmt.course.teacher_profile, day_of_week, start_t, end_t,
+            exclude_slot_id=exclude_id,
+        )
+        return Response(conflicts)
 
 
 @extend_schema(tags=["Schedule"])

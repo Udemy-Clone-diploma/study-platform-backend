@@ -12,6 +12,7 @@ from apps.users.views import (
     TokenRefreshView,
     TopTeachersView,
     UserViewSet,
+    UserSearchView,
     VerifyEmailView,
     ResendVerificationEmailView,
     LogoutView,
@@ -25,6 +26,7 @@ router.register(r"users", UserViewSet, basename="users")
 
 urlpatterns = [
     path("users/top-teachers/", TopTeachersView.as_view(), name="top-teachers"),
+    path("users/search/",       UserSearchView.as_view(),  name="user-search"),
     path("auth/register/", RegisterView.as_view(), name="auth-register"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),

@@ -5,13 +5,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
-from apps.courses.models import TeacherUnavailability
-from apps.courses.serializers.TeacherUnavailabilitySerializer import (
-    TeacherUnavailabilitySerializer,
-    TeacherUnavailabilityWriteSerializer,
-)
-from apps.courses.services import ScheduleService
+from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
+from apps.schedule.models import TeacherUnavailability
+from apps.schedule.serializers import TeacherUnavailabilitySerializer, TeacherUnavailabilityWriteSerializer
+from apps.schedule.services import ScheduleService
 from apps.users.models import TeacherProfile, User
 
 

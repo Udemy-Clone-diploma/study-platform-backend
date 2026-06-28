@@ -2,7 +2,6 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.courses.views import (
-    CalendarView,
     CategoryViewSet,
     CourseApproveView,
     CourseAssignModeratorView,
@@ -20,8 +19,6 @@ from apps.courses.views import (
     CohortDetailView,
     CohortMemberDetailView,
     CohortMemberListCreateView,
-    CohortScheduleDetailView,
-    CohortScheduleListCreateView,
     CourseEnrolledStudentsView,
     LessonDocumentDetailView,
     LessonDocumentListView,
@@ -44,14 +41,8 @@ from apps.courses.views import (
     PricingPlanDetailView,
     PricingPlanListCreateView,
     QuestionViewSet,
-    EnrollmentPeriodView,
-    ScheduleSlotAssignView,
-    ScheduleSlotDetailView,
-    ScheduleSlotListCreateView,
     StudentCompletionsView,
     TeacherCoursesView,
-    TeacherUnavailabilityDetailView,
-    TeacherUnavailabilityListCreateView,
     TestViewSet,
     WishlistListView,
     WishlistToggleView,
@@ -143,36 +134,6 @@ urlpatterns = [
         name="cohort-members-detail",
     ),
     path(
-        "courses/<slug:slug>/cohorts/<int:cohort_id>/schedules/",
-        CohortScheduleListCreateView.as_view(),
-        name="cohort-schedules-list",
-    ),
-    path(
-        "courses/<slug:slug>/cohorts/<int:cohort_id>/schedules/<int:schedule_id>/",
-        CohortScheduleDetailView.as_view(),
-        name="cohort-schedules-detail",
-    ),
-    path(
-        "courses/<slug:slug>/delivery-formats/<int:format_id>/schedule-slots/",
-        ScheduleSlotListCreateView.as_view(),
-        name="schedule-slots-list",
-    ),
-    path(
-        "courses/<slug:slug>/delivery-formats/<int:format_id>/schedule-slots/<int:slot_id>/",
-        ScheduleSlotDetailView.as_view(),
-        name="schedule-slots-detail",
-    ),
-    path(
-        "courses/<slug:slug>/delivery-formats/<int:format_id>/schedule-slots/<int:slot_id>/assign/",
-        ScheduleSlotAssignView.as_view(),
-        name="schedule-slot-assign",
-    ),
-    path(
-        "courses/<slug:slug>/delivery-formats/<int:format_id>/enrollments/<int:enrollment_id>/period/",
-        EnrollmentPeriodView.as_view(),
-        name="enrollment-period",
-    ),
-    path(
         "courses/<slug:slug>/enrolled-students/",
         CourseEnrolledStudentsView.as_view(),
         name="course-enrolled-students",
@@ -181,21 +142,6 @@ urlpatterns = [
         "categories/featured/",
         FeaturedCategoriesView.as_view(),
         name="categories-featured",
-    ),
-    path(
-        "calendar/",
-        CalendarView.as_view(),
-        name="calendar",
-    ),
-    path(
-        "teacher/unavailability/",
-        TeacherUnavailabilityListCreateView.as_view(),
-        name="teacher-unavailability-list",
-    ),
-    path(
-        "teacher/unavailability/<int:block_id>/",
-        TeacherUnavailabilityDetailView.as_view(),
-        name="teacher-unavailability-detail",
     ),
     path("", include(router.urls)),
     path("courses/<slug:course_slug>/", include(modules_router.urls)),

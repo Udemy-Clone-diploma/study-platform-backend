@@ -18,21 +18,5 @@ class PendingEditLockedError(CoursesError):
     """Operation not allowed because the pending edit is currently under moderation."""
 
 
-class TeacherScheduleConflictError(CoursesError):
-    """Teacher already has a class or block at the requested day and time."""
-
-
-class SlotAlreadyBookedError(CoursesError):
-    """The requested schedule slot is already booked by another student."""
-
-
-class SlotNotAvailableError(CoursesError):
-    """The requested schedule slot does not exist or belongs to a different delivery format."""
-
-
-class InvalidScheduleTimeError(CoursesError):
-    """end_time must be after start_time."""
-
-
 class MaxStudentsReachedError(CoursesError):
     """The individual delivery format has no remaining capacity for new students."""

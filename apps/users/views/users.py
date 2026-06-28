@@ -1,7 +1,9 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.users.exceptions import ProfileNotAvailableError
 from apps.users.models import User
@@ -12,6 +14,35 @@ from apps.users.serializers import (
     UserUpdateSerializer,
 )
 from apps.users.services.user_service import UserService
+
+
+@extend_schema(tags=["Users"])
+class UserSearchView(APIView):
+    """GET /users/search/?email=... — find users to invite to personal events."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        email = (request.query_params.get("email") or "").strip()
+        if len(email) < 3:
+            return Response({"detail": "Provide at least 3 characters"}, status=400)
+
+        users = (
+            User.objects
+            .filter(email__icontains=email)
+            .exclude(pk=request.user.pk)
+            [:10]
+        )
+        data = [
+            {
+                "email":  u.email,
+                "name":   u.get_full_name() or u.email,
+                "role":   u.role,
+                "avatar": request.build_absolute_uri(u.avatar.url) if u.avatar else None,
+            }
+            for u in users
+        ]
+        return Response(data)
 
 
 @extend_schema(tags=["Users"])

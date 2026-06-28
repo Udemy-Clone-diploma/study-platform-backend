@@ -56,6 +56,7 @@ LOCAL_APPS = [
     "apps.homework",
     "apps.reviews",
     "apps.payments",
+    "apps.schedule",
 ]
 
 THIRD_PARTY_APPS = [
