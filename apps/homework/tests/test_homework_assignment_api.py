@@ -3,15 +3,20 @@ import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.courses.tests._factories import make_course, make_teacher
 from apps.courses.models import Cohort, CohortMember, CourseDeliveryFormat
-from apps.curriculum.models import Lesson, Module, Question, Test
+from apps.curriculum.models import Lesson, Module, Question, Test, TestAttempt
 from apps.enrollments.models import Enrollment
 from apps.enrollments.tests._factories import make_student
-from apps.homework.models import HomeworkAssignment
+from apps.homework.models import (
+    HomeworkAssignment,
+    HomeworkAssignmentRecipient,
+    HomeworkSubmission,
+)
 
 
 class HomeworkAssignmentApiTests(APITestCase):
@@ -64,6 +69,7 @@ class HomeworkAssignmentApiTests(APITestCase):
         self.assertEqual(assignment.created_by, self.teacher)
         self.assertEqual(assignment.status, HomeworkAssignment.StatusChoices.DRAFT)
         self.assertEqual(response.data["course_id"], self.course.id)
+        self.assertEqual(response.data["course_slug"], self.course.slug)
 
     def test_course_owner_can_attach_course_test_to_homework(self):
         lesson = Lesson.objects.create(module=self.module, title="Lesson 1", order=1)
@@ -264,6 +270,248 @@ class HomeworkAssignmentApiTests(APITestCase):
         self.assertEqual(review_response.data["status"], "reviewed")
         self.assertEqual(review_response.data["score"], 9)
         self.assertEqual(review_response.data["attachments"][0]["original_name"], "solution.zip")
+
+        direct_edit_response = self.client.patch(
+            reverse(
+                "homework-submission-review",
+                args=[self.course.slug, assignment_id, submission_response.data["id"]],
+            ),
+            {"score": 10, "feedback": "Edited without retrieve."},
+            format="json",
+        )
+        self.assertEqual(direct_edit_response.status_code, status.HTTP_409_CONFLICT)
+
+        retrieve_response = self.client.post(
+            reverse(
+                "homework-submission-retrieve",
+                args=[self.course.slug, assignment_id, submission_response.data["id"]],
+            ),
+            format="json",
+        )
+        self.assertEqual(retrieve_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(retrieve_response.data["status"], "retrieved")
+        self.assertIsNone(retrieve_response.data["reviewed_at"])
+        self.assertEqual(retrieve_response.data["score"], 9)
+        self.assertEqual(
+            retrieve_response.data["feedback"],
+            "Good work. Improve the mobile navigation.",
+        )
+
+        self.client.force_authenticate(self.student)
+        student_edit_while_retrieved_response = self.client.post(
+            reverse("student-homework-submission", args=[assignment_id]),
+            {"content": "Trying to edit while the teacher is revising the review."},
+            format="json",
+        )
+        self.assertEqual(
+            student_edit_while_retrieved_response.status_code,
+            status.HTTP_409_CONFLICT,
+        )
+
+        self.client.force_authenticate(self.teacher)
+        second_review_response = self.client.patch(
+            reverse(
+                "homework-submission-review",
+                args=[self.course.slug, assignment_id, submission_response.data["id"]],
+            ),
+            {"score": 10, "feedback": "Excellent after a second look."},
+            format="json",
+        )
+        self.assertEqual(second_review_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_review_response.data["status"], "reviewed")
+        self.assertEqual(second_review_response.data["score"], 10)
+        self.assertEqual(second_review_response.data["feedback"], "Excellent after a second look.")
+
+    def test_test_homework_submit_requires_a_completed_attempt(self):
+        lesson = Lesson.objects.create(module=self.module, title="Lesson 1", order=1)
+        test = Test.objects.create(
+            module=self.module,
+            title="Required quiz",
+            passing_score=80,
+            order=1,
+        )
+        Question.objects.create(
+            test=test,
+            question_type=Question.TypeChoices.TRUE_FALSE,
+            text="Complete this quiz.",
+            correct_bool=True,
+            order=1,
+        )
+        assignment = HomeworkAssignment.objects.create(
+            course=self.course,
+            module=self.module,
+            lesson=lesson,
+            test=test,
+            created_by=self.teacher,
+            title="Quiz homework",
+            description="",
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            published_at=timezone.now(),
+        )
+        HomeworkAssignmentRecipient.objects.create(
+            assignment=assignment,
+            enrollment=self.student_enrollment,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            reverse("student-homework-submission", args=[assignment.id]),
+            {"content": ""},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Complete the test", response.data["detail"])
+
+    def test_student_homework_test_detail_hides_answer_key(self):
+        lesson = Lesson.objects.create(module=self.module, title="Lesson 1", order=1)
+        test = Test.objects.create(
+            module=self.module,
+            title="Hidden answers quiz",
+            passing_score=80,
+            order=1,
+        )
+        Question.objects.create(
+            test=test,
+            question_type=Question.TypeChoices.TRUE_FALSE,
+            text="Students should not receive this answer.",
+            correct_bool=True,
+            order=1,
+        )
+        assignment = HomeworkAssignment.objects.create(
+            course=self.course,
+            module=self.module,
+            lesson=lesson,
+            test=test,
+            created_by=self.teacher,
+            title="Quiz homework",
+            description="",
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            published_at=timezone.now(),
+        )
+        HomeworkAssignmentRecipient.objects.create(
+            assignment=assignment,
+            enrollment=self.student_enrollment,
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.get(reverse("student-homework-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        question_payload = response.data[0]["test_detail"]["questions"][0]
+        self.assertNotIn("correct_bool", question_payload)
+        self.assertNotIn("correct_indices", question_payload)
+        self.assertNotIn("sample_answer", question_payload)
+
+    def test_test_homework_submit_sends_best_test_attempt_to_teacher(self):
+        lesson = Lesson.objects.create(module=self.module, title="Lesson 1", order=1)
+        test = Test.objects.create(
+            module=self.module,
+            title="Best attempt quiz",
+            passing_score=80,
+            order=1,
+        )
+        question = Question.objects.create(
+            test=test,
+            question_type=Question.TypeChoices.TRUE_FALSE,
+            text="The best attempt should be sent.",
+            correct_bool=True,
+            order=1,
+        )
+        assignment = HomeworkAssignment.objects.create(
+            course=self.course,
+            module=self.module,
+            lesson=lesson,
+            test=test,
+            created_by=self.teacher,
+            title="Quiz homework",
+            description="",
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            published_at=timezone.now(),
+        )
+        HomeworkAssignmentRecipient.objects.create(
+            assignment=assignment,
+            enrollment=self.student_enrollment,
+        )
+        weak_attempt = TestAttempt.objects.create(
+            student_profile=self.student_profile,
+            test=test,
+            attempt_number=1,
+            score=0,
+            passed=False,
+            answers=[{"question_id": question.id, "answer_bool": False}],
+        )
+        best_attempt = TestAttempt.objects.create(
+            student_profile=self.student_profile,
+            test=test,
+            attempt_number=2,
+            score=100,
+            passed=True,
+            answers=[{"question_id": question.id, "answer_bool": True}],
+        )
+        self.client.force_authenticate(self.student)
+
+        response = self.client.post(
+            reverse("student-homework-submission", args=[assignment.id]),
+            {"content": ""},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["test_attempt"]["attempt_id"], best_attempt.id)
+        self.assertNotEqual(response.data["test_attempt"]["attempt_id"], weak_attempt.id)
+        submission = HomeworkSubmission.objects.get(assignment=assignment)
+        self.assertEqual(submission.best_test_attempt, best_attempt)
+
+        self.client.force_authenticate(self.teacher)
+        list_response = self.client.get(self.url)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        teacher_submission = list_response.data[0]["teacher_submissions"][0]
+        self.assertEqual(teacher_submission["test_attempt"]["attempt_id"], best_attempt.id)
+
+    def test_only_homework_sender_can_review_submission(self):
+        sending_teacher, _ = make_teacher(email="sender@example.com")
+        assignment = HomeworkAssignment.objects.create(
+            course=self.course,
+            module=self.module,
+            created_by=sending_teacher,
+            title="Sent by another teacher",
+            description="Review is scoped to the sender.",
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            published_at=timezone.now(),
+        )
+        HomeworkAssignmentRecipient.objects.create(
+            assignment=assignment,
+            enrollment=self.student_enrollment,
+        )
+        submission = HomeworkSubmission.objects.create(
+            assignment=assignment,
+            enrollment=self.student_enrollment,
+            content="Submitted answer",
+        )
+
+        self.client.force_authenticate(self.teacher)
+        owner_response = self.client.patch(
+            reverse(
+                "homework-submission-review",
+                args=[self.course.slug, assignment.id, submission.id],
+            ),
+            {"score": 8, "feedback": "Course owner is not the sender."},
+            format="json",
+        )
+        self.assertEqual(owner_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(sending_teacher)
+        sender_response = self.client.patch(
+            reverse(
+                "homework-submission-review",
+                args=[self.course.slug, assignment.id, submission.id],
+            ),
+            {"score": 9, "feedback": "Reviewed by the sender."},
+            format="json",
+        )
+        self.assertEqual(sender_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(sender_response.data["status"], "reviewed")
 
     def test_teacher_can_publish_homework_to_cohort(self):
         delivery_format = CourseDeliveryFormat.objects.create(

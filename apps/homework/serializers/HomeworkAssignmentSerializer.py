@@ -3,6 +3,7 @@ from rest_framework import serializers
 from apps.common.files import absolute_media_url
 from apps.curriculum.models import Lesson, Module, Test
 from apps.curriculum.serializers import TestSerializer
+from apps.curriculum.services import TestAttemptService
 from apps.enrollments.models import Enrollment
 from apps.homework.models import (
     HomeworkAssignment,
@@ -99,13 +100,14 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
     student_email = serializers.EmailField(source="enrollment.student_profile.user.email", read_only=True)
     student_name = serializers.SerializerMethodField()
     attachments = HomeworkSubmissionAttachmentSerializer(many=True, read_only=True)
+    test_attempt = serializers.SerializerMethodField()
 
     class Meta:
         model = HomeworkSubmission
         fields = [
             "id", "enrollment_id", "student_email", "student_name", "content",
-            "attachments", "status", "score", "feedback", "submitted_at", "reviewed_at",
-            "updated_at",
+            "attachments", "test_attempt", "status", "score", "feedback", "submitted_at",
+            "reviewed_at", "updated_at",
         ]
         read_only_fields = [
             "id", "enrollment_id", "student_email", "student_name", "status",
@@ -115,9 +117,15 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
     def get_student_name(self, obj) -> str:
         return obj.enrollment.student_profile.user.get_full_name()
 
+    def get_test_attempt(self, obj):
+        if obj.best_test_attempt_id is None:
+            return None
+        return TestAttemptService.result_for_attempt(obj.best_test_attempt)
+
 
 class HomeworkAssignmentSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source="course.id", read_only=True)
+    course_slug = serializers.SlugField(source="course.slug", read_only=True)
     course_title = serializers.CharField(source="course.title", read_only=True)
     course_image = serializers.SerializerMethodField()
     module_title = serializers.CharField(source="module.title", read_only=True, allow_null=True)
@@ -154,6 +162,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "course_id",
+            "course_slug",
             "course_title",
             "course_image",
             "source_assignment",
@@ -179,7 +188,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = [
-            "id", "course_id", "status", "published_at", "closed_at",
+            "id", "course_id", "course_slug", "status", "published_at", "closed_at",
             "course_title", "course_image", "module_title", "lesson_title", "test_detail", "attachments",
             "recipients", "recipients_count", "my_submission", "teacher_submissions",
             "created_at", "updated_at",
@@ -268,7 +277,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return []
-        is_owner = obj.course.teacher_profile.user_id == request.user.id
+        is_owner = obj.created_by_id == request.user.id
         is_admin = request.user.role == "administrator"
         if not (is_owner or is_admin):
             return []
@@ -279,12 +288,14 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return []
-        is_owner = obj.course.teacher_profile.user_id == request.user.id
+        is_owner = obj.created_by_id == request.user.id
         is_admin = request.user.role == "administrator"
         if not (is_owner or is_admin):
             return []
         submissions = obj.submissions.select_related(
             "enrollment__student_profile__user",
+            "best_test_attempt__student_profile",
+            "best_test_attempt__test",
         ).prefetch_related("attachments")
         return HomeworkSubmissionSerializer(submissions, many=True, context=self.context).data
 
@@ -322,7 +333,12 @@ class HomeworkPublishSerializer(serializers.Serializer):
 
 
 class HomeworkSubmissionWriteSerializer(serializers.Serializer):
-    content = serializers.CharField(trim_whitespace=True, allow_blank=False)
+    content = serializers.CharField(
+        trim_whitespace=True,
+        allow_blank=True,
+        required=False,
+        default="",
+    )
 
 
 class HomeworkSubmissionReviewSerializer(serializers.Serializer):

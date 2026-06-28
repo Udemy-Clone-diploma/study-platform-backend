@@ -99,6 +99,7 @@ class HomeworkSubmission(models.Model):
     class StatusChoices(models.TextChoices):
         SUBMITTED = "submitted", "Submitted"
         REVIEWED = "reviewed", "Reviewed"
+        RETRIEVED = "retrieved", "Retrieved"
 
     assignment = models.ForeignKey(
         HomeworkAssignment,
@@ -109,6 +110,13 @@ class HomeworkSubmission(models.Model):
         "enrollments.Enrollment",
         on_delete=models.CASCADE,
         related_name="homework_submissions",
+    )
+    best_test_attempt = models.ForeignKey(
+        "curriculum.TestAttempt",
+        on_delete=models.SET_NULL,
+        related_name="homework_submissions",
+        null=True,
+        blank=True,
     )
     content = models.TextField(blank=True)
     status = models.CharField(

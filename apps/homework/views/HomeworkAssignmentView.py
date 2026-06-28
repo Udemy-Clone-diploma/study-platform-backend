@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 
 from apps.courses.models import Cohort, CourseDeliveryFormat
 from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.curriculum.models import TestAttempt
 from apps.enrollments.models import Enrollment
 from apps.homework.models import (
     HomeworkAssignment,
@@ -30,7 +31,7 @@ from apps.homework.serializers import (
     HomeworkSubmissionSerializer,
     HomeworkSubmissionWriteSerializer,
 )
-from apps.users.models import StudentProfile
+from apps.users.models import StudentProfile, User
 from apps.users.permissions import IsStudent
 
 
@@ -40,13 +41,35 @@ def _teacher_course(view, slug):
     return course
 
 
+def _can_manage_assignment(user, assignment: HomeworkAssignment) -> bool:
+    if user.role == User.RoleChoices.ADMINISTRATOR:
+        return True
+    return assignment.created_by_id == user.id
+
+
 def _teacher_assignment(view, slug: str, assignment_id: int) -> HomeworkAssignment:
-    course = _teacher_course(view, slug)
-    return get_object_or_404(
-        HomeworkAssignment.objects.filter(course=course)
-        .select_related("course", "module", "lesson", "test", "test__module")
+    assignment = get_object_or_404(
+        HomeworkAssignment.objects.filter(course__slug=slug, course__is_deleted=False)
+        .select_related("course", "module", "lesson", "test", "test__module", "created_by")
         .prefetch_related("test__questions", "recipients__enrollment__student_profile__user"),
         pk=assignment_id,
+    )
+    if not _can_manage_assignment(view.request.user, assignment):
+        raise PermissionDenied("Only the teacher who sent this homework can manage it.")
+    return assignment
+
+
+def _best_test_attempt(assignment: HomeworkAssignment, enrollment: Enrollment) -> TestAttempt | None:
+    if assignment.test_id is None:
+        return None
+    return (
+        TestAttempt.objects.filter(
+            student_profile=enrollment.student_profile,
+            test=assignment.test,
+        )
+        .select_related("student_profile", "test")
+        .order_by("-score", "-submitted_at", "-attempt_number")
+        .first()
     )
 
 
@@ -83,18 +106,25 @@ class HomeworkAssignmentListCreateView(generics.ListCreateAPIView):
         return _teacher_course(self, self.kwargs["slug"])
 
     def get_queryset(self):
-        return (
+        queryset = (
             HomeworkAssignment.objects.filter(course=self._get_course())
-            .select_related("course", "module", "lesson", "test", "test__module", "source_assignment")
+            .select_related(
+                "course", "module", "lesson", "test", "test__module",
+                "source_assignment", "created_by",
+            )
             .prefetch_related(
                 "attachments",
                 "test__questions",
                 "recipients__enrollment__student_profile__user",
                 "submissions__attachments",
                 "submissions__enrollment__student_profile__user",
+                "submissions__best_test_attempt__test",
             )
             .annotate(recipients_count=Count("recipients"))
         )
+        if self.request.user.role != User.RoleChoices.ADMINISTRATOR:
+            queryset = queryset.filter(created_by=self.request.user)
+        return queryset
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -115,6 +145,8 @@ class HomeworkAssignmentDetailView(APIView):
         payload["submissions"] = HomeworkSubmissionSerializer(
             assignment.submissions.select_related(
                 "enrollment__student_profile__user",
+                "best_test_attempt__student_profile",
+                "best_test_attempt__test",
             ).prefetch_related("attachments"),
             many=True,
             context={"request": request},
@@ -341,6 +373,15 @@ class StudentHomeworkListView(generics.ListAPIView):
             .order_by("due_at", "-published_at")
         )
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        try:
+            context["student_profile"] = self.request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            context["student_profile"] = None
+        context["hide_answers"] = True
+        return context
+
 
 @extend_schema(tags=["Homework"])
 class StudentHomeworkSubmissionView(APIView):
@@ -363,15 +404,45 @@ class StudentHomeworkSubmissionView(APIView):
         assignment, enrollment = self._get_assignment_and_enrollment(request, assignment_id)
         serializer = HomeworkSubmissionWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        content = serializer.validated_data["content"]
+        best_attempt = _best_test_attempt(assignment, enrollment)
+
+        if assignment.test_id is not None and best_attempt is None:
+            return Response(
+                {"detail": "Complete the test before submitting this homework."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing_submission = HomeworkSubmission.objects.filter(
+            assignment=assignment,
+            enrollment=enrollment,
+        ).first()
+        if existing_submission and existing_submission.status == HomeworkSubmission.StatusChoices.RETRIEVED:
+            return Response(
+                {"detail": "This homework review is currently retrieved by the teacher."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        has_attachments = (
+            existing_submission is not None
+            and existing_submission.attachments.exists()
+        )
+        if not content and not has_attachments and best_attempt is None:
+            return Response(
+                {"detail": "Add text, attach a file, or complete the test before submitting."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         submission, _ = HomeworkSubmission.objects.update_or_create(
             assignment=assignment,
             enrollment=enrollment,
             defaults={
-                "content": serializer.validated_data["content"],
+                "content": content,
+                "best_test_attempt": best_attempt,
                 "status": HomeworkSubmission.StatusChoices.SUBMITTED,
                 "score": None,
                 "feedback": "",
                 "reviewed_at": None,
+                "submitted_at": timezone.now(),
             },
         )
         return Response(
@@ -393,6 +464,20 @@ class StudentHomeworkSubmissionAttachmentView(APIView):
             enrollment=enrollment,
             defaults={"content": ""},
         )
+        if submission.status == HomeworkSubmission.StatusChoices.RETRIEVED:
+            return Response(
+                {"detail": "This homework review is currently retrieved by the teacher."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if submission.status == HomeworkSubmission.StatusChoices.REVIEWED:
+            submission.status = HomeworkSubmission.StatusChoices.SUBMITTED
+            submission.score = None
+            submission.feedback = ""
+            submission.reviewed_at = None
+            submission.submitted_at = timezone.now()
+            submission.save(update_fields=[
+                "status", "score", "feedback", "reviewed_at", "submitted_at", "updated_at",
+            ])
         uploaded_file = serializer.validated_data["file"]
         HomeworkSubmissionAttachment.objects.create(
             submission=submission,
@@ -417,6 +502,11 @@ class StudentHomeworkSubmissionAttachmentDetailView(APIView):
             submission__assignment=assignment,
             submission__enrollment=enrollment,
         )
+        if attachment.submission.status == HomeworkSubmission.StatusChoices.RETRIEVED:
+            return Response(
+                {"detail": "This homework review is currently retrieved by the teacher."},
+                status=status.HTTP_409_CONFLICT,
+            )
         attachment.file.delete(save=False)
         attachment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -433,6 +523,11 @@ class HomeworkSubmissionReviewView(APIView):
             pk=submission_id,
             assignment=assignment,
         )
+        if submission.status == HomeworkSubmission.StatusChoices.REVIEWED:
+            return Response(
+                {"detail": "Retrieve the returned homework before editing the review."},
+                status=status.HTTP_409_CONFLICT,
+            )
         serializer = HomeworkSubmissionReviewSerializer(
             data=request.data,
             partial=True,
@@ -444,4 +539,26 @@ class HomeworkSubmissionReviewView(APIView):
         submission.status = HomeworkSubmission.StatusChoices.REVIEWED
         submission.reviewed_at = timezone.now()
         submission.save()
+        return Response(HomeworkSubmissionSerializer(submission, context={"request": request}).data)
+
+
+@extend_schema(tags=["Homework"])
+class HomeworkSubmissionRetrieveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug: str, assignment_id: int, submission_id: int):
+        assignment = _teacher_assignment(self, slug, assignment_id)
+        submission = get_object_or_404(
+            HomeworkSubmission.objects.select_related("enrollment__student_profile__user"),
+            pk=submission_id,
+            assignment=assignment,
+        )
+        if submission.status != HomeworkSubmission.StatusChoices.REVIEWED:
+            return Response(
+                {"detail": "Only returned reviewed homework can be retrieved."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        submission.status = HomeworkSubmission.StatusChoices.RETRIEVED
+        submission.reviewed_at = None
+        submission.save(update_fields=["status", "reviewed_at", "updated_at"])
         return Response(HomeworkSubmissionSerializer(submission, context={"request": request}).data)
