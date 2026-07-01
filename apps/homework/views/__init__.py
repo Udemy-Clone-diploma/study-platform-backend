@@ -1,3 +1,31 @@
-from .HomeworkAssignmentView import HomeworkAssignmentListCreateView
+from .HomeworkAssignmentView import (
+    HomeworkAssignmentCloseView,
+    HomeworkAssignmentAttachmentDetailView,
+    HomeworkAssignmentAttachmentView,
+    HomeworkAssignmentDetailView,
+    HomeworkAssignmentListCreateView,
+    HomeworkAssignmentPublishView,
+    HomeworkAvailableRecipientsView,
+    HomeworkSubmissionReviewView,
+    HomeworkSubmissionRetrieveView,
+    StudentHomeworkListView,
+    StudentHomeworkSubmissionAttachmentDetailView,
+    StudentHomeworkSubmissionAttachmentView,
+    StudentHomeworkSubmissionView,
+)
 
-__all__ = ["HomeworkAssignmentListCreateView"]
+__all__ = [
+    "HomeworkAssignmentCloseView",
+    "HomeworkAssignmentAttachmentDetailView",
+    "HomeworkAssignmentAttachmentView",
+    "HomeworkAssignmentDetailView",
+    "HomeworkAssignmentListCreateView",
+    "HomeworkAssignmentPublishView",
+    "HomeworkAvailableRecipientsView",
+    "HomeworkSubmissionReviewView",
+    "HomeworkSubmissionRetrieveView",
+    "StudentHomeworkListView",
+    "StudentHomeworkSubmissionAttachmentDetailView",
+    "StudentHomeworkSubmissionAttachmentView",
+    "StudentHomeworkSubmissionView",
+]

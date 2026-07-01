@@ -21,6 +21,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     delivery_formats = CourseDeliveryFormatSerializer(many=True, read_only=True)
     cohorts = CohortSerializer(many=True, read_only=True)
     image = serializers.SerializerMethodField()
+    is_enrolled = serializers.SerializerMethodField()
+    group_chat_url = serializers.SerializerMethodField()
     total_duration_minutes = serializers.SerializerMethodField()
     moderation_review = ModerationReviewSerializer(read_only=True)
     is_enrolled = serializers.SerializerMethodField()
@@ -36,6 +38,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "rating_avg", "rating_count", "students_count", "status",
             "moderator_comment",
             "created_at", "updated_at", "published_at",
+            "is_enrolled", "group_chat_url",
             "tags", "modules", "delivery_formats", "cohorts",
             "moderation_review",
             "is_enrolled",
@@ -46,6 +49,17 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj) -> str | None:
         return absolute_media_url(obj.image, self.context.get("request"))
+
+    def get_is_enrolled(self, obj) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+
+        from apps.enrollments.services import EnrollmentService
+
+        return EnrollmentService.is_enrolled(user, obj)
+
+    def get_group_chat_url(self, obj) -> str | None:
+        return None
 
     def get_total_duration_minutes(self, obj) -> int:
         return sum(

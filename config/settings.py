@@ -210,16 +210,24 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="")
-AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default=None)
-
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="eu-west-3")
 
 if DEBUG:
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
     DEFAULT_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
 else:
     if not AWS_STORAGE_BUCKET_NAME:
         raise ImproperlyConfigured(
             "AWS_STORAGE_BUCKET_NAME must be set when DEBUG=False."
         )
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+    AWS_DEFAULT_ACL = None
+    AWS_S3_OBJECT_PARAMETERS = {
+        "CacheControl": "max-age=86400",
+    }
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
+    MEDIA_ROOT = ""
     DEFAULT_STORAGE_BACKEND = "storages.backends.s3.S3Storage"
 
 STORAGES = {
