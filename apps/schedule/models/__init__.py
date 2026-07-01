@@ -1,3 +1,4 @@
+from .Attendance import Attendance
 from .CohortSchedule import CohortSchedule
 from .EventInvitation import EventInvitation
 from .PersonalEvent import PersonalEvent
@@ -7,6 +8,7 @@ from .Session import Session
 from .TeacherUnavailability import TeacherUnavailability
 
 __all__ = [
+    "Attendance",
     "CohortSchedule",
     "EventInvitation",
     "PersonalEvent",

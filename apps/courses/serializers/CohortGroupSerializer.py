@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.common.files import absolute_media_url
 from apps.courses.models import CohortMember
 
 
@@ -8,10 +9,14 @@ class CohortMemberSerializer(serializers.ModelSerializer):
     student_id = serializers.IntegerField(source="enrollment.student_profile.user.id", read_only=True)
     student_name = serializers.CharField(source="enrollment.student_profile.user.get_full_name", read_only=True)
     student_email = serializers.EmailField(source="enrollment.student_profile.user.email", read_only=True)
+    student_avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = CohortMember
-        fields = ["id", "enrollment_id", "student_id", "student_name", "student_email", "joined_at"]
+        fields = ["id", "enrollment_id", "student_id", "student_name", "student_email", "student_avatar", "joined_at"]
+
+    def get_student_avatar(self, obj) -> str | None:
+        return absolute_media_url(obj.enrollment.student_profile.user.avatar, self.context.get("request"))
 
 
 class EnrolledStudentSerializer(serializers.Serializer):
@@ -19,10 +24,14 @@ class EnrolledStudentSerializer(serializers.Serializer):
     student_id = serializers.IntegerField(source="student_profile.id")
     student_name = serializers.CharField(source="student_profile.user.get_full_name")
     student_email = serializers.EmailField(source="student_profile.user.email")
+    student_avatar = serializers.SerializerMethodField()
     access_granted_at = serializers.DateTimeField()
     access_until = serializers.DateTimeField(allow_null=True)
     format_type = serializers.SerializerMethodField()
     progress_percent = serializers.SerializerMethodField()
+
+    def get_student_avatar(self, obj) -> str | None:
+        return absolute_media_url(obj.student_profile.user.avatar, self.context.get("request"))
 
     def get_format_type(self, obj):
         return obj.delivery_format.format_type if obj.delivery_format_id else None

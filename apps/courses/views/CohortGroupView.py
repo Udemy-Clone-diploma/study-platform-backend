@@ -45,7 +45,7 @@ class CohortMemberListCreateView(generics.GenericAPIView):
             )
 
         member = CohortMember.objects.create(cohort=cohort, enrollment=enrollment)
-        return Response(CohortMemberSerializer(member).data, status=status.HTTP_201_CREATED)
+        return Response(CohortMemberSerializer(member, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(tags=["Cohort Members"])
@@ -81,4 +81,4 @@ class CourseEnrolledStudentsView(generics.GenericAPIView):
         format_id = request.query_params.get("format_id")
         if format_id:
             qs = qs.filter(delivery_format_id=format_id)
-        return Response(EnrolledStudentSerializer(qs, many=True).data)
+        return Response(EnrolledStudentSerializer(qs, many=True, context={"request": request}).data)
