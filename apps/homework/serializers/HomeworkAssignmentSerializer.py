@@ -16,6 +16,8 @@ from apps.users.models import StudentProfile
 
 
 MAX_HOMEWORK_ATTACHMENT_BYTES = 25 * 1024 * 1024
+HOMEWORK_SCORE_MIN = 1
+HOMEWORK_SCORE_MAX = 5
 
 
 class HomeworkFileUploadSerializer(serializers.Serializer):
@@ -194,7 +196,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         extra_kwargs = {
-            "max_score": {"min_value": 1},
+            "max_score": {"min_value": HOMEWORK_SCORE_MIN, "max_value": HOMEWORK_SCORE_MAX},
             "title": {"required": False, "allow_blank": False},
             "description": {"required": False, "allow_blank": True},
         }
@@ -342,7 +344,12 @@ class HomeworkSubmissionWriteSerializer(serializers.Serializer):
 
 
 class HomeworkSubmissionReviewSerializer(serializers.Serializer):
-    score = serializers.IntegerField(min_value=0, required=False, allow_null=True)
+    score = serializers.IntegerField(
+        min_value=HOMEWORK_SCORE_MIN,
+        max_value=HOMEWORK_SCORE_MAX,
+        required=False,
+        allow_null=True,
+    )
     feedback = serializers.CharField(required=False, allow_blank=True)
 
     def validate_score(self, value):

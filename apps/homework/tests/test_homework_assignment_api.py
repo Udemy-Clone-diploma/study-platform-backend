@@ -57,7 +57,7 @@ class HomeworkAssignmentApiTests(APITestCase):
                 "description": "Create a responsive page and submit its URL.",
                 "module": self.module.id,
                 "due_at": "2026-07-01T12:00:00Z",
-                "max_score": 100,
+                "max_score": 5,
             },
             format="json",
         )
@@ -148,7 +148,7 @@ class HomeworkAssignmentApiTests(APITestCase):
             created_by=self.teacher,
             title="Original homework",
             description="Use this task again.",
-            max_score=20,
+            max_score=5,
         )
         self.client.force_authenticate(self.teacher)
 
@@ -165,7 +165,7 @@ class HomeworkAssignmentApiTests(APITestCase):
         self.assertEqual(assignment.description, source.description)
         self.assertEqual(assignment.lesson, lesson)
         self.assertEqual(assignment.test, test)
-        self.assertEqual(assignment.max_score, 20)
+        self.assertEqual(assignment.max_score, 5)
 
     def test_other_teacher_cannot_create_a_homework_draft(self):
         other_teacher, _ = make_teacher(email="other@example.com")
@@ -180,17 +180,64 @@ class HomeworkAssignmentApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(HomeworkAssignment.objects.exists())
 
-    def test_max_score_must_be_positive(self):
+    def test_max_score_must_be_between_one_and_five(self):
         self.client.force_authenticate(self.teacher)
 
-        response = self.client.post(
+        low_response = self.client.post(
             self.url,
             {"title": "Invalid score", "description": "Test", "max_score": 0},
             format="json",
         )
+        high_response = self.client.post(
+            self.url,
+            {"title": "Invalid score", "description": "Test", "max_score": 6},
+            format="json",
+        )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("max_score", response.data)
+        self.assertEqual(low_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("max_score", low_response.data)
+        self.assertEqual(high_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("max_score", high_response.data)
+
+    def test_review_score_must_be_between_one_and_five(self):
+        assignment = HomeworkAssignment.objects.create(
+            course=self.course,
+            module=self.module,
+            created_by=self.teacher,
+            title="Score range",
+            description="Review score must use the homework scale.",
+            max_score=5,
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            published_at=timezone.now(),
+        )
+        submission = HomeworkSubmission.objects.create(
+            assignment=assignment,
+            enrollment=self.student_enrollment,
+            content="Submitted answer",
+        )
+        self.client.force_authenticate(self.teacher)
+
+        low_response = self.client.patch(
+            reverse(
+                "homework-submission-review",
+                args=[self.course.slug, assignment.id, submission.id],
+            ),
+            {"score": 0, "feedback": "Too low."},
+            format="json",
+        )
+        high_response = self.client.patch(
+            reverse(
+                "homework-submission-review",
+                args=[self.course.slug, assignment.id, submission.id],
+            ),
+            {"score": 6, "feedback": "Too high."},
+            format="json",
+        )
+
+        self.assertEqual(low_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("score", low_response.data)
+        self.assertEqual(high_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("score", high_response.data)
 
     def test_teacher_publishes_to_selected_student_and_reviews_submission(self):
         self.client.force_authenticate(self.teacher)
@@ -200,7 +247,7 @@ class HomeworkAssignmentApiTests(APITestCase):
                 "module": self.module.id,
                 "title": "Submit a responsive page",
                 "description": "Share the deployed URL and a short explanation.",
-                "max_score": 10,
+                "max_score": 5,
             },
             format="json",
         )
@@ -263,12 +310,12 @@ class HomeworkAssignmentApiTests(APITestCase):
                 "homework-submission-review",
                 args=[self.course.slug, assignment_id, submission_response.data["id"]],
             ),
-            {"score": 9, "feedback": "Good work. Improve the mobile navigation."},
+            {"score": 4, "feedback": "Good work. Improve the mobile navigation."},
             format="json",
         )
         self.assertEqual(review_response.status_code, status.HTTP_200_OK)
         self.assertEqual(review_response.data["status"], "reviewed")
-        self.assertEqual(review_response.data["score"], 9)
+        self.assertEqual(review_response.data["score"], 4)
         self.assertEqual(review_response.data["attachments"][0]["original_name"], "solution.zip")
 
         direct_edit_response = self.client.patch(
@@ -276,7 +323,7 @@ class HomeworkAssignmentApiTests(APITestCase):
                 "homework-submission-review",
                 args=[self.course.slug, assignment_id, submission_response.data["id"]],
             ),
-            {"score": 10, "feedback": "Edited without retrieve."},
+            {"score": 5, "feedback": "Edited without retrieve."},
             format="json",
         )
         self.assertEqual(direct_edit_response.status_code, status.HTTP_409_CONFLICT)
@@ -291,7 +338,7 @@ class HomeworkAssignmentApiTests(APITestCase):
         self.assertEqual(retrieve_response.status_code, status.HTTP_200_OK)
         self.assertEqual(retrieve_response.data["status"], "retrieved")
         self.assertIsNone(retrieve_response.data["reviewed_at"])
-        self.assertEqual(retrieve_response.data["score"], 9)
+        self.assertEqual(retrieve_response.data["score"], 4)
         self.assertEqual(
             retrieve_response.data["feedback"],
             "Good work. Improve the mobile navigation.",
@@ -314,12 +361,12 @@ class HomeworkAssignmentApiTests(APITestCase):
                 "homework-submission-review",
                 args=[self.course.slug, assignment_id, submission_response.data["id"]],
             ),
-            {"score": 10, "feedback": "Excellent after a second look."},
+            {"score": 5, "feedback": "Excellent after a second look."},
             format="json",
         )
         self.assertEqual(second_review_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_review_response.data["status"], "reviewed")
-        self.assertEqual(second_review_response.data["score"], 10)
+        self.assertEqual(second_review_response.data["score"], 5)
         self.assertEqual(second_review_response.data["feedback"], "Excellent after a second look.")
 
     def test_test_homework_submit_requires_a_completed_attempt(self):
@@ -496,7 +543,7 @@ class HomeworkAssignmentApiTests(APITestCase):
                 "homework-submission-review",
                 args=[self.course.slug, assignment.id, submission.id],
             ),
-            {"score": 8, "feedback": "Course owner is not the sender."},
+            {"score": 5, "feedback": "Course owner is not the sender."},
             format="json",
         )
         self.assertEqual(owner_response.status_code, status.HTTP_403_FORBIDDEN)
@@ -507,7 +554,7 @@ class HomeworkAssignmentApiTests(APITestCase):
                 "homework-submission-review",
                 args=[self.course.slug, assignment.id, submission.id],
             ),
-            {"score": 9, "feedback": "Reviewed by the sender."},
+            {"score": 5, "feedback": "Reviewed by the sender."},
             format="json",
         )
         self.assertEqual(sender_response.status_code, status.HTTP_200_OK)
