@@ -74,7 +74,9 @@ class CourseEnrolledStudentsView(generics.GenericAPIView):
         course = get_course_for_request(self, self.kwargs["slug"])
         ensure_can_modify_course(request.user, course)
         qs = Enrollment.objects.filter(course=course).select_related(
-            "student_profile__user"
+            "student_profile__user",
+            "delivery_format",
+            "course",
         )
         format_id = request.query_params.get("format_id")
         if format_id:

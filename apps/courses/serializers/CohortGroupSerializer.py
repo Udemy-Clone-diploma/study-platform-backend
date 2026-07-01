@@ -21,3 +21,14 @@ class EnrolledStudentSerializer(serializers.Serializer):
     student_email = serializers.EmailField(source="student_profile.user.email")
     access_granted_at = serializers.DateTimeField()
     access_until = serializers.DateTimeField(allow_null=True)
+    format_type = serializers.SerializerMethodField()
+    progress_percent = serializers.SerializerMethodField()
+
+    def get_format_type(self, obj):
+        return obj.delivery_format.format_type if obj.delivery_format_id else None
+
+    def get_progress_percent(self, obj):
+        total = obj.course.lessons_count
+        if not total:
+            return 0
+        return round(obj.lessons_completed_count / total * 100)
