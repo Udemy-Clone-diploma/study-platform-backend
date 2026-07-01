@@ -15,3 +15,7 @@ DATABASES = {
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 EMAIL_HOST_USER = "test@example.com"
 EMAIL_HOST_PASSWORD = "test-password"
+
+# Run Celery tasks inline (no broker/worker needed during tests).
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True

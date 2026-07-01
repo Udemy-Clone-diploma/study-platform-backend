@@ -57,6 +57,7 @@ LOCAL_APPS = [
     "apps.reviews",
     "apps.payments",
     "apps.schedule",
+    "apps.notifications",
 ]
 
 THIRD_PARTY_APPS = [
@@ -268,3 +269,8 @@ EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "noreply@localhost"
+
+# Celery: notification emails are dispatched to a worker via this broker.
+# Use redis://redis:6379/0 inside the devcontainer compose (see .env.example).
+CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+CELERY_TASK_IGNORE_RESULT = True
