@@ -1,11 +1,13 @@
 from decimal import Decimal
 
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.common.files import UUIDUploadTo
 from apps.common.managers import ActiveManager
 from apps.users.models import ModeratorProfile, TeacherProfile
+
+COURSE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "svg"]
 
 from .Category import Category
 from .Tag import Tag
@@ -46,7 +48,14 @@ class Course(models.Model):
         HIDDEN = "hidden", "Hidden (active but not listed)"
         ARCHIVED = "archived", "Archived"
 
-    image = models.ImageField(upload_to=UUIDUploadTo("courses"), null=True, blank=True)
+    # FileField (not ImageField) because Pillow — which ImageField uses to validate — cannot
+    # open SVGs, and the default course icons are SVGs. Extension check stands in for that.
+    image = models.FileField(
+        upload_to=UUIDUploadTo("courses"),
+        null=True,
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=COURSE_IMAGE_EXTENSIONS)],
+    )
 
     title = models.CharField(max_length=255)
 

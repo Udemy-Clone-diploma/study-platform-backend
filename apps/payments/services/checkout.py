@@ -202,7 +202,7 @@ class CheckoutService(PaymentBaseService):
             },
         )
 
-        OrderItem.objects.bulk_create(
+        created_order_items = OrderItem.objects.bulk_create(
             [
                 OrderItem(
                     order=order,
@@ -218,6 +218,10 @@ class CheckoutService(PaymentBaseService):
                 for item in items
             ]
         )
+        for order_item, cart_item in zip(created_order_items, items):
+            slot_ids = list(cart_item.schedule_slots.values_list("id", flat=True))
+            if slot_ids:
+                order_item.schedule_slots.set(slot_ids)
 
         installments = []
         if payment_type == Order.PaymentTypeChoices.INSTALLMENTS:
@@ -246,7 +250,12 @@ class CheckoutService(PaymentBaseService):
 
     @staticmethod
     def _snapshot_payment_items(payment: Payment, order: Order) -> None:
-        PaymentItem.objects.bulk_create(
+        order_items = list(
+            order.items.select_related("course", "pricing_plan", "cohort").prefetch_related(
+                "schedule_slots"
+            )
+        )
+        created_payment_items = PaymentItem.objects.bulk_create(
             [
                 PaymentItem(
                     payment=payment,
@@ -259,9 +268,13 @@ class CheckoutService(PaymentBaseService):
                     unit_amount=item.unit_amount,
                     currency=item.currency,
                 )
-                for item in order.items.select_related("course", "pricing_plan", "cohort")
+                for item in order_items
             ]
         )
+        for payment_item, order_item in zip(created_payment_items, order_items):
+            slot_ids = list(order_item.schedule_slots.values_list("id", flat=True))
+            if slot_ids:
+                payment_item.schedule_slots.set(slot_ids)
 
     @classmethod
     def _create_payment_for_order(

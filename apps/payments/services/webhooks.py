@@ -11,6 +11,8 @@ from apps.payments.models import (
     PaymentInstallment,
     WebhookEvent,
 )
+from apps.schedule.exceptions import SlotAlreadyBookedError
+from apps.schedule.services import ScheduleService
 
 from .base import PaymentBaseService
 from .exceptions import PaymentError
@@ -280,8 +282,10 @@ class WebhookService(PaymentBaseService):
         order = payment.order if payment.order_id else None
         items = (
             order.items.select_related("course", "cohort", "pricing_plan__delivery_format")
+            .prefetch_related("schedule_slots")
             if order is not None
             else payment.items.select_related("course", "cohort", "pricing_plan__delivery_format")
+            .prefetch_related("schedule_slots")
         )
         access_order_id = order.id if order is not None else payment.id
 
@@ -324,6 +328,12 @@ class WebhookService(PaymentBaseService):
                     cohort_id=item.cohort_id,
                     enrollment=enrollment,
                 )
+
+            for slot in item.schedule_slots.all():
+                try:
+                    ScheduleService.book_slot(slot, enrollment)
+                except SlotAlreadyBookedError:
+                    continue
 
     @staticmethod
     def _remove_paid_items_from_cart(payment: Payment) -> None:

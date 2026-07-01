@@ -2,7 +2,8 @@ from rest_framework import serializers
 
 from apps.cart.models import Cart, CartItem
 from apps.common.files import absolute_media_url
-from apps.courses.models import Cohort, Course, PricingPlan
+from apps.courses.models import Cohort, Course, CourseDeliveryFormat, PricingPlan
+from apps.schedule.models import ScheduleSlot
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -15,6 +16,8 @@ class CartItemSerializer(serializers.ModelSerializer):
     currency = serializers.CharField(read_only=True, allow_null=True)
     unit_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    schedule_slots = serializers.SerializerMethodField()
+    cohort = serializers.SerializerMethodField()
 
     class Meta:
         model = CartItem
@@ -29,6 +32,8 @@ class CartItemSerializer(serializers.ModelSerializer):
             "currency",
             "unit_price",
             "subtotal",
+            "schedule_slots",
+            "cohort",
             "added_at",
         ]
 
@@ -59,6 +64,26 @@ class CartItemSerializer(serializers.ModelSerializer):
         if plan is None or plan.installment_amount is None:
             return None
         return f"{plan.installment_amount:.2f}"
+
+    def get_schedule_slots(self, obj: CartItem) -> list[dict]:
+        return [
+            {
+                "id": slot.id,
+                "day_of_week": slot.day_of_week,
+                "start_time": slot.start_time.strftime("%H:%M"),
+                "end_time": slot.end_time.strftime("%H:%M"),
+            }
+            for slot in obj.schedule_slots.all()
+        ]
+
+    def get_cohort(self, obj: CartItem) -> dict | None:
+        if not obj.cohort_id:
+            return None
+        return {
+            "id": obj.cohort.id,
+            "name": obj.cohort.name,
+            "start_date": obj.cohort.start_date.isoformat() if obj.cohort.start_date else None,
+        }
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -107,11 +132,19 @@ class CartItemAddSerializer(serializers.Serializer):
         allow_null=True,
         write_only=True,
     )
+    schedule_slot_ids = serializers.PrimaryKeyRelatedField(
+        queryset=ScheduleSlot.objects.select_related("delivery_format__course"),
+        source="schedule_slots",
+        many=True,
+        required=False,
+        write_only=True,
+    )
 
     def validate(self, attrs):
         course = attrs["course"]
         pricing_plan = attrs.get("pricing_plan")
         cohort = attrs.get("cohort")
+        schedule_slots = attrs.get("schedule_slots")
 
         if pricing_plan is not None and pricing_plan.delivery_format.course_id != course.id:
             raise serializers.ValidationError(
@@ -137,6 +170,25 @@ class CartItemAddSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"cohort_id": "This cohort is full."}
                 )
+
+        if schedule_slots:
+            if len(schedule_slots) not in (2, 3):
+                raise serializers.ValidationError(
+                    {"schedule_slot_ids": "Select 2 or 3 available time slots."}
+                )
+            for slot in schedule_slots:
+                if slot.delivery_format.course_id != course.id:
+                    raise serializers.ValidationError(
+                        {"schedule_slot_ids": "Time slot does not belong to this course."}
+                    )
+                if slot.delivery_format.format_type != CourseDeliveryFormat.FormatType.INDIVIDUAL:
+                    raise serializers.ValidationError(
+                        {"schedule_slot_ids": "Time slot is not part of the individual coaching format."}
+                    )
+                if not slot.is_available:
+                    raise serializers.ValidationError(
+                        {"schedule_slot_ids": "One of the selected time slots is no longer available."}
+                    )
 
         return attrs
 
