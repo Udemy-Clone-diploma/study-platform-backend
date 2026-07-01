@@ -10,6 +10,10 @@ class CourseNotEnrollableError(EnrollmentsError):
     """The target course is not in a state that accepts new enrollments."""
 
 
+class FreeEnrollmentUnavailableError(EnrollmentsError):
+    """The target course does not have a free pricing plan."""
+
+
 class DuplicateEnrollmentError(EnrollmentsError):
     """The student is already enrolled in the target course."""
 

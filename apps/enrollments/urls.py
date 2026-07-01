@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from apps.enrollments.views import (
     CourseProgressView,
     EnrollmentViewSet,
+    FreeEnrollmentView,
     LessonCompletionView,
     LessonOpenedView,
 )
@@ -13,6 +14,11 @@ router.register(r"enrollments", EnrollmentViewSet, basename="enrollments")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path(
+        "courses/<slug:slug>/enroll-free/",
+        FreeEnrollmentView.as_view(),
+        name="course-enroll-free",
+    ),
     path(
         "courses/<slug:slug>/progress/",
         CourseProgressView.as_view(),

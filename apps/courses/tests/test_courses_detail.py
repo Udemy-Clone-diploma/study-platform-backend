@@ -3,6 +3,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.courses.models import Course
+from apps.enrollments.models import Enrollment
+from apps.enrollments.tests._factories import make_student
 
 from ._factories import make_category, make_course, make_teacher
 
@@ -27,6 +29,7 @@ class CourseDetailTeacherInfoTests(APITestCase):
             category=cls.category,
             status=Course.StatusChoices.PUBLISHED,
         )
+        cls.student_user, cls.student_profile = make_student(email="detail_student@example.com")
 
     def test_detail_includes_teacher_payload(self):
         response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
@@ -48,3 +51,21 @@ class CourseDetailTeacherInfoTests(APITestCase):
 
         # image is a SerializerMethodField; with no upload it should be None.
         self.assertIsNone(response.data["image"])
+
+    def test_detail_reports_anonymous_user_as_not_enrolled(self):
+        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_enrolled"])
+
+    def test_detail_reports_active_student_enrollment(self):
+        Enrollment.objects.create(
+            student_profile=self.student_profile,
+            course=self.course,
+        )
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_enrolled"])

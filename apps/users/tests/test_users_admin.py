@@ -1,10 +1,58 @@
+from django.contrib import admin
+from django.contrib.admin.widgets import AutocompleteSelect
+from django.test import RequestFactory
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.users.models import StudentProfile, User
+from apps.users.models import ModeratorProfile, StudentProfile, User
 
 from ._factories import authenticate_as_admin, make_user
+
+
+class ModeratorProfileAdminTests(APITestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.profile_admin = admin.site._registry[ModeratorProfile]
+        self.user_admin = admin.site._registry[User]
+
+    def test_user_field_uses_autocomplete_limited_to_moderator_users(self):
+        moderator = make_user(role=User.RoleChoices.MODERATOR, email="mod@example.com")
+        student = make_user(role=User.RoleChoices.STUDENT, email="student@example.com")
+        request = self.factory.get("/admin/users/moderatorprofile/add/")
+
+        field = self.profile_admin.formfield_for_foreignkey(
+            ModeratorProfile._meta.get_field("user"),
+            request,
+        )
+
+        self.assertIsInstance(field.widget, AutocompleteSelect)
+        self.assertIn(moderator, field.queryset)
+        self.assertNotIn(student, field.queryset)
+
+    def test_user_autocomplete_shows_only_available_moderator_users(self):
+        available = make_user(
+            role=User.RoleChoices.MODERATOR,
+            email="available@example.com",
+        )
+        linked = make_user(role=User.RoleChoices.MODERATOR, email="linked@example.com")
+        student = make_user(role=User.RoleChoices.STUDENT, email="student@example.com")
+        ModeratorProfile.objects.create(user=linked, level="senior")
+        request = self.factory.get(
+            "/admin/autocomplete/",
+            {
+                "app_label": "users",
+                "model_name": "moderatorprofile",
+                "field_name": "user",
+                "term": "",
+            },
+        )
+
+        queryset, _ = self.user_admin.get_search_results(request, User.objects.all(), "")
+
+        self.assertIn(available, queryset)
+        self.assertNotIn(linked, queryset)
+        self.assertNotIn(student, queryset)
 
 
 class UserRegistrationTests(APITestCase):

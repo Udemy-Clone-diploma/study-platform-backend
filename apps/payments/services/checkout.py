@@ -61,6 +61,10 @@ class CheckoutService(PaymentBaseService):
         for item in items:
             if item.selected_pricing_plan is None:
                 raise PaymentError(f"Course '{item.course.title}' has no pricing plan.")
+            if item.selected_pricing_plan.price <= Decimal("0.00"):
+                raise PaymentError(
+                    f"Free course '{item.course.title}' must be enrolled via enroll-free."
+                )
             if item.course.status != Course.StatusChoices.PUBLISHED or item.course.is_deleted:
                 raise PaymentError(f"Course '{item.course.title}' is not available for purchase.")
             if EnrollmentService.student_has_course_access(student_profile, item.course):

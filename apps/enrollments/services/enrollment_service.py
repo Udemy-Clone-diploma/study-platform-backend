@@ -1,12 +1,16 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.utils.timezone import now as tz_now
 
+from apps.cart.models import CartItem
+from apps.courses.models import Course, PricingPlan
 from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
-from apps.courses.models import Course
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
     DuplicateEnrollmentError,
     EnrollmentRoleError,
+    FreeEnrollmentUnavailableError,
     InvalidAccessWindowError,
     StudentProfileRequiredError,
 )
@@ -59,19 +63,15 @@ class EnrollmentService:
         request_user: User,
         requested_profile: StudentProfile | None = None,
     ) -> StudentProfile:
-        if request_user.role == User.RoleChoices.ADMINISTRATOR:
-            if requested_profile is None:
-                raise StudentProfileRequiredError(
-                    "student_profile_id is required for administrators."
-                )
-            return requested_profile
-
-        if request_user.role == User.RoleChoices.STUDENT:
-            return cls._student_profile_for_user(request_user)
-
-        raise EnrollmentRoleError(
-            "Only students and administrators can create enrollments."
-        )
+        if request_user.role != User.RoleChoices.ADMINISTRATOR:
+            raise EnrollmentRoleError(
+                "Only administrators can create enrollments manually."
+            )
+        if requested_profile is None:
+            raise StudentProfileRequiredError(
+                "student_profile_id is required for administrators."
+            )
+        return requested_profile
 
     @staticmethod
     def _validate_course_is_available(course: Course, request_user: User) -> None:
@@ -157,6 +157,50 @@ class EnrollmentService:
             )
 
         ScheduleService.book_slot(slot, enrollment)
+
+    @classmethod
+    @transaction.atomic
+    def enroll_in_free_course(
+        cls,
+        user: User,
+        course: Course,
+    ) -> tuple[Enrollment, bool]:
+        """Grant student access only when the published course has a zero-price plan."""
+        if user.role != User.RoleChoices.STUDENT:
+            raise EnrollmentRoleError("Only students can enroll in free courses.")
+        if course.status != Course.StatusChoices.PUBLISHED or course.is_deleted:
+            raise CourseNotEnrollableError("Only published courses are available for enrollment.")
+        if not PricingPlan.objects.filter(
+            delivery_format__course=course,
+            price=Decimal("0.00"),
+        ).exists():
+            raise FreeEnrollmentUnavailableError("This course is not available for free enrollment.")
+
+        student_profile = cls._student_profile_for_user(user)
+        enrollment, created = Enrollment.all_objects.get_or_create(
+            student_profile=student_profile,
+            course=course,
+            defaults={
+                "access_status": Enrollment.AccessStatusChoices.ACTIVE,
+                "access_until": None,
+                "order_id": None,
+            },
+        )
+
+        if not created and (enrollment.is_deleted or not enrollment.has_active_access):
+            enrollment.access_status = Enrollment.AccessStatusChoices.ACTIVE
+            enrollment.access_until = None
+            enrollment.order_id = None
+            enrollment.is_deleted = False
+            enrollment.save(
+                update_fields=["access_status", "access_until", "order_id", "is_deleted"]
+            )
+
+        CartItem.objects.filter(
+            cart__student_profile=student_profile,
+            course=course,
+        ).delete()
+        return enrollment, created
 
     @staticmethod
     @transaction.atomic
