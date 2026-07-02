@@ -16,6 +16,10 @@ class TeacherProfile(models.Model):
     bio = models.TextField(blank=True)
     experience = models.TextField(blank=True)
     specialization = models.CharField(max_length=150, blank=True)
+    # Optional stats shown on the course-detail instructor card. Left blank =
+    # not shown there at all (the card only lists whichever of these are set).
+    years_experience = models.PositiveSmallIntegerField(null=True, blank=True)
+    partnerships_count = models.PositiveSmallIntegerField(null=True, blank=True)
     rating = models.DecimalField(
         max_digits=3,
         decimal_places=2,
