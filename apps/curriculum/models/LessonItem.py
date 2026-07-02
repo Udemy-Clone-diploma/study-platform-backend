@@ -44,6 +44,16 @@ class LessonItem(models.Model):
         related_name="lesson_items",
     )
 
+    # Set only on a pending-edit draft course's items: points back at the live
+    # item this one was cloned from, so approval can merge changes in place.
+    source_lesson_item = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft_copies",
+    )
+
     is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -60,6 +70,11 @@ class LessonItem(models.Model):
                 fields=["lesson", "order"],
                 condition=models.Q(is_deleted=False),
                 name="unique_active_lesson_item_order",
+            ),
+            models.UniqueConstraint(
+                fields=["source_lesson_item"],
+                condition=models.Q(source_lesson_item__isnull=False),
+                name="unique_source_lesson_item",
             ),
         ]
 

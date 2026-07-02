@@ -47,6 +47,7 @@ class Course(models.Model):
         PUBLISHED = "published", "Published"
         HIDDEN = "hidden", "Hidden (active but not listed)"
         ARCHIVED = "archived", "Archived"
+        PENDING_EDIT = "pending_edit", "Pending Edit (hidden shadow draft of a published course)"
 
     # FileField (not ImageField) because Pillow — which ImageField uses to validate — cannot
     # open SVGs, and the default course icons are SVGs. Extension check stands in for that.

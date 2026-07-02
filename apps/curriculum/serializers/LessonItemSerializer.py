@@ -28,6 +28,7 @@ class LessonItemSerializer(serializers.ModelSerializer):
             # META
             "created_at",
             "updated_at",
+            "source_lesson_item_id",
         ]
 
     def get_video_url(self, obj) -> str | None:

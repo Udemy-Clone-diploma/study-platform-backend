@@ -91,11 +91,7 @@ class CoursePendingEditAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("course__title", "course__slug")
     readonly_fields = (
-        "course", "status", "submitted_at", "created_at", "updated_at",
-        "title", "subtitle", "short_description", "full_description",
-        "level", "language", "mode", "delivery_type", "course_type",
-        "duration_hours", "with_certificate", "is_on_sale", "category",
-        "tag_ids", "modules_snapshot",
+        "course", "draft_course", "status", "submitted_at", "created_at", "updated_at",
     )
     fields = readonly_fields + ("moderator_profile", "moderator_comment")
     actions = ["approve_changes", "reject_changes"]
@@ -122,7 +118,7 @@ class CoursePendingEditAdmin(admin.ModelAdmin):
         from apps.courses.services.pending_edit_service import PendingEditService
         count = queryset.count()
         for pe in queryset:
-            PendingEditService.reject(pe, comment="Returned for revision by moderator.")
+            PendingEditService.reject(pe, final_action="needs_revision", final_comment="Returned for revision by moderator.")
         self.message_user(request, f"{count} pending edit(s) returned for revision.", messages.WARNING)
 
 

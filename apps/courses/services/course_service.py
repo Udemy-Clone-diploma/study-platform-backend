@@ -28,7 +28,7 @@ from apps.courses.serializers import (
     CourseDetailSerializer,
     CourseListSerializer,
 )
-from apps.curriculum.models import Lesson, LessonItem, Module, Question, Test
+from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
 from apps.enrollments.models import Enrollment
 from apps.users.models import User
 
@@ -452,6 +452,119 @@ class CourseService:
 
         return new_course
 
+    @classmethod
+    @transaction.atomic
+    def clone_for_pending_edit(cls, course: Course) -> Course:
+        """Deep-copy a published/hidden course into a hidden PENDING_EDIT shadow draft.
+
+        Every cloned row's source_* FK points back at the live row it was cloned
+        from, so PendingEditService.merge_into_live() can later correlate them —
+        preserving live row ids (and therefore student progress FKs) on merge.
+        Video/image files are copied by reference (same storage key), not re-uploaded.
+        Student notes are deliberately not cloned (private student data, not course content).
+        """
+        draft = Course.all_objects.create(
+            title=course.title,
+            slug=cls._build_unique_slug(course.title),
+            subtitle=course.subtitle,
+            short_description=course.short_description,
+            full_description=course.full_description,
+            level=course.level,
+            language=course.language,
+            mode=course.mode,
+            delivery_type=course.delivery_type,
+            course_type=course.course_type,
+            duration_hours=course.duration_hours,
+            with_certificate=course.with_certificate,
+            is_on_sale=course.is_on_sale,
+            status=Course.StatusChoices.PENDING_EDIT,
+            teacher_profile=course.teacher_profile,
+            category=course.category,
+            image=course.image,
+        )
+        draft.tags.set(course.tags.all())
+
+        # First pass: modules + tests + questions, recording old->new test ids so
+        # TEST-type lesson items can be resolved to the freshly cloned tests below.
+        module_map: dict[int, Module] = {}
+        test_map: dict[int, Test] = {}
+        for old_mod in course.modules.order_by("order"):
+            new_mod = Module.objects.create(
+                course=draft,
+                source_module=old_mod,
+                title=old_mod.title,
+                description=old_mod.description,
+                order=old_mod.order,
+            )
+            module_map[old_mod.id] = new_mod
+            for old_test in old_mod.tests.order_by("order"):
+                new_test = Test.objects.create(
+                    module=new_mod,
+                    source_test=old_test,
+                    title=old_test.title,
+                    description=old_test.description,
+                    passing_score=old_test.passing_score,
+                    duration_minutes=old_test.duration_minutes,
+                    allow_retakes=old_test.allow_retakes,
+                    max_attempts=old_test.max_attempts,
+                    order=old_test.order,
+                )
+                test_map[old_test.id] = new_test
+                for old_q in old_test.questions.order_by("order"):
+                    Question.objects.create(
+                        test=new_test,
+                        source_question=old_q,
+                        question_type=old_q.question_type,
+                        text=old_q.text,
+                        options=old_q.options,
+                        correct_indices=old_q.correct_indices,
+                        correct_bool=old_q.correct_bool,
+                        sample_answer=old_q.sample_answer,
+                        accepted_answers=old_q.accepted_answers,
+                        order=old_q.order,
+                    )
+
+        # Second pass: lessons + items + documents, now that every test exists.
+        for old_mod in course.modules.order_by("order"):
+            new_mod = module_map[old_mod.id]
+            for old_lesson in old_mod.lessons.order_by("order"):
+                new_lesson = Lesson.objects.create(
+                    module=new_mod,
+                    source_lesson=old_lesson,
+                    title=old_lesson.title,
+                    duration_minutes=old_lesson.duration_minutes,
+                    min_score=old_lesson.min_score,
+                    is_preview=old_lesson.is_preview,
+                    meeting_url=old_lesson.meeting_url,
+                    unlock_after_days=old_lesson.unlock_after_days,
+                    requires_previous=old_lesson.requires_previous,
+                    is_manually_locked=old_lesson.is_manually_locked,
+                    order=old_lesson.order,
+                )
+                for old_item in old_lesson.items.order_by("order"):
+                    LessonItem.objects.create(
+                        lesson=new_lesson,
+                        source_lesson_item=old_item,
+                        item_type=old_item.item_type,
+                        order=old_item.order,
+                        content=old_item.content,
+                        body_html=old_item.body_html,
+                        video=old_item.video,
+                        video_url=old_item.video_url,
+                        original_video_name=old_item.original_video_name,
+                        duration_minutes=old_item.duration_minutes,
+                        test=test_map.get(old_item.test_id),
+                    )
+                for old_doc in old_lesson.documents.all():
+                    LessonDocument.objects.create(
+                        lesson=new_lesson,
+                        source_document=old_doc,
+                        file=old_doc.file,
+                        original_name=old_doc.original_name,
+                    )
+
+        return draft
+
     @staticmethod
     def get_rejected_courses_queryset(teacher_profile):
         return CourseService.annotate_min_price(
@@ -565,6 +678,7 @@ class CourseService:
     def get_teacher_courses_queryset(cls, teacher_profile):
         return cls.annotate_min_price(
             teacher_profile.courses
+            .exclude(status=Course.StatusChoices.PENDING_EDIT)
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )

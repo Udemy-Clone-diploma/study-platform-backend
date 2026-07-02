@@ -18,6 +18,16 @@ class Question(models.Model):
         related_name="questions",
     )
 
+    # Set only on a pending-edit draft course's questions: points back at the live
+    # question this one was cloned from, so approval can merge changes in place.
+    source_question = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft_copies",
+    )
+
     question_type = models.CharField(
         max_length=20,
         choices=TypeChoices.choices,
@@ -45,6 +55,13 @@ class Question(models.Model):
     class Meta:
         db_table = "questions"
         ordering = ["order"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_question"],
+                condition=models.Q(source_question__isnull=False),
+                name="unique_source_question",
+            ),
+        ]
 
     def __str__(self):
         return self.text[:80]
