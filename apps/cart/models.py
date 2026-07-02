@@ -60,6 +60,11 @@ class CartItem(models.Model):
         blank=True,
         related_name="cart_items",
     )
+    schedule_slots = models.ManyToManyField(
+        "schedule.ScheduleSlot",
+        related_name="cart_items",
+        blank=True,
+    )
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

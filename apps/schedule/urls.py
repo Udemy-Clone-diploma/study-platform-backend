@@ -1,6 +1,11 @@
 from django.urls import path
 
 from apps.schedule.views import (
+    CohortAttendanceView,
+    CohortSessionDatesView,
+    IndividualAttendanceView,
+    IndividualEnrollmentListView,
+    IndividualSessionDatesView,
     CalendarEventUpdateView,
     CalendarView,
     CohortScheduleConflictView,
@@ -73,6 +78,35 @@ urlpatterns = [
         "courses/<slug:slug>/delivery-formats/<int:format_id>/enrollments/<int:enrollment_id>/period/",
         EnrollmentPeriodView.as_view(),
         name="enrollment-period",
+    ),
+
+    # ── Attendance ────────────────────────────────────────────────────────────
+    path(
+        "courses/<slug:slug>/cohorts/<int:cohort_id>/session-dates/",
+        CohortSessionDatesView.as_view(),
+        name="cohort-session-dates",
+    ),
+    path(
+        "courses/<slug:slug>/cohorts/<int:cohort_id>/attendance/",
+        CohortAttendanceView.as_view(),
+        name="cohort-attendance",
+    ),
+
+    # ── Individual attendance ─────────────────────────────────────────────────
+    path(
+        "courses/<slug:slug>/individual-enrollments/",
+        IndividualEnrollmentListView.as_view(),
+        name="individual-enrollments",
+    ),
+    path(
+        "courses/<slug:slug>/enrollments/<int:enrollment_id>/session-dates/",
+        IndividualSessionDatesView.as_view(),
+        name="enrollment-session-dates",
+    ),
+    path(
+        "courses/<slug:slug>/enrollments/<int:enrollment_id>/attendance/",
+        IndividualAttendanceView.as_view(),
+        name="enrollment-attendance",
     ),
 
     # ── Teacher unavailability ─────────────────────────────────────────────────

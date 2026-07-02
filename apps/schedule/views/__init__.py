@@ -1,3 +1,10 @@
+from .AttendanceView import (
+    CohortAttendanceView,
+    CohortSessionDatesView,
+    IndividualAttendanceView,
+    IndividualEnrollmentListView,
+    IndividualSessionDatesView,
+)
 from .CalendarView import (
     CalendarEventUpdateView,
     CalendarView,
@@ -30,6 +37,11 @@ from .TeacherUnavailabilityView import (
 )
 
 __all__ = [
+    "CohortAttendanceView",
+    "CohortSessionDatesView",
+    "IndividualAttendanceView",
+    "IndividualEnrollmentListView",
+    "IndividualSessionDatesView",
     "CalendarEventUpdateView",
     "CalendarView",
     "CohortScheduleConflictView",

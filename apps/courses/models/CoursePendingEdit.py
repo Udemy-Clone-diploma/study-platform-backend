@@ -1,6 +1,8 @@
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 from apps.common.files import UUIDUploadTo
+from apps.courses.models.Course import COURSE_IMAGE_EXTENSIONS
 from apps.users.models import ModeratorProfile
 
 
@@ -27,10 +29,11 @@ class CoursePendingEdit(models.Model):
     subtitle = models.CharField(max_length=255, blank=True, null=True)
     short_description = models.CharField(max_length=500)
     full_description = models.TextField()
-    image = models.ImageField(
+    image = models.FileField(
         upload_to=UUIDUploadTo("courses/pending"),
         null=True,
         blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=COURSE_IMAGE_EXTENSIONS)],
     )
     level = models.CharField(max_length=20)
     language = models.CharField(max_length=20)
