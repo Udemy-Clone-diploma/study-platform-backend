@@ -229,9 +229,21 @@ class CourseService:
             course=course,
         )
         tags = validated_data.pop("tags", None)
+        old_status = course.status
 
         for attr, value in validated_data.items():
             setattr(course, attr, value)
+
+        # Leaving the moderation pipeline back to draft/archived (withdraw, archive)
+        # releases whichever moderator was assigned — resubmitting later should land
+        # back in the unassigned pool, not stay privately assigned to whoever had it
+        # before. (Re-submitting straight from needs_revision keeps the moderator,
+        # since continuing with the same reviewer for a resubmission is desired.)
+        if course.status != old_status and course.status in (
+            Course.StatusChoices.DRAFT,
+            Course.StatusChoices.ARCHIVED,
+        ):
+            course.moderator_profile = None
 
         course.save()
 

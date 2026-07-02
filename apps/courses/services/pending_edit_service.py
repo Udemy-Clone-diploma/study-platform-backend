@@ -101,8 +101,14 @@ class PendingEditService:
     def withdraw(pending_edit: CoursePendingEdit) -> CoursePendingEdit:
         if pending_edit.status != CoursePendingEdit.StatusChoices.PENDING:
             raise PendingEditLockedError("Can only withdraw when pending moderation.")
+        # Release the assigned moderator too — withdrawing abandons this review
+        # cycle entirely, so resubmitting later should land back in the
+        # unassigned pool rather than staying privately assigned to whoever
+        # had it before (unlike needs_revision, where the same moderator
+        # continuing to handle the resubmission is the desired behavior).
         pending_edit.status = CoursePendingEdit.StatusChoices.DRAFT
-        pending_edit.save(update_fields=["status", "updated_at"])
+        pending_edit.moderator_profile = None
+        pending_edit.save(update_fields=["status", "moderator_profile", "updated_at"])
         return pending_edit
 
     @staticmethod
