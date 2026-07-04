@@ -1,5 +1,7 @@
 from django.db import models
 
+from apps.common.files import UUIDUploadTo
+
 
 class CourseCompletion(models.Model):
     student_profile = models.ForeignKey(
@@ -28,6 +30,17 @@ class CourseCompletion(models.Model):
     completed_at = models.DateTimeField(auto_now_add=True)
     final_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     certificate_url = models.TextField(null=True, blank=True)
+    certificate_file = models.FileField(
+        upload_to=UUIDUploadTo("certificates"), null=True, blank=True,
+    )
+    # Small raster preview of certificate_file, for the "My certificates" grid.
+    certificate_thumbnail = models.ImageField(
+        upload_to=UUIDUploadTo("certificates/thumbnails"), null=True, blank=True,
+    )
+    # Purchase snapshot -- null/blank when the course was free (no Order).
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    paid_currency = models.CharField(max_length=3, blank=True, default="")
+    purchased_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "course_completions"

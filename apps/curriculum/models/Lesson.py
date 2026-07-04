@@ -15,6 +15,7 @@ class Lesson(models.Model):
     unlock_after_days = models.PositiveIntegerField(null=True, blank=True)
     requires_previous = models.BooleanField(default=False)
     is_manually_locked = models.BooleanField(default=False)
+    is_mandatory = models.BooleanField(default=False)
 
     module = models.ForeignKey(
         Module,
@@ -22,8 +23,6 @@ class Lesson(models.Model):
         related_name="lessons",
     )
 
-    # Set only on a pending-edit draft course's lessons: points back at the live
-    # lesson this one was cloned from, so approval can merge changes in place.
     source_lesson = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,

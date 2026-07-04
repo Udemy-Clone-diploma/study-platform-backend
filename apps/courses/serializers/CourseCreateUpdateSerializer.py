@@ -44,7 +44,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             "teacher_profile", "category_id",
             "level", "language", "mode", "delivery_type", "course_type",
             "duration_hours", "lessons_count",
-            "with_certificate", "is_on_sale",
+            "with_certificate", "certificate_description", "is_on_sale", "passing_score",
             "status", "tag_ids",
         ]
         read_only_fields = ["lessons_count", "duration_hours"]
@@ -111,5 +111,35 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
                     )
                 }
             )
+
+        if attrs.get("with_certificate") is True and not (
+            self.instance and self.instance.with_certificate
+        ):
+            teacher_profile = attrs.get("teacher_profile") or getattr(
+                self.instance, "teacher_profile", None,
+            )
+            if teacher_profile and not teacher_profile.signature:
+                raise serializers.ValidationError(
+                    {
+                        "with_certificate": (
+                            "Upload a signature in your teacher profile before "
+                            "enabling certificates."
+                        )
+                    }
+                )
+
+            certificate_description = attrs.get(
+                "certificate_description",
+                getattr(self.instance, "certificate_description", ""),
+            )
+            if not certificate_description.strip():
+                raise serializers.ValidationError(
+                    {
+                        "certificate_description": (
+                            "Describe what the student mastered before enabling "
+                            "certificates -- it's printed on the certificate."
+                        )
+                    }
+                )
 
         return attrs

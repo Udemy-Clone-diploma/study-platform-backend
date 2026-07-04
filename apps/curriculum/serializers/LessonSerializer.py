@@ -16,7 +16,7 @@ class LessonSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "order", "duration_minutes", "is_preview",
             "min_score", "meeting_url", "unlock_after_days", "requires_previous",
-            "is_manually_locked", "documents", "items", "source_lesson_id",
+            "is_manually_locked", "is_mandatory", "documents", "items", "source_lesson_id",
         ]
 
     def get_meeting_url(self, obj) -> str | None:

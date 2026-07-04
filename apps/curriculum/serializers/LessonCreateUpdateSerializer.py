@@ -8,7 +8,7 @@ class LessonCreateUpdateSerializer(serializers.ModelSerializer):
         model = Lesson
         fields = [
             "title", "duration_minutes", "min_score", "is_preview", "meeting_url",
-            "unlock_after_days", "requires_previous", "is_manually_locked",
+            "unlock_after_days", "requires_previous", "is_manually_locked", "is_mandatory",
         ]
         extra_kwargs = {
             "duration_minutes":    {"required": False},
@@ -18,4 +18,5 @@ class LessonCreateUpdateSerializer(serializers.ModelSerializer):
             "unlock_after_days":   {"required": False},
             "requires_previous":   {"required": False},
             "is_manually_locked":  {"required": False},
+            "is_mandatory":        {"required": False},
         }

@@ -24,6 +24,13 @@ class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
         ]
 
     def get_enrolled_count(self, obj) -> int:
+        # `annotated_enrolled_count` is set by CourseService.annotate_enrolled_counts
+        # on list/detail querysets so this avoids one COUNT query per delivery
+        # format; views that serialize a single fetched-by-pk instance (create/
+        # update responses) fall back to a direct count.
+        if hasattr(obj, "annotated_enrolled_count"):
+            return obj.annotated_enrolled_count
+
         from apps.enrollments.models import Enrollment
         return Enrollment.objects.filter(
             delivery_format=obj,

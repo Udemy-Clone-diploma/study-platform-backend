@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Count, Min, OuterRef, Q, Subquery
+from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -11,10 +11,13 @@ from apps.courses.constants import (
     DEFAULT_POPULAR_COURSES_LIMIT,
     POPULARITY_WINDOW_DAYS,
 )
+from apps.common.files import duplicate_file_field
 from apps.courses.exceptions import CoursesError
 from apps.courses.models import (
     ApprovedCourseRecord,
     Category,
+    Cohort,
+    CohortMember,
     Course,
     CoursePendingEdit,
     ModerationReview,
@@ -74,6 +77,34 @@ class CourseService:
                     enrollments__is_deleted=False,
                 ),
                 distinct=True,
+            ),
+        )
+
+    @staticmethod
+    def delivery_formats_prefetch() -> Prefetch:
+        """Prefetch for Course.delivery_formats with the active-enrollment count
+        pre-annotated (see CourseDeliveryFormatSerializer.get_enrolled_count) --
+        without this, retrieving a course fires one COUNT(*) per delivery format."""
+        queryset = CourseDeliveryFormat.objects.select_related("pricing").annotate(
+            annotated_enrolled_count=Count(
+                "enrollments",
+                filter=Q(enrollments__access_status=Enrollment.AccessStatusChoices.ACTIVE),
+            ),
+        )
+        return Prefetch("delivery_formats", queryset=queryset)
+
+    @staticmethod
+    def cohorts_prefetch() -> Prefetch:
+        """Prefetch for Course.cohorts with members' enrollment/student/user chain
+        select_related in one join, instead of three queries per cohort member
+        (CohortMemberSerializer reads enrollment.student_profile.user.*)."""
+        members_queryset = CohortMember.objects.select_related(
+            "enrollment__student_profile__user",
+        )
+        return Prefetch(
+            "cohorts",
+            queryset=Cohort.objects.prefetch_related(
+                Prefetch("members", queryset=members_queryset),
             ),
         )
 
@@ -390,12 +421,16 @@ class CourseService:
             course_type=course.course_type,
             duration_hours=course.duration_hours,
             with_certificate=course.with_certificate,
+            certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            passing_score=course.passing_score,
             status=Course.StatusChoices.DRAFT,
             teacher_profile=teacher_profile,
             category=course.category,
-            image=course.image,
         )
+        if course.image:
+            duplicate_file_field(course.image, new_course.image)
+            new_course.save(update_fields=["image"])
         new_course.tags.set(course.tags.all())
 
         # First pass: copy modules and their tests, recording old->new test ids so
@@ -449,32 +484,26 @@ class CourseService:
                     order=old_lesson.order,
                 )
                 for old_item in old_lesson.items.order_by("order"):
-                    LessonItem.objects.create(
+                    new_item = LessonItem.objects.create(
                         lesson=new_lesson,
                         item_type=old_item.item_type,
                         order=old_item.order,
-                        content=old_item.content,
                         body_html=old_item.body_html,
-                        video=old_item.video,
                         video_url=old_item.video_url,
                         original_video_name=old_item.original_video_name,
                         duration_minutes=old_item.duration_minutes,
                         test=test_map.get(old_item.test_id),
                     )
+                    if old_item.video:
+                        duplicate_file_field(old_item.video, new_item.video)
+                        new_item.save(update_fields=["video"])
 
         return new_course
 
     @classmethod
     @transaction.atomic
     def clone_for_pending_edit(cls, course: Course) -> Course:
-        """Deep-copy a published/hidden course into a hidden PENDING_EDIT shadow draft.
-
-        Every cloned row's source_* FK points back at the live row it was cloned
-        from, so PendingEditService.merge_into_live() can later correlate them —
-        preserving live row ids (and therefore student progress FKs) on merge.
-        Video/image files are copied by reference (same storage key), not re-uploaded.
-        Student notes are deliberately not cloned (private student data, not course content).
-        """
+        """Deep-copy a published/hidden course into a hidden PENDING_EDIT shadow draft. """
         draft = Course.all_objects.create(
             title=course.title,
             slug=cls._build_unique_slug(course.title),
@@ -488,16 +517,18 @@ class CourseService:
             course_type=course.course_type,
             duration_hours=course.duration_hours,
             with_certificate=course.with_certificate,
+            certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            passing_score=course.passing_score,
             status=Course.StatusChoices.PENDING_EDIT,
             teacher_profile=course.teacher_profile,
             category=course.category,
-            image=course.image,
         )
+        if course.image:
+            duplicate_file_field(course.image, draft.image)
+            draft.save(update_fields=["image"])
         draft.tags.set(course.tags.all())
 
-        # First pass: modules + tests + questions, recording old->new test ids so
-        # TEST-type lesson items can be resolved to the freshly cloned tests below.
         module_map: dict[int, Module] = {}
         test_map: dict[int, Test] = {}
         for old_mod in course.modules.order_by("order"):
@@ -551,29 +582,32 @@ class CourseService:
                     unlock_after_days=old_lesson.unlock_after_days,
                     requires_previous=old_lesson.requires_previous,
                     is_manually_locked=old_lesson.is_manually_locked,
+                    is_mandatory=old_lesson.is_mandatory,
                     order=old_lesson.order,
                 )
                 for old_item in old_lesson.items.order_by("order"):
-                    LessonItem.objects.create(
+                    new_item = LessonItem.objects.create(
                         lesson=new_lesson,
                         source_lesson_item=old_item,
                         item_type=old_item.item_type,
                         order=old_item.order,
-                        content=old_item.content,
                         body_html=old_item.body_html,
-                        video=old_item.video,
                         video_url=old_item.video_url,
                         original_video_name=old_item.original_video_name,
                         duration_minutes=old_item.duration_minutes,
                         test=test_map.get(old_item.test_id),
                     )
+                    if old_item.video:
+                        duplicate_file_field(old_item.video, new_item.video)
+                        new_item.save(update_fields=["video"])
                 for old_doc in old_lesson.documents.all():
-                    LessonDocument.objects.create(
+                    new_doc = LessonDocument.objects.create(
                         lesson=new_lesson,
                         source_document=old_doc,
-                        file=old_doc.file,
                         original_name=old_doc.original_name,
                     )
+                    duplicate_file_field(old_doc.file, new_doc.file)
+                    new_doc.save(update_fields=["file"])
 
         return draft
 

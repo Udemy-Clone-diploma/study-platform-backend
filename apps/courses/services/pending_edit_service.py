@@ -4,6 +4,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
+from apps.common.files import duplicate_file_field, file_content_hash
 from apps.courses.exceptions import PendingEditLockedError
 from apps.courses.models import (
     ApprovedCourseRecord,
@@ -25,7 +26,7 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     for field in [
         "title", "subtitle", "short_description", "full_description",
         "level", "language", "mode", "delivery_type", "course_type",
-        "with_certificate", "is_on_sale",
+        "with_certificate", "certificate_description", "is_on_sale", "passing_score",
     ]:
         if getattr(draft, field) != getattr(course, field):
             changed.append(field)
@@ -35,9 +36,7 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     live_tags = set(course.tags.values_list("id", flat=True))
     if draft_tags != live_tags:
         changed.append("tags")
-    draft_image_name = draft.image.name if draft.image else None
-    live_image_name = course.image.name if course.image else None
-    if draft_image_name != live_image_name:
+    if file_content_hash(draft.image) != file_content_hash(course.image):
         changed.append("image")
     return changed
 
@@ -57,20 +56,21 @@ def _merge_row(Model, live_parent_lookup: dict, source_id, **kwargs):
 
 
 def _merge_document(live_lesson, draft_doc) -> LessonDocument:
-    """LessonDocument has no is_deleted field (hard-delete model, no downstream FK),
-    so unlike _merge_row this updates-or-creates without a soft-delete restore step."""
+    """LessonDocument has no is_deleted field """
     if draft_doc.source_document_id:
         doc = LessonDocument.objects.filter(id=draft_doc.source_document_id, lesson=live_lesson).first()
         if doc:
-            doc.file = draft_doc.file
+            duplicate_file_field(draft_doc.file, doc.file)
             doc.original_name = draft_doc.original_name
             doc.save()
             return doc
-    return LessonDocument.objects.create(
+    doc = LessonDocument.objects.create(
         lesson=live_lesson,
-        file=draft_doc.file,
         original_name=draft_doc.original_name,
     )
+    duplicate_file_field(draft_doc.file, doc.file)
+    doc.save(update_fields=["file"])
+    return doc
 
 
 class PendingEditService:
@@ -129,7 +129,7 @@ class PendingEditService:
         for field in [
             "title", "subtitle", "short_description", "full_description",
             "level", "language", "mode", "delivery_type", "course_type",
-            "with_certificate", "is_on_sale",
+            "with_certificate", "certificate_description", "is_on_sale", "passing_score",
         ]:
             setattr(course, field, getattr(draft, field))
         course.category = draft.category
@@ -278,20 +278,28 @@ class PendingEditService:
                     unlock_after_days=draft_lesson.unlock_after_days,
                     requires_previous=draft_lesson.requires_previous,
                     is_manually_locked=draft_lesson.is_manually_locked,
+                    is_mandatory=draft_lesson.is_mandatory,
                     order=l_idx,
                 )
 
                 LessonItem.all_objects.filter(lesson=live_lesson, is_deleted=False).update(is_deleted=True)
                 for i_idx, draft_item in enumerate(draft_lesson.items.order_by("order"), 1):
-                    _merge_row(
+                    live_item = _merge_row(
                         LessonItem, {"lesson": live_lesson}, draft_item.source_lesson_item_id,
                         item_type=draft_item.item_type, order=i_idx,
-                        content=draft_item.content, body_html=draft_item.body_html,
-                        video=draft_item.video, video_url=draft_item.video_url,
+                        body_html=draft_item.body_html,
+                        video_url=draft_item.video_url,
                         original_video_name=draft_item.original_video_name,
                         duration_minutes=draft_item.duration_minutes,
                         test=test_map.get(draft_item.test_id),
                     )
+                    
+                    if draft_item.video:
+                        duplicate_file_field(draft_item.video, live_item.video)
+                        live_item.save(update_fields=["video"])
+                    elif live_item.video:
+                        live_item.video = None
+                        live_item.save(update_fields=["video"])
 
                 matched_doc_ids = {
                     _merge_document(live_lesson, draft_doc).id

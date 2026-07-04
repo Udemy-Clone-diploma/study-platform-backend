@@ -25,4 +25,6 @@ class CohortSerializer(serializers.ModelSerializer):
         ]
 
     def get_members_count(self, obj):
-        return obj.members.count()
+        # len(), not .count(): reuses the prefetched "members" cache instead of
+        # firing a fresh COUNT query per cohort when members are already loaded.
+        return len(obj.members.all())

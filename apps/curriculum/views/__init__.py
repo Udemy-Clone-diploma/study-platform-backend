@@ -1,6 +1,7 @@
 from .LessonDetailView import LessonDetailView
 from .LessonDocumentView import LessonDocumentDetailView, LessonDocumentListView
 from .LessonItemViewSet import LessonItemViewSet
+from .LessonSessionsView import LessonSessionsView
 from .LessonViewSet import LessonViewSet
 from .ModuleViewSet import ModuleViewSet
 from .NoteView import NoteView
@@ -14,6 +15,7 @@ __all__ = [
     "LessonDocumentDetailView",
     "LessonDocumentListView",
     "LessonItemViewSet",
+    "LessonSessionsView",
     "LessonViewSet",
     "ModuleViewSet",
     "NoteView",

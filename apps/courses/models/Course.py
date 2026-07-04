@@ -116,7 +116,15 @@ class Course(models.Model):
 
     with_certificate = models.BooleanField(default=False)
 
+
+    certificate_description = models.TextField(blank=True, default="")
+
     is_on_sale = models.BooleanField(default=False)
+
+    passing_score = models.PositiveSmallIntegerField(
+        default=80,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+    )
 
     rating_avg = models.DecimalField(
         max_digits=3,

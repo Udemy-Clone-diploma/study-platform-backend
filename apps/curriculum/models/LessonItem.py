@@ -22,7 +22,6 @@ class LessonItem(models.Model):
     order = models.PositiveSmallIntegerField()
 
     # TEXT
-    content = models.TextField(blank=True, default="")
     body_html = models.TextField(blank=True, null=True)
 
     # VIDEO
