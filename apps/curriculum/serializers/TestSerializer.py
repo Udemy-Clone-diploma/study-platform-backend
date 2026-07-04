@@ -16,7 +16,7 @@ class TestSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "description", "passing_score",
             "duration_minutes", "allow_retakes", "max_attempts",
-            "order", "questions",
+            "order", "questions", "source_test_id",
         ]
 
     @extend_schema_field(QuestionSerializer(many=True))

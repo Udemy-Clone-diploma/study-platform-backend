@@ -8,7 +8,6 @@ class LessonItemCreateUpdateSerializer(serializers.ModelSerializer):
         model = LessonItem
         fields = [
             "item_type",
-            "content",
             "body_html",
             "video",
             "video_url",
@@ -16,7 +15,6 @@ class LessonItemCreateUpdateSerializer(serializers.ModelSerializer):
             "test",
         ]
         extra_kwargs = {
-            "content": {"required": False},
             "body_html": {"required": False},
             "video": {"required": False},
             "video_url": {"required": False},

@@ -47,6 +47,7 @@ class Course(models.Model):
         PUBLISHED = "published", "Published"
         HIDDEN = "hidden", "Hidden (active but not listed)"
         ARCHIVED = "archived", "Archived"
+        PENDING_EDIT = "pending_edit", "Pending Edit (hidden shadow draft of a published course)"
 
     # FileField (not ImageField) because Pillow — which ImageField uses to validate — cannot
     # open SVGs, and the default course icons are SVGs. Extension check stands in for that.
@@ -115,7 +116,15 @@ class Course(models.Model):
 
     with_certificate = models.BooleanField(default=False)
 
+
+    certificate_description = models.TextField(blank=True, default="")
+
     is_on_sale = models.BooleanField(default=False)
+
+    passing_score = models.PositiveSmallIntegerField(
+        default=80,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+    )
 
     rating_avg = models.DecimalField(
         max_digits=3,
