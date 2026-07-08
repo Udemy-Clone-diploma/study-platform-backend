@@ -1,6 +1,8 @@
 import logging
 import threading
 
+from django.conf import settings
+
 from apps.notifications.models import Notification, NotificationPreference
 from apps.notifications.preferences import channel_enabled
 from apps.notifications.tasks import send_notification_email
@@ -17,7 +19,18 @@ def _dispatch_email(**kwargs) -> None:
     of configured timeouts) -- unacceptable when fanning out to a whole cohort in
     one request. Doing it on a daemon thread bounds the request to the time it
     takes to start a thread, not to connect to the broker.
+
+    Under CELERY_TASK_ALWAYS_EAGER (tests) there is no broker involved -- the task
+    body just runs inline -- so dispatch synchronously there instead: tests assert
+    on `mail.outbox` immediately after calling into this service, and a background
+    thread would race that assertion.
     """
+    if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        try:
+            send_notification_email.delay(**kwargs)
+        except Exception:
+            logger.exception("Failed to queue notification email for %s", kwargs.get("email"))
+        return
 
     def _send():
         try:
