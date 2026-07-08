@@ -13,7 +13,7 @@ from django.db.models import Q
 from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
 from apps.schedule.models import CohortSchedule, PersonalEvent, EventInvitation, ScheduleSlot, Session
 from apps.schedule.serializers import ScheduleSlotSerializer, ScheduleSlotRescheduleSerializer, ScheduleSlotWriteSerializer
-from apps.schedule.services import ScheduleService
+from apps.schedule.services import ScheduleService, ScheduleNotificationService
 from apps.courses.models import CourseDeliveryFormat
 from apps.enrollments.models import Enrollment
 from apps.users.models import User
@@ -121,6 +121,17 @@ class ScheduleSlotDetailView(APIView):
             slot = ScheduleService.reschedule_slot(slot, serializer.validated_data)
         except (TeacherScheduleConflictError, InvalidScheduleTimeError) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if slot.booked_by_id:
+            student_user = slot.booked_by.student_profile.user
+            ScheduleNotificationService.notify_recurring_time_changed(
+                [student_user],
+                slot.delivery_format.course.title,
+                actor=request.user,
+                day_label=slot.get_day_of_week_display(),
+                new_start=slot.start_time,
+                new_end=slot.end_time,
+            )
 
         return Response(ScheduleSlotSerializer(slot, context={"request": request}).data)
 

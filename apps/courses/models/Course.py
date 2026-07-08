@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models
 
-from apps.common.files import UUIDUploadTo
+from apps.common.files import UUIDUploadTo, file_content_hash
 from apps.common.managers import ActiveManager
 from apps.users.models import ModeratorProfile, TeacherProfile
 
@@ -57,6 +57,8 @@ class Course(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=COURSE_IMAGE_EXTENSIONS)],
     )
+    # Cached MD5 of `image`'s bytes -- see LessonItem.video_hash for why.
+    image_hash = models.CharField(max_length=32, blank=True, default="")
 
     title = models.CharField(max_length=255)
 
@@ -164,3 +166,12 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        recompute = update_fields is None or ("image" in update_fields and "image_hash" not in update_fields)
+        if recompute:
+            self.image_hash = file_content_hash(self.image) or ""
+            if update_fields is not None:
+                kwargs["update_fields"] = [*update_fields, "image_hash"]
+        super().save(*args, **kwargs)

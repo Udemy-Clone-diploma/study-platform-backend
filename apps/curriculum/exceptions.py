@@ -12,3 +12,7 @@ class TestNotAttemptableError(CurriculumError):
 
 class RetakeNotAllowedError(CurriculumError):
     """The student has used all attempts allowed for this test."""
+
+
+class InvalidReorderError(CurriculumError):
+    """The submitted item id list doesn't match the lesson's current active items."""

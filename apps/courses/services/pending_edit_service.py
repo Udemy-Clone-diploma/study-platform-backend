@@ -4,7 +4,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
-from apps.common.files import duplicate_file_field, file_content_hash
+from apps.common.files import duplicate_file_field
 from apps.courses.exceptions import PendingEditLockedError
 from apps.courses.models import (
     ApprovedCourseRecord,
@@ -36,7 +36,7 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     live_tags = set(course.tags.values_list("id", flat=True))
     if draft_tags != live_tags:
         changed.append("tags")
-    if file_content_hash(draft.image) != file_content_hash(course.image):
+    if draft.image_hash != course.image_hash:
         changed.append("image")
     return changed
 
@@ -50,7 +50,13 @@ def _merge_row(Model, live_parent_lookup: dict, source_id, **kwargs):
             for k, v in kwargs.items():
                 setattr(obj, k, v)
             obj.is_deleted = False
-            obj.save()
+            # Explicit update_fields (rather than a bare save()) matters beyond
+            # the query itself: LessonItem.save() only recomputes video_hash
+            # when "video" is among the saved fields, and video isn't touched
+            # here (it's merged separately, right after) -- a bare save() would
+            # force a full re-read+re-hash of whatever video the live row
+            # already has, for every single merged item, on every approval.
+            obj.save(update_fields=[*kwargs.keys(), "is_deleted", "updated_at"])
             return obj
     return Model.objects.create(**live_parent_lookup, **kwargs)
 
@@ -296,7 +302,8 @@ class PendingEditService:
                     
                     if draft_item.video:
                         duplicate_file_field(draft_item.video, live_item.video)
-                        live_item.save(update_fields=["video"])
+                        live_item.video_hash = draft_item.video_hash
+                        live_item.save(update_fields=["video", "video_hash"])
                     elif live_item.video:
                         live_item.video = None
                         live_item.save(update_fields=["video"])

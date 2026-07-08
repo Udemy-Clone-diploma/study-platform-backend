@@ -272,3 +272,12 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "noreply@localhost"
 # Use redis://redis:6379/0 inside the devcontainer compose (see .env.example).
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_TASK_IGNORE_RESULT = True
+# A single broker connection attempt must never stall a request: no retries on
+# publish, no retries establishing the connection itself (kombu retries that
+# separately from task-publish retries), and a tight socket timeout so an
+# unreachable broker fails in ~1s instead of hanging (this matters a lot when
+# fanning a notification out to many recipients in one request, e.g. a whole
+# cohort).
+CELERY_TASK_PUBLISH_RETRY = False
+CELERY_BROKER_CONNECTION_RETRY = False
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 1, "socket_timeout": 1}

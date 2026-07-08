@@ -1,14 +1,19 @@
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
-from rest_framework import status, viewsets
+from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
-from apps.curriculum.exceptions import LessonAlreadyHasTestError
+from apps.curriculum.exceptions import InvalidReorderError, LessonAlreadyHasTestError
 from apps.curriculum.models import Lesson, LessonItem, Module
 from apps.curriculum.serializers import LessonItemCreateUpdateSerializer, LessonItemSerializer
 from apps.curriculum.services import LessonItemService
+
+
+class _ReorderSerializer(serializers.Serializer):
+    item_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
 
 
 @extend_schema(tags=["Lesson Items"])
@@ -61,3 +66,14 @@ class LessonItemViewSet(viewsets.GenericViewSet):
         item = get_object_or_404(LessonItem, pk=kwargs["pk"], lesson=lesson)
         LessonItemService.soft_delete_item(item)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["post"], url_path="reorder")
+    def reorder(self, request, *args, **kwargs):
+        lesson = self._get_lesson(request, kwargs)
+        serializer = _ReorderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            items = LessonItemService.reorder_items(lesson, serializer.validated_data["item_ids"])
+        except InvalidReorderError as exc:
+            return Response({"item_ids": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(LessonItemSerializer(items, many=True, context={"request": request}).data)

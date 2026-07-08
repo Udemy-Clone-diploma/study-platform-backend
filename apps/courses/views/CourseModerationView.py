@@ -59,12 +59,13 @@ class CourseAssignModeratorView(APIView):
     def post(self, request, slug):
         course = get_course_for_request(self, slug)
         try:
-            course = CourseService.assign_moderator_self(course, _moderator_profile(request.user))
+            CourseService.assign_moderator_self(course, _moderator_profile(request.user))
         except CoursesError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
-        return Response(
-            CourseService.serialize_course_detail(course, context={"request": request}),
-        )
+        # The frontend discards the response body -- avoid re-serializing the
+        # full course tree (with moderator-only image/video hashing) just to
+        # throw it away.
+        return Response({"detail": "Moderator assigned."})
 
 
 @extend_schema(tags=["Courses"])
