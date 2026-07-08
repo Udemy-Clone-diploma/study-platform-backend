@@ -9,6 +9,7 @@ from apps.courses.models import Course
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
     LessonNotInCourseError,
+    MandatoryTestNotPassedError,
 )
 from apps.enrollments.serializers import LessonCompletionResultSerializer
 from apps.enrollments.services import ProgressService
@@ -47,6 +48,11 @@ class LessonCompletionView(APIView):
             return Response(
                 {"detail": "Lesson not found."},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except MandatoryTestNotPassedError:
+            return Response(
+                {"detail": "You must pass this lesson's test before marking it complete."},
+                status=status.HTTP_403_FORBIDDEN,
             )
         return Response(
             LessonCompletionResultSerializer(payload).data,

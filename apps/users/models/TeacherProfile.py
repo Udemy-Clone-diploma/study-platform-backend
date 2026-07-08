@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from apps.common.files import UUIDUploadTo
+
 from .User import User
 
 
@@ -16,6 +18,11 @@ class TeacherProfile(models.Model):
     bio = models.TextField(blank=True)
     experience = models.TextField(blank=True)
     specialization = models.CharField(max_length=150, blank=True)
+    signature = models.ImageField(
+        upload_to=UUIDUploadTo("teacher_signatures"), null=True, blank=True,
+    )
+    years_experience = models.PositiveSmallIntegerField(null=True, blank=True)
+    partnerships_count = models.PositiveSmallIntegerField(null=True, blank=True)
     rating = models.DecimalField(
         max_digits=3,
         decimal_places=2,

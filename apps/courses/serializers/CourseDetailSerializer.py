@@ -1,8 +1,9 @@
 from rest_framework import serializers
 
-from apps.common.files import absolute_media_url
+from apps.common.files import absolute_media_url, file_content_hash
 from apps.courses.models import Course
 from apps.curriculum.serializers import ModuleSerializer
+from apps.users.permissions import IsAdminOrModerator
 
 from .CategorySerializer import CategorySerializer
 from .CohortSerializer import CohortSerializer
@@ -21,27 +22,26 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     delivery_formats = CourseDeliveryFormatSerializer(many=True, read_only=True)
     cohorts = CohortSerializer(many=True, read_only=True)
     image = serializers.SerializerMethodField()
+    image_hash = serializers.SerializerMethodField()
     is_enrolled = serializers.SerializerMethodField()
     group_chat_url = serializers.SerializerMethodField()
     total_duration_minutes = serializers.SerializerMethodField()
     moderation_review = ModerationReviewSerializer(read_only=True)
-    is_enrolled = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
         fields = [
-            "id", "image", "title", "subtitle", "short_description", "full_description",
+            "id", "image", "image_hash", "title", "subtitle", "short_description", "full_description",
             "slug", "teacher", "moderator_id", "category",
             "level", "language", "mode", "delivery_type", "course_type",
             "duration_hours", "lessons_count", "total_duration_minutes",
-            "with_certificate", "is_on_sale",
+            "with_certificate", "certificate_description", "is_on_sale", "passing_score",
             "rating_avg", "rating_count", "students_count", "status",
             "moderator_comment",
             "created_at", "updated_at", "published_at",
             "is_enrolled", "group_chat_url",
             "tags", "modules", "delivery_formats", "cohorts",
             "moderation_review",
-            "is_enrolled",
         ]
 
     def get_moderator_id(self, obj) -> int | None:
@@ -50,13 +50,13 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     def get_image(self, obj) -> str | None:
         return absolute_media_url(obj.image, self.context.get("request"))
 
-    def get_is_enrolled(self, obj) -> bool:
+    def get_image_hash(self, obj) -> str | None:
+        # Only the moderator review diff needs this -- gate the file read+hash
+        # on role so a regular course-detail fetch doesn't pay for it.
         request = self.context.get("request")
-        user = getattr(request, "user", None)
-
-        from apps.enrollments.services import EnrollmentService
-
-        return EnrollmentService.is_enrolled(user, obj)
+        if not request or not IsAdminOrModerator().has_permission(request, None):
+            return None
+        return file_content_hash(obj.image)
 
     def get_group_chat_url(self, obj) -> str | None:
         return None

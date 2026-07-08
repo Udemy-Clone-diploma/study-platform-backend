@@ -24,6 +24,9 @@ class CourseProgressView(APIView):
             raise NotFound("Course not found.")
         try:
             payload = ProgressService.get_course_progress(request.user, course)
+            payload.update(ProgressService.get_test_stats(request.user, course))
+            payload.update(ProgressService.get_homework_stats(request.user, course))
+            payload.update(ProgressService.get_completion_eligibility(request.user, course))
         except ActiveEnrollmentRequiredError:
             return Response(
                 {"detail": "Active enrollment required."},

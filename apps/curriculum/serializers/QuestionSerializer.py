@@ -11,5 +11,5 @@ class QuestionSerializer(serializers.ModelSerializer):
         fields = [
             "id", "question_type", "text", "options",
             "correct_indices", "correct_bool", "sample_answer", "accepted_answers",
-            "order",
+            "order", "source_question_id",
         ]

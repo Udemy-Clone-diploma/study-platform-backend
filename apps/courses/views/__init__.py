@@ -1,4 +1,5 @@
 from .CategoryViewSet import CategoryViewSet
+from .CourseCertificatePreviewView import CourseCertificatePreviewView
 from .CourseModerationView import CourseApproveView, CourseAssignModeratorView, CourseRejectView, SaveReviewDraftView
 from .ModerationCoursesView import MyModerationCoursesView, MyRejectedModerationCoursesView, UnassignedModerationCoursesView
 from .CohortView import CohortDetailView, CohortListCreateView
@@ -36,6 +37,7 @@ from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListVi
 
 __all__ = [
     "CategoryViewSet",
+    "CourseCertificatePreviewView",
     "CourseApproveView",
     "CourseAssignModeratorView",
     "CourseRejectView",

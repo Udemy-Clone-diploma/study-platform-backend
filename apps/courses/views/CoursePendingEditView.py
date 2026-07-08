@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from apps.courses.exceptions import PendingEditLockedError
 from apps.courses.models import Course, CoursePendingEdit
-from apps.courses.serializers import CoursePendingEditReadSerializer, CoursePendingEditWriteSerializer
+from apps.courses.serializers import CoursePendingEditReadSerializer
 from apps.courses.services.pending_edit_service import PendingEditService
 from apps.courses.views._course_scoped import _get_dict, _moderator_profile, ensure_can_modify_course, get_course_for_request
 from rest_framework.permissions import IsAuthenticated
@@ -44,8 +44,9 @@ def _get_pending_edit(course: Course) -> CoursePendingEdit:
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditView(APIView):
     """
-    GET  /courses/{slug}/pending-edit/  — read (or auto-create) the pending edit.
-    PUT  /courses/{slug}/pending-edit/  — create-or-update metadata + modules snapshot.
+    GET  /courses/{slug}/pending-edit/  — read (or auto-create) the pending edit;
+         resolves to a hidden draft_course whose slug the teacher edits directly
+         via the normal course/module/lesson/etc. CRUD endpoints.
     DELETE /courses/{slug}/pending-edit/ — discard all changes (course stays published).
     """
 
@@ -64,26 +65,6 @@ class CoursePendingEditView(APIView):
             pending_edit = PendingEditService.get_or_create(course)
         data = CoursePendingEditReadSerializer(pending_edit, context={"request": request}).data
         return Response(data)
-
-    def put(self, request, slug):
-        course = _get_published_course(self, slug)
-        pending_edit = PendingEditService.get_or_create(course)
-
-        serializer = CoursePendingEditWriteSerializer(
-            pending_edit,
-            data=request.data,
-            partial=True,
-        )
-        serializer.is_valid(raise_exception=True)
-
-        try:
-            updated = PendingEditService.update_metadata(pending_edit, serializer.validated_data)
-        except PendingEditLockedError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
-
-        return Response(
-            CoursePendingEditReadSerializer(updated, context={"request": request}).data
-        )
 
     def delete(self, request, slug):
         course = _get_published_course(self, slug)

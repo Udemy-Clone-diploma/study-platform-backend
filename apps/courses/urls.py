@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.courses.views import (
     CategoryViewSet,
+    CourseCertificatePreviewView,
     CourseApproveView,
     CourseAssignModeratorView,
     CourseRejectView,
@@ -76,6 +77,7 @@ urlpatterns = [
     path("courses/<slug:slug>/copy-to-draft/", CourseCopyToDraftView.as_view(), name="course-copy-to-draft"),
     path("courses/enrolled/", EnrolledCoursesView.as_view(), name="enrolled-courses"),
     path("courses/completions/", StudentCompletionsView.as_view(), name="student-completions"),
+    path("courses/<slug:slug>/certificate-preview/", CourseCertificatePreviewView.as_view(), name="course-certificate-preview"),
     path("courses/moderation/unassigned/", UnassignedModerationCoursesView.as_view(), name="moderation-unassigned"),
     path("courses/moderation/my/", MyModerationCoursesView.as_view(), name="moderation-my"),
     path("courses/moderation/rejected/", MyRejectedModerationCoursesView.as_view(), name="moderation-rejected"),

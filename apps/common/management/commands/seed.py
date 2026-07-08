@@ -92,6 +92,10 @@ class Command(BaseCommand):
             delivery_type=Course.DeliveryTypeChoices.SCHEDULED,
             status=Course.StatusChoices.PUBLISHED,
             with_certificate=True, is_on_sale=True, duration_hours=60,
+            certificate_description=(
+                "The student mastered building and deploying a production REST API with "
+                "Django: models, authentication, testing, and cloud deployment."
+            ),
         )
         self._curriculum(django_course, with_meeting=True)
         grp_fmt_django = self._format_with_price(
@@ -120,6 +124,10 @@ class Command(BaseCommand):
             delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
             status=Course.StatusChoices.PUBLISHED,
             with_certificate=True, duration_hours=35,
+            certificate_description=(
+                "The student mastered modern React: components, hooks, state "
+                "management, and building interactive user interfaces."
+            ),
         )
         self._curriculum(react_course)
         sp_fmt_react = self._format_with_price(react_course, "self_paced", Decimal("120.00"), "EUR")
@@ -164,6 +172,10 @@ class Command(BaseCommand):
             delivery_type=Course.DeliveryTypeChoices.SCHEDULED,
             status=Course.StatusChoices.PUBLISHED,
             with_certificate=True, duration_hours=50,
+            certificate_description=(
+                "The student mastered the full data analysis workflow: cleaning "
+                "and exploring data, statistical analysis, and building dashboards."
+            ),
         )
         self._curriculum(data_course)
         grp_fmt_data = self._format_with_price(data_course, "group", Decimal("199.00"), "USD")
@@ -242,8 +254,8 @@ class Command(BaseCommand):
 
     def _course(self, *, slug, title, subtitle, teacher, category, tags,
                 course_type, level, mode, delivery_type, status, duration_hours,
-                with_certificate=False, is_on_sale=False, moderator=None,
-                moderator_comment=""):
+                with_certificate=False, certificate_description="", is_on_sale=False,
+                moderator=None, moderator_comment=""):
         published_at = timezone.now() if status == Course.StatusChoices.PUBLISHED else None
         course, _ = Course.all_objects.get_or_create(
             slug=slug,
@@ -256,7 +268,9 @@ class Command(BaseCommand):
                 "course_type": course_type, "level": level, "mode": mode,
                 "delivery_type": delivery_type, "status": status,
                 "duration_hours": duration_hours,
-                "with_certificate": with_certificate, "is_on_sale": is_on_sale,
+                "with_certificate": with_certificate,
+                "certificate_description": certificate_description,
+                "is_on_sale": is_on_sale,
                 "moderator_comment": moderator_comment,
                 "published_at": published_at,
             },
@@ -292,7 +306,6 @@ class Command(BaseCommand):
                         lesson=lesson, order=1,
                         defaults={
                             "item_type": LessonItem.ItemType.TEXT,
-                            "content": "Read-along lesson notes.",
                             "body_html": "<p>Read-along lesson notes.</p>",
                         },
                     )

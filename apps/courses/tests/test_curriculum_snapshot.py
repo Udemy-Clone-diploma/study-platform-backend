@@ -1,6 +1,7 @@
-"""Course copy + pending-edit snapshots must carry the test/question answer
-key and retake config. Regression guard: these paths reference the curriculum
-Question/Test models, and previously had no coverage that included questions.
+"""Course copy + pending-edit draft cloning must carry the test/question answer
+key and retake config, and merging a draft back onto the live course must
+preserve existing row ids (student progress FK stability) while still picking
+up new/removed content.
 """
 
 from django.test import TestCase
@@ -8,7 +9,7 @@ from django.test import TestCase
 from apps.courses.models import Course
 from apps.courses.services.course_service import CourseService
 from apps.courses.services.pending_edit_service import PendingEditService
-from apps.curriculum.models import Module, Question, Test
+from apps.curriculum.models import Lesson, Module, Question, Test
 
 from ._factories import make_course, make_teacher
 
@@ -48,54 +49,67 @@ class CopyToDraftCarryoverTests(TestCase):
         self.assertEqual(questions[1].accepted_answers, ["Lutetia"])
 
 
-class PendingEditSnapshotCarryoverTests(TestCase):
-    def test_snapshot_serializes_new_fields_without_legacy_key(self):
-        _, owner = make_teacher(email="snap_owner@example.com")
-        course = make_course(owner, slug="snap-src", status=Course.StatusChoices.PUBLISHED)
-        _build_module_with_quiz(course)
+class PendingEditCloneTests(TestCase):
+    def test_clone_carries_retake_config_answer_key_and_source_ids(self):
+        _, owner = make_teacher(email="clone_owner@example.com")
+        course = make_course(owner, slug="clone-src", status=Course.StatusChoices.PUBLISHED)
+        _, original_test = _build_module_with_quiz(course)
 
-        snapshot = PendingEditService._build_modules_snapshot(course)
-        test_snap = snapshot[0]["tests"][0]
+        draft = CourseService.clone_for_pending_edit(course)
 
-        self.assertEqual(test_snap["allow_retakes"], True)
-        self.assertEqual(test_snap["max_attempts"], 4)
-        self.assertEqual(test_snap["duration_minutes"], 20)
-        question_snap = test_snap["questions"][0]
-        self.assertEqual(question_snap["correct_indices"], [0, 2])
-        self.assertNotIn("correct_index", question_snap)
-        self.assertEqual(test_snap["questions"][1]["accepted_answers"], ["Lutetia"])
+        cloned = Test.objects.get(module__course=draft)
+        self.assertEqual(cloned.duration_minutes, 20)
+        self.assertTrue(cloned.allow_retakes)
+        self.assertEqual(cloned.max_attempts, 4)
+        self.assertEqual(cloned.source_test_id, original_test.id)
 
-    def test_apply_snapshot_restores_new_fields(self):
-        _, owner = make_teacher(email="apply_owner@example.com")
-        source = make_course(owner, slug="apply-src", status=Course.StatusChoices.PUBLISHED)
-        _build_module_with_quiz(source)
-        snapshot = PendingEditService._build_modules_snapshot(source)
-
-        target = make_course(owner, slug="apply-tgt", status=Course.StatusChoices.DRAFT)
-        PendingEditService._apply_modules_snapshot(target, snapshot)
-
-        applied = Test.objects.get(module__course=target)
-        self.assertTrue(applied.allow_retakes)
-        self.assertEqual(applied.max_attempts, 4)
-        questions = list(Question.objects.filter(test=applied).order_by("order"))
+        questions = list(Question.objects.filter(test=cloned).order_by("order"))
         self.assertEqual(questions[0].correct_indices, [0, 2])
         self.assertEqual(questions[1].accepted_answers, ["Lutetia"])
 
-    def test_apply_tolerates_legacy_correct_index_snapshot(self):
-        _, owner = make_teacher(email="legacy_owner@example.com")
-        target = make_course(owner, slug="legacy-tgt", status=Course.StatusChoices.DRAFT)
-        legacy_snapshot = [{
-            "title": "M", "description": "", "order": 1, "lessons": [],
-            "tests": [{
-                "title": "T", "description": "", "passing_score": 70, "order": 1,
-                "questions": [{
-                    "question_type": "single_choice", "text": "q",
-                    "options": ["x", "y"], "correct_index": 1, "order": 1,
-                }],
-            }],
-        }]
 
-        PendingEditService._apply_modules_snapshot(target, legacy_snapshot)
+class PendingEditMergeTests(TestCase):
+    def test_merge_updates_existing_lesson_in_place_preserving_id(self):
+        _, owner = make_teacher(email="merge_owner1@example.com")
+        course = make_course(owner, slug="merge-src-1", status=Course.StatusChoices.PUBLISHED)
+        module = Module.objects.create(course=course, title="M", order=1)
+        lesson = Lesson.objects.create(module=module, title="Original title", order=1)
+        original_lesson_id = lesson.id
 
-        question = Question.objects.get(test__module__course=target)
-        self.assertEqual(question.correct_indices, [1])
+        pending_edit = PendingEditService.get_or_create(course)
+        draft_lesson = Lesson.objects.get(source_lesson_id=original_lesson_id)
+        draft_lesson.title = "Edited title"
+        draft_lesson.save()
+
+        PendingEditService.merge_into_live(pending_edit)
+
+        live_lesson = Lesson.objects.get(id=original_lesson_id)
+        self.assertEqual(live_lesson.title, "Edited title")
+        self.assertFalse(live_lesson.is_deleted)
+
+    def test_merge_creates_new_lesson_and_soft_deletes_removed_one(self):
+        _, owner = make_teacher(email="merge_owner2@example.com")
+        course = make_course(owner, slug="merge-src-2", status=Course.StatusChoices.PUBLISHED)
+        module = Module.objects.create(course=course, title="M", order=1)
+        kept_lesson = Lesson.objects.create(module=module, title="Kept", order=1)
+        removed_lesson = Lesson.objects.create(module=module, title="Removed", order=2)
+
+        pending_edit = PendingEditService.get_or_create(course)
+        draft_module = Module.objects.get(source_module_id=module.id)
+
+        # Teacher deletes one lesson in the draft and adds a brand-new one.
+        Lesson.objects.filter(source_lesson_id=removed_lesson.id).update(is_deleted=True)
+        Lesson.objects.create(module=draft_module, title="Brand new", order=2)
+
+        PendingEditService.merge_into_live(pending_edit)
+
+        kept = Lesson.objects.get(id=kept_lesson.id)
+        self.assertFalse(kept.is_deleted)
+
+        removed = Lesson.all_objects.get(id=removed_lesson.id)
+        self.assertTrue(removed.is_deleted)
+
+        new_titles = set(
+            Lesson.objects.filter(module=module).exclude(id=kept_lesson.id).values_list("title", flat=True)
+        )
+        self.assertEqual(new_titles, {"Brand new"})
