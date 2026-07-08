@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from apps.courses.models import Cohort, CohortMember
 from apps.courses.serializers.CohortGroupSerializer import CohortMemberSerializer, EnrolledStudentSerializer
-from apps.enrollments.models import Enrollment
+from apps.enrollments.models import CourseCompletion, Enrollment
 
 from ._course_scoped import ensure_can_modify_course, get_course_for_request
 
@@ -81,4 +81,8 @@ class CourseEnrolledStudentsView(generics.GenericAPIView):
         format_id = request.query_params.get("format_id")
         if format_id:
             qs = qs.filter(delivery_format_id=format_id)
-        return Response(EnrolledStudentSerializer(qs, many=True, context={"request": request}).data)
+        completed_student_profile_ids = set(
+            CourseCompletion.objects.filter(course=course).values_list("student_profile_id", flat=True)
+        )
+        context = {"request": request, "completed_student_profile_ids": completed_student_profile_ids}
+        return Response(EnrolledStudentSerializer(qs, many=True, context=context).data)

@@ -1,6 +1,15 @@
 from django.urls import path
 
-from apps.reviews.views import CourseReviewsView, TopReviewsView
+from apps.reviews.views import (
+    CourseReviewsView,
+    ReviewApproveView,
+    ReviewAssignModeratorView,
+    ReviewRejectView,
+    ReviewReportView,
+    ReviewsMyModerationView,
+    ReviewsUnassignedModerationView,
+    TopReviewsView,
+)
 
 urlpatterns = [
     path(
@@ -12,5 +21,35 @@ urlpatterns = [
         "reviews/top-reviews/",
         TopReviewsView.as_view(),
         name="top-reviews",
+    ),
+    path(
+        "reviews/moderation/unassigned/",
+        ReviewsUnassignedModerationView.as_view(),
+        name="reviews-moderation-unassigned",
+    ),
+    path(
+        "reviews/moderation/mine/",
+        ReviewsMyModerationView.as_view(),
+        name="reviews-moderation-mine",
+    ),
+    path(
+        "reviews/<int:pk>/report/",
+        ReviewReportView.as_view(),
+        name="review-report",
+    ),
+    path(
+        "reviews/<int:pk>/assign-moderator/",
+        ReviewAssignModeratorView.as_view(),
+        name="review-assign-moderator",
+    ),
+    path(
+        "reviews/<int:pk>/approve/",
+        ReviewApproveView.as_view(),
+        name="review-approve",
+    ),
+    path(
+        "reviews/<int:pk>/reject/",
+        ReviewRejectView.as_view(),
+        name="review-reject",
     ),
 ]

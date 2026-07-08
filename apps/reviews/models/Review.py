@@ -2,10 +2,17 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from apps.common.managers import ActiveManager
 from apps.courses.models import Course
+from apps.users.models import ModeratorProfile
 
 
 class Review(models.Model):
+    class ModerationStatusChoices(models.TextChoices):
+        PENDING = "pending", "Under Review"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
     course = models.ForeignKey(
         Course,
         on_delete=models.CASCADE,
@@ -21,6 +28,25 @@ class Review(models.Model):
     )
     text = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Set once this review has enough reports to enter the moderation queue and
+    # a moderator has claimed it (see ReviewService.assign_moderator_self).
+    moderator_profile = models.ForeignKey(
+        ModeratorProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="moderated_reviews",
+    )
+    moderation_status = models.CharField(
+        max_length=20, choices=ModerationStatusChoices.choices, blank=True, default="",
+    )
+    # Rejecting a reported review hides it (rather than hard-deleting) so the
+    # moderation record/history stays intact.
+    is_deleted = models.BooleanField(default=False)
+
+    objects = ActiveManager()
+    all_objects = models.Manager()
 
     class Meta:
         db_table = "reviews"

@@ -1,7 +1,8 @@
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Count, IntegerField, Min, OuterRef, Prefetch, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -32,7 +33,7 @@ from apps.courses.serializers import (
     CourseListSerializer,
 )
 from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
-from apps.enrollments.models import Enrollment
+from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.users.models import User
 
 
@@ -82,13 +83,28 @@ class CourseService:
 
     @staticmethod
     def delivery_formats_prefetch() -> Prefetch:
-        """Prefetch for Course.delivery_formats with the active-enrollment count
-        pre-annotated (see CourseDeliveryFormatSerializer.get_enrolled_count) --
-        without this, retrieving a course fires one COUNT(*) per delivery format."""
+        """Prefetch for Course.delivery_formats with the active-enrollment and
+        completed-enrollment counts pre-annotated (see CourseDeliveryFormatSerializer
+        .get_enrolled_count/get_completed_count) -- without this, retrieving a course
+        fires one or two COUNT(*) queries per delivery format."""
+        completed_subquery = (
+            Enrollment.objects.filter(
+                delivery_format=OuterRef("pk"),
+                access_status=Enrollment.AccessStatusChoices.ACTIVE,
+                student_profile__course_completions__course=OuterRef("course"),
+            )
+            .order_by()
+            .values("delivery_format")
+            .annotate(c=Count("id", distinct=True))
+            .values("c")
+        )
         queryset = CourseDeliveryFormat.objects.select_related("pricing").annotate(
             annotated_enrolled_count=Count(
                 "enrollments",
                 filter=Q(enrollments__access_status=Enrollment.AccessStatusChoices.ACTIVE),
+            ),
+            annotated_completed_count=Coalesce(
+                Subquery(completed_subquery, output_field=IntegerField()), 0,
             ),
         )
         return Prefetch("delivery_formats", queryset=queryset)
@@ -97,9 +113,10 @@ class CourseService:
     def cohorts_prefetch() -> Prefetch:
         """Prefetch for Course.cohorts with members' enrollment/student/user chain
         select_related in one join, instead of three queries per cohort member
-        (CohortMemberSerializer reads enrollment.student_profile.user.*)."""
+        (CohortMemberSerializer reads enrollment.student_profile.user.* and
+        enrollment.course for the is_completed check)."""
         members_queryset = CohortMember.objects.select_related(
-            "enrollment__student_profile__user",
+            "enrollment__student_profile__user", "enrollment__course",
         )
         return Prefetch(
             "cohorts",
