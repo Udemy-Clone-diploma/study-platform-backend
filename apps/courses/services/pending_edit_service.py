@@ -50,7 +50,13 @@ def _merge_row(Model, live_parent_lookup: dict, source_id, **kwargs):
             for k, v in kwargs.items():
                 setattr(obj, k, v)
             obj.is_deleted = False
-            obj.save()
+            # Explicit update_fields (rather than a bare save()) matters beyond
+            # the query itself: LessonItem.save() only recomputes video_hash
+            # when "video" is among the saved fields, and video isn't touched
+            # here (it's merged separately, right after) -- a bare save() would
+            # force a full re-read+re-hash of whatever video the live row
+            # already has, for every single merged item, on every approval.
+            obj.save(update_fields=[*kwargs.keys(), "is_deleted", "updated_at"])
             return obj
     return Model.objects.create(**live_parent_lookup, **kwargs)
 
