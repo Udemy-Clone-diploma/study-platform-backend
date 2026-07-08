@@ -19,3 +19,9 @@ EMAIL_HOST_PASSWORD = "test-password"
 # Run Celery tasks inline (no broker/worker needed during tests).
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}
