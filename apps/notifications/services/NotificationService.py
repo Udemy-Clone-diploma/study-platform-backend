@@ -1,6 +1,31 @@
+import logging
+import threading
+
 from apps.notifications.models import Notification, NotificationPreference
 from apps.notifications.preferences import channel_enabled
 from apps.notifications.tasks import send_notification_email
+
+logger = logging.getLogger(__name__)
+
+
+def _dispatch_email(**kwargs) -> None:
+    """Queue the email task without letting broker latency or outages block the caller's request.
+
+    `.delay()` itself opens a connection to the broker synchronously, so a slow
+    or unreachable broker can stall the request for as long as the client library
+    takes to give up (observed several seconds per call on this stack, regardless
+    of configured timeouts) -- unacceptable when fanning out to a whole cohort in
+    one request. Doing it on a daemon thread bounds the request to the time it
+    takes to start a thread, not to connect to the broker.
+    """
+
+    def _send():
+        try:
+            send_notification_email.delay(**kwargs)
+        except Exception:
+            logger.exception("Failed to queue notification email for %s", kwargs.get("email"))
+
+    threading.Thread(target=_send, daemon=True).start()
 
 
 class NotificationService:
@@ -45,9 +70,7 @@ class NotificationService:
         )
 
         if channel_enabled(overrides, type, "email"):
-            send_notification_email.delay(
-                email=recipient.email, title=title, body=body, link_url=link_url
-            )
+            _dispatch_email(email=recipient.email, title=title, body=body, link_url=link_url)
 
         return notification
 
@@ -88,9 +111,7 @@ class NotificationService:
         if rows:
             Notification.objects.bulk_create(rows)
         for email in email_targets:
-            send_notification_email.delay(
-                email=email, title=title, body=body, link_url=link_url
-            )
+            _dispatch_email(email=email, title=title, body=body, link_url=link_url)
 
     @staticmethod
     def mark_all_read(user) -> int:

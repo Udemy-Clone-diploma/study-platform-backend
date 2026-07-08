@@ -13,6 +13,7 @@ from apps.schedule.models import (
     Session, TeacherUnavailability,
 )
 from apps.schedule.serializers import TeacherUnavailabilitySerializer
+from apps.schedule.services import ScheduleNotificationService
 from apps.users.models import User
 
 
@@ -614,11 +615,15 @@ class PersonalEventDetailView(APIView):
                 .filter(event=ev, status=EventInvitation.Status.ACCEPTED)
                 .select_related("invitee")
             )
+            invitee_users = []
             for inv in affected:
                 inv.status = EventInvitation.Status.PENDING
                 inv.responded_at = None
                 inv.save(update_fields=["status", "responded_at"])
                 reset_invitees.append(inv.invitee.email)
+                invitee_users.append(inv.invitee)
+            if invitee_users:
+                ScheduleNotificationService.notify_event_rescheduled(ev, invitee_users, actor=request.user)
 
         return Response({"status": "ok", "reset_invitations": reset_invitees})
 
@@ -626,7 +631,15 @@ class PersonalEventDetailView(APIView):
         ev = self._get_event(pk, request.user)
         if not ev:
             return Response({"detail": "Not found"}, status=404)
+        invitee_users = [
+            inv.invitee for inv in
+            EventInvitation.objects.filter(
+                event=ev, status__in=[EventInvitation.Status.PENDING, EventInvitation.Status.ACCEPTED],
+            ).select_related("invitee")
+        ]
         ev.delete()
+        if invitee_users:
+            ScheduleNotificationService.notify_event_cancelled(ev, invitee_users, actor=request.user)
         return Response(status=204)
 
 
@@ -843,6 +856,7 @@ class ExtraSessionView(APIView):
         except Exception as e:
             return Response({"detail": str(e)}, status=400)
 
+        ScheduleNotificationService.notify_extra_session_created(session)
         return Response({"status": "created", "id": f"session_{session.id}"}, status=201)
 
 
@@ -881,6 +895,7 @@ class EventInviteView(APIView):
             inv.responded_at = None
             inv.save()
 
+        ScheduleNotificationService.notify_event_invited(inv, actor=request.user)
         return Response({"status": "invited", "invitation_id": inv.id}, status=201 if created else 200)
 
 
@@ -975,6 +990,7 @@ class InvitationRespondView(APIView):
         )
         inv.responded_at = timezone.now()
         inv.save()
+        ScheduleNotificationService.notify_invitation_responded(inv)
         return Response({"status": inv.status})
 
 
@@ -1103,6 +1119,7 @@ class CalendarEventUpdateView(APIView):
             return Response({"status": "ok"})
 
         if action == "cancel":
+            ScheduleNotificationService.notify_session_cancelled(session, actor=request.user)
             if session.rescheduled_from_date:
                 Session.objects.filter(
                     date=session.rescheduled_from_date,
@@ -1145,6 +1162,7 @@ class CalendarEventUpdateView(APIView):
                 original.rescheduled_to_date = None
                 original.save()
                 session.delete()
+                ScheduleNotificationService.notify_session_restored(original, actor=request.user)
                 return Response({"status": "ok"})
 
             if session.status not in (Session.Status.CANCELLED, Session.Status.RESCHEDULED):
@@ -1202,6 +1220,7 @@ class CalendarEventUpdateView(APIView):
             session.status = Session.Status.SCHEDULED
             session.rescheduled_to_date = None
             session.save()
+            ScheduleNotificationService.notify_session_restored(session, actor=request.user)
             return Response({"status": "ok"})
 
         if action == "reschedule":
@@ -1269,6 +1288,7 @@ class CalendarEventUpdateView(APIView):
                 return Response({"detail": "Teacher is unavailable at the new time."}, status=409)
 
             if session.rescheduled_from_date:
+                old_date, old_start, old_end = session.date, session.start_time, session.end_time
                 original_date = session.rescheduled_from_date
                 session.date        = new_date
                 session.start_time  = ns
@@ -1282,6 +1302,9 @@ class CalendarEventUpdateView(APIView):
                     course=session.course,
                     status=Session.Status.RESCHEDULED,
                 ).update(rescheduled_to_date=new_date)
+                ScheduleNotificationService.notify_session_rescheduled(
+                    session, actor=request.user, old_date=old_date, old_start_time=old_start, old_end_time=old_end,
+                )
                 return Response({"status": "ok", "replacement_session_id": session.id})
 
             if session.rescheduled_to_date:
@@ -1292,6 +1315,7 @@ class CalendarEventUpdateView(APIView):
                     course=session.course,
                 ).exclude(status=Session.Status.CANCELLED).first()
                 if replacement:
+                    old_date, old_start, old_end = replacement.date, replacement.start_time, replacement.end_time
                     replacement.date        = new_date
                     replacement.start_time  = ns
                     replacement.end_time    = ne
@@ -1299,9 +1323,13 @@ class CalendarEventUpdateView(APIView):
                     replacement.save()
                     session.rescheduled_to_date = new_date
                     session.save()
+                    ScheduleNotificationService.notify_session_rescheduled(
+                        replacement, actor=request.user, old_date=old_date, old_start_time=old_start, old_end_time=old_end,
+                    )
                     return Response({"status": "ok", "replacement_session_id": replacement.id})
 
             original_date = session.date
+            old_start, old_end = session.start_time, session.end_time
             session.status              = Session.Status.RESCHEDULED
             session.rescheduled_to_date = new_date
             session.save()
@@ -1317,6 +1345,9 @@ class CalendarEventUpdateView(APIView):
                 meeting_link=new_link or session.meeting_link,
                 lesson=session.lesson,
                 rescheduled_from_date=original_date,
+            )
+            ScheduleNotificationService.notify_session_rescheduled(
+                replacement, actor=request.user, old_date=original_date, old_start_time=old_start, old_end_time=old_end,
             )
             return Response({"status": "ok", "replacement_session_id": replacement.id})
 
