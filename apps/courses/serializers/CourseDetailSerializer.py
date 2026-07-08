@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.common.files import absolute_media_url, file_content_hash
+from apps.common.files import absolute_media_url
 from apps.courses.models import Course
 from apps.curriculum.serializers import ModuleSerializer
 from apps.users.permissions import IsAdminOrModerator
@@ -51,12 +51,12 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         return absolute_media_url(obj.image, self.context.get("request"))
 
     def get_image_hash(self, obj) -> str | None:
-        # Only the moderator review diff needs this -- gate the file read+hash
-        # on role so a regular course-detail fetch doesn't pay for it.
+        # Only the moderator review diff needs this -- gate it on role. The
+        # value is a cheap cached field (computed on save), not read here.
         request = self.context.get("request")
         if not request or not IsAdminOrModerator().has_permission(request, None):
             return None
-        return file_content_hash(obj.image)
+        return obj.image_hash or None
 
     def get_group_chat_url(self, obj) -> str | None:
         return None

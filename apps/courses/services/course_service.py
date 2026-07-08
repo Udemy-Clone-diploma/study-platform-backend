@@ -430,7 +430,8 @@ class CourseService:
         )
         if course.image:
             duplicate_file_field(course.image, new_course.image)
-            new_course.save(update_fields=["image"])
+            new_course.image_hash = course.image_hash
+            new_course.save(update_fields=["image", "image_hash"])
         new_course.tags.set(course.tags.all())
 
         # First pass: copy modules and their tests, recording old->new test ids so
@@ -496,7 +497,8 @@ class CourseService:
                     )
                     if old_item.video:
                         duplicate_file_field(old_item.video, new_item.video)
-                        new_item.save(update_fields=["video"])
+                        new_item.video_hash = old_item.video_hash
+                        new_item.save(update_fields=["video", "video_hash"])
 
         return new_course
 
@@ -526,7 +528,8 @@ class CourseService:
         )
         if course.image:
             duplicate_file_field(course.image, draft.image)
-            draft.save(update_fields=["image"])
+            draft.image_hash = course.image_hash
+            draft.save(update_fields=["image", "image_hash"])
         draft.tags.set(course.tags.all())
 
         module_map: dict[int, Module] = {}
@@ -599,7 +602,8 @@ class CourseService:
                     )
                     if old_item.video:
                         duplicate_file_field(old_item.video, new_item.video)
-                        new_item.save(update_fields=["video"])
+                        new_item.video_hash = old_item.video_hash
+                        new_item.save(update_fields=["video", "video_hash"])
                 for old_doc in old_lesson.documents.all():
                     new_doc = LessonDocument.objects.create(
                         lesson=new_lesson,

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.common.files import absolute_media_url, file_content_hash
+from apps.common.files import absolute_media_url
 from apps.curriculum.models import LessonItem
 from apps.users.permissions import IsAdminOrModerator
 
@@ -39,17 +39,17 @@ class LessonItemSerializer(serializers.ModelSerializer):
         return absolute_media_url(obj.video, self.context.get("request"))
 
     def get_video_hash(self, obj) -> str | None:
-        """Content hash of the uploaded video file, if any (None for an external
-        video_url link). Cloning duplicates the file under a fresh generated path
-        (see duplicate_file_field), so comparing video_url alone always reports a
-        change for uploaded videos even when the content is identical — compare
-        this instead when a file is actually attached.
+        """Cached content hash of the uploaded video file, if any (None for an
+        external video_url link). Cloning duplicates the file under a fresh
+        generated path (see duplicate_file_field), so comparing video_url alone
+        always reports a change for uploaded videos even when the content is
+        identical — compare this instead when a file is actually attached.
 
-        Only the moderator review diff needs this, and hashing means reading the
-        full video file -- gate it on role so every student/teacher course-detail
-        fetch doesn't pay to re-hash every video on the course.
+        Only the moderator review diff needs this -- gate it on role so a
+        regular course-detail fetch doesn't pay to serialize it (the value
+        itself is a cheap cached field, computed on save, not read here).
         """
         request = self.context.get("request")
         if not request or not IsAdminOrModerator().has_permission(request, None):
             return None
-        return file_content_hash(obj.video)
+        return obj.video_hash or None

@@ -4,7 +4,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
-from apps.common.files import duplicate_file_field, file_content_hash
+from apps.common.files import duplicate_file_field
 from apps.courses.exceptions import PendingEditLockedError
 from apps.courses.models import (
     ApprovedCourseRecord,
@@ -36,7 +36,7 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     live_tags = set(course.tags.values_list("id", flat=True))
     if draft_tags != live_tags:
         changed.append("tags")
-    if file_content_hash(draft.image) != file_content_hash(course.image):
+    if draft.image_hash != course.image_hash:
         changed.append("image")
     return changed
 
@@ -296,7 +296,8 @@ class PendingEditService:
                     
                     if draft_item.video:
                         duplicate_file_field(draft_item.video, live_item.video)
-                        live_item.save(update_fields=["video"])
+                        live_item.video_hash = draft_item.video_hash
+                        live_item.save(update_fields=["video", "video_hash"])
                     elif live_item.video:
                         live_item.video = None
                         live_item.save(update_fields=["video"])
