@@ -29,17 +29,21 @@ class ScheduleNotificationService:
 
         if session.schedule_id:
             from apps.courses.models import CohortMember
+            from apps.enrollments.models import Enrollment
 
             members = CohortMember.objects.filter(
-                cohort=session.schedule.cohort
+                cohort=session.schedule.cohort,
+                enrollment__in=Enrollment.objects.with_active_access().exclude_completed(),
             ).select_related("enrollment__student_profile__user")
             return [m.enrollment.student_profile.user for m in members]
 
         if session.cohort_id:
             from apps.courses.models import CohortMember
+            from apps.enrollments.models import Enrollment
 
             members = CohortMember.objects.filter(
-                cohort=session.cohort
+                cohort=session.cohort,
+                enrollment__in=Enrollment.objects.with_active_access().exclude_completed(),
             ).select_related("enrollment__student_profile__user")
             return [m.enrollment.student_profile.user for m in members]
 

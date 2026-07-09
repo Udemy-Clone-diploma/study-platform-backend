@@ -192,6 +192,7 @@ class HomeworkAvailableRecipientsView(APIView):
         course = _teacher_course(self, slug)
         recipients = (
             Enrollment.objects.with_active_access()
+            .exclude_completed()
             .filter(course=course)
             .select_related("student_profile__user", "delivery_format")
             .prefetch_related("cohort_memberships__cohort")
@@ -612,15 +613,9 @@ class HomeworkGrowthView(APIView):
             qs = HomeworkSubmission.objects.filter(
                 enrollment__in=enrollments, score__isnull=False, reviewed_at__isnull=False,
             )
-        elif user.role == User.RoleChoices.TEACHER:
-            courses = Course.objects.filter(teacher_profile=user.teacher_profile)
-            assignment_courses = courses
-            if course_slug:
-                assignment_courses = assignment_courses.filter(slug=course_slug)
-            qs = HomeworkSubmission.objects.filter(
-                assignment__course__in=assignment_courses, score__isnull=False, reviewed_at__isnull=False,
-            )
         else:
+            # Teachers get a dedicated enrollment-count metric instead
+            # (GET /enrollments/growth/, apps/enrollments/views/EnrollmentGrowthView.py).
             return Response({"average": 0, "points": [], "courses": []})
 
         points, average = _bucket_scores(qs, period)

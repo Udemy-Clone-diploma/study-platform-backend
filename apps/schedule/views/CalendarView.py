@@ -265,7 +265,7 @@ class CalendarView(APIView):
         if user.role != User.RoleChoices.STUDENT:
             return []
 
-        active_enrollments = Enrollment.objects.with_active_access().filter(
+        active_enrollments = Enrollment.objects.with_active_access().exclude_completed().filter(
             student_profile=user.student_profile
         )
         assignments = HomeworkAssignment.objects.filter(

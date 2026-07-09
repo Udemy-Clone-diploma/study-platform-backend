@@ -7,6 +7,7 @@ from .CohortGroupView import (
     CohortMemberDetailView,
     CohortMemberListCreateView,
     CourseEnrolledStudentsView,
+    EnrollmentCompleteView,
 )
 from .DeliveryFormatView import DeliveryFormatDetailView, DeliveryFormatListCreateView
 from .CoursePendingEditView import (
@@ -50,6 +51,7 @@ __all__ = [
     "CohortMemberDetailView",
     "CohortMemberListCreateView",
     "CourseEnrolledStudentsView",
+    "EnrollmentCompleteView",
     "DeliveryFormatDetailView",
     "DeliveryFormatListCreateView",
     "CoursePendingEditApproveView",

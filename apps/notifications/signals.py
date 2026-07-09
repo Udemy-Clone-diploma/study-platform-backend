@@ -25,6 +25,7 @@ def lesson_created(sender, instance: Lesson, created: bool, **kwargs):
 
     recipient_ids = (
         Enrollment.objects.with_active_access()
+        .exclude_completed()
         .filter(course_id=course.id)
         .values_list("student_profile__user_id", flat=True)
     )
