@@ -5,7 +5,7 @@ from django.conf import settings
 
 from apps.notifications.models import Notification, NotificationPreference
 from apps.notifications.preferences import channel_enabled
-from apps.notifications.tasks import send_notification_email
+from apps.notifications.tasks import send_notification_email, send_notification_emails
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +123,10 @@ class NotificationService:
 
         if rows:
             Notification.objects.bulk_create(rows)
-        for email in email_targets:
-            _dispatch_email(email=email, title=title, body=body, link_url=link_url)
+        if email_targets:
+            send_notification_emails.delay(
+                emails=email_targets, title=title, body=body, link_url=link_url
+            )
 
     @staticmethod
     def mark_all_read(user) -> int:
