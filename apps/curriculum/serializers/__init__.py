@@ -6,6 +6,7 @@ from .LessonItemSerializer import LessonItemSerializer
 from .LessonSerializer import LessonSerializer
 from .ModuleCreateUpdateSerializer import ModuleCreateUpdateSerializer
 from .ModuleSerializer import ModuleSerializer
+from .NoteListItemSerializer import NoteListItemSerializer
 from .NoteSerializer import NoteSerializer
 from .QuestionCreateUpdateSerializer import QuestionCreateUpdateSerializer
 from .QuestionSerializer import QuestionSerializer
@@ -24,6 +25,7 @@ __all__ = [
     "LessonSerializer",
     "ModuleCreateUpdateSerializer",
     "ModuleSerializer",
+    "NoteListItemSerializer",
     "NoteSerializer",
     "QuestionCreateUpdateSerializer",
     "QuestionSerializer",

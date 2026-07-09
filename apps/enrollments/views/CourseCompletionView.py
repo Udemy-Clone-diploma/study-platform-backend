@@ -9,6 +9,7 @@ from apps.courses.models import Course
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
     CourseAlreadyCompletedError,
+    CourseCompletionRequiresTeacherError,
     CourseNotEligibleForCompletionError,
 )
 from apps.enrollments.serializers import CourseCompletionSerializer
@@ -40,6 +41,11 @@ class CourseCompletionView(APIView):
         except CourseNotEligibleForCompletionError:
             return Response(
                 {"detail": "You have not yet met this course's completion requirements."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except CourseCompletionRequiresTeacherError:
+            return Response(
+                {"detail": "Only your teacher can mark this course as completed."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         except CourseAlreadyCompletedError:

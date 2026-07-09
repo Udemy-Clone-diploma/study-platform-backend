@@ -4,6 +4,7 @@ from .LessonItemViewSet import LessonItemViewSet
 from .LessonSessionsView import LessonSessionsView
 from .LessonViewSet import LessonViewSet
 from .ModuleViewSet import ModuleViewSet
+from .NoteListView import NoteListView
 from .NoteView import NoteView
 from .QuestionViewSet import QuestionViewSet
 from .TestAttemptDetailView import TestAttemptDetailView
@@ -18,6 +19,7 @@ __all__ = [
     "LessonSessionsView",
     "LessonViewSet",
     "ModuleViewSet",
+    "NoteListView",
     "NoteView",
     "QuestionViewSet",
     "TestAttemptDetailView",

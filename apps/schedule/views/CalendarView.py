@@ -379,6 +379,15 @@ class CalendarView(APIView):
         return events
 
     def _student_events(self, user, week_start: date, week_end: date) -> list:
+        # Excludes finished courses: a completed group enrollment's cohort
+        # session should stop appearing for that student even though other
+        # (still-studying) cohort members keep meeting. Individual slots don't
+        # need this -- completion already frees `ScheduleSlot.booked_by`
+        # (apps/enrollments/signals.py:course_completion_created).
+        active_enrollments = Enrollment.objects.with_active_access().exclude_completed().filter(
+            student_profile=user.student_profile,
+        )
+
         slots = list(
             ScheduleSlot.objects
             .filter(booked_by__student_profile=user.student_profile)
@@ -389,7 +398,7 @@ class CalendarView(APIView):
         )
         cohort_schedules = list(
             CohortSchedule.objects
-            .filter(cohort__members__enrollment__student_profile=user.student_profile)
+            .filter(cohort__members__enrollment__in=active_enrollments)
             .select_related("cohort__course__teacher_profile")
             .distinct()
         )
@@ -464,7 +473,7 @@ class CalendarView(APIView):
             )
             .filter(
                 Q(student_profile=user.student_profile)
-                | Q(cohort__members__enrollment__student_profile=user.student_profile)
+                | Q(cohort__members__enrollment__in=active_enrollments)
             )
             .select_related("course", "cohort", "student_profile__user", "lesson")
             .distinct()

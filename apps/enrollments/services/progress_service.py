@@ -10,6 +10,7 @@ from apps.curriculum.models import Lesson, LessonItem, Test, TestAttempt
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
     CourseAlreadyCompletedError,
+    CourseCompletionRequiresTeacherError,
     CourseNotEligibleForCompletionError,
     LessonNotInCourseError,
     MandatoryTestNotPassedError,
@@ -183,17 +184,22 @@ class ProgressService:
         return cls._homework_stats_for_enrollment(enrollment)
 
     @staticmethod
-    def _homework_stats_for_enrollment(enrollment: Enrollment) -> dict:
+    def _is_with_teacher_format(enrollment: Enrollment) -> bool:
         from apps.courses.models import CourseDeliveryFormat
-        from apps.homework.models import HomeworkAssignmentRecipient, HomeworkSubmission
 
-        is_with_teacher = (
+        return (
             enrollment.delivery_format_id is not None
             and enrollment.delivery_format.format_type in (
                 CourseDeliveryFormat.FormatType.INDIVIDUAL,
                 CourseDeliveryFormat.FormatType.GROUP,
             )
         )
+
+    @classmethod
+    def _homework_stats_for_enrollment(cls, enrollment: Enrollment) -> dict:
+        from apps.homework.models import HomeworkAssignmentRecipient, HomeworkSubmission
+
+        is_with_teacher = cls._is_with_teacher_format(enrollment)
 
         total = HomeworkAssignmentRecipient.objects.filter(enrollment=enrollment).count()
 
@@ -238,6 +244,10 @@ class ProgressService:
         is_completed = CourseCompletion.objects.filter(
             student_profile=enrollment.student_profile, course=course,
         ).exists()
+        # Group/individual enrollments are finished by the teacher
+        # (ProgressService.teacher_complete_course), never by the student.
+        if cls._is_with_teacher_format(enrollment):
+            return {"can_complete_course": False, "is_course_completed": is_completed}
         eligible = (
             course.lessons_count > 0
             and cls._completion_percent(enrollment, course) >= course.passing_score
@@ -256,6 +266,9 @@ class ProgressService:
             student_profile=enrollment.student_profile, course=course,
         ).exists():
             raise CourseAlreadyCompletedError
+
+        if cls._is_with_teacher_format(enrollment):
+            raise CourseCompletionRequiresTeacherError
 
         eligible = (
             course.lessons_count > 0
