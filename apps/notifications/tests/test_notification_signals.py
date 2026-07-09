@@ -32,7 +32,11 @@ class LessonCreatedSignalTests(APITestCase):
         )
 
     def _add_lesson(self, title="New Lesson"):
-        return Lesson.objects.create(module=self.module, title=title, order=1)
+        # The fan-out is enqueued via transaction.on_commit; capture so it runs
+        # under APITestCase's rolled-back transaction.
+        with self.captureOnCommitCallbacks(execute=True):
+            lesson = Lesson.objects.create(module=self.module, title=title, order=1)
+        return lesson
 
     def test_fans_out_to_active_students_only(self):
         self._add_lesson()
