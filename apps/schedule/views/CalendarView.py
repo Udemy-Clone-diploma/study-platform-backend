@@ -8,6 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.enrollments.models import Enrollment
+from apps.homework.models import HomeworkAssignment
 from apps.schedule.models import (
     CohortSchedule, EventInvitation, PersonalEvent, ScheduleSlot,
     Session, TeacherUnavailability,
@@ -250,7 +252,38 @@ class CalendarView(APIView):
         else:
             events, unavailability = [], []
 
-        return Response({"week_start": week_start.isoformat(), "events": events, "unavailability": unavailability})
+        deadlines = self._deadlines_for(user, week_start, week_end)
+
+        return Response({
+            "week_start": week_start.isoformat(),
+            "events": events,
+            "unavailability": unavailability,
+            "deadlines": deadlines,
+        })
+
+    def _deadlines_for(self, user, week_start: date, week_end: date) -> list:
+        if user.role != User.RoleChoices.STUDENT:
+            return []
+
+        active_enrollments = Enrollment.objects.with_active_access().filter(
+            student_profile=user.student_profile
+        )
+        assignments = HomeworkAssignment.objects.filter(
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            recipients__enrollment__in=active_enrollments,
+            due_at__date__range=[week_start, week_end],
+        ).select_related("course").distinct()
+
+        return [
+            {
+                "date": a.due_at.date().isoformat(),
+                "assignment_id": a.id,
+                "title": a.title,
+                "course_title": a.course.title,
+                "course_slug": a.course.slug,
+            }
+            for a in assignments
+        ]
 
     def _teacher_events(self, user, week_start: date, week_end: date) -> list:
         teacher_profile = user.teacher_profile
