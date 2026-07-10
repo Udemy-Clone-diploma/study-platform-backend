@@ -10,6 +10,7 @@ from apps.curriculum.models import Lesson, LessonItem, Test, TestAttempt
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
     CourseAlreadyCompletedError,
+    CourseCompletionNotFoundError,
     CourseCompletionRequiresTeacherError,
     CourseNotEligibleForCompletionError,
     LessonNotInCourseError,
@@ -295,6 +296,24 @@ class ProgressService:
             raise CourseNotEligibleForCompletionError
 
         return cls._create_completion(enrollment, course, cls._resolve_final_score(enrollment, course))
+
+    @classmethod
+    @transaction.atomic
+    def teacher_revert_completion(cls, course: Course, enrollment: Enrollment) -> None:
+        """Undo a teacher-initiated completion: deletes the CourseCompletion
+        record (and any generated certificate files), so the student resumes
+        as actively studying (re-included in schedule/notifications/deadlines)."""
+        completion = CourseCompletion.objects.filter(
+            student_profile=enrollment.student_profile, course=course,
+        ).first()
+        if completion is None:
+            raise CourseCompletionNotFoundError
+
+        if completion.certificate_file:
+            completion.certificate_file.delete(save=False)
+        if completion.certificate_thumbnail:
+            completion.certificate_thumbnail.delete(save=False)
+        completion.delete()
 
     @staticmethod
     def _teacher_completion_eligible(course: Course, enrollment: Enrollment) -> bool:

@@ -7,7 +7,11 @@ from rest_framework.views import APIView
 
 from apps.courses.models import Cohort, CohortMember
 from apps.courses.serializers.CohortGroupSerializer import CohortMemberSerializer, EnrolledStudentSerializer
-from apps.enrollments.exceptions import CourseAlreadyCompletedError, CourseNotEligibleForCompletionError
+from apps.enrollments.exceptions import (
+    CourseAlreadyCompletedError,
+    CourseCompletionNotFoundError,
+    CourseNotEligibleForCompletionError,
+)
 from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.enrollments.serializers import CourseCompletionSerializer
 from apps.enrollments.services import ProgressService
@@ -127,3 +131,18 @@ class EnrollmentCompleteView(APIView):
             CourseCompletionSerializer(completion, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+    def delete(self, request, slug: str, enrollment_id: int):
+        """Undo a teacher-initiated completion, returning the student to active study."""
+        course = get_course_for_request(self, slug)
+        ensure_can_modify_course(request.user, course)
+        enrollment = get_object_or_404(Enrollment.objects.filter(course=course), pk=enrollment_id)
+
+        try:
+            ProgressService.teacher_revert_completion(course, enrollment)
+        except CourseCompletionNotFoundError:
+            return Response(
+                {"detail": "This student hasn't completed the course."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)

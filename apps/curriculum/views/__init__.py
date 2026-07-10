@@ -3,6 +3,7 @@ from .LessonDocumentView import LessonDocumentDetailView, LessonDocumentListView
 from .LessonItemViewSet import LessonItemViewSet
 from .LessonSessionsView import LessonSessionsView
 from .LessonViewSet import LessonViewSet
+from .MaterialsListView import MaterialsListView
 from .ModuleViewSet import ModuleViewSet
 from .NoteListView import NoteListView
 from .NoteView import NoteView
@@ -18,6 +19,7 @@ __all__ = [
     "LessonItemViewSet",
     "LessonSessionsView",
     "LessonViewSet",
+    "MaterialsListView",
     "ModuleViewSet",
     "NoteListView",
     "NoteView",
