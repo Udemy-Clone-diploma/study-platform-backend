@@ -61,7 +61,8 @@ def send_notification_emails(
 
 @shared_task
 def fan_out_new_lesson(lesson_id: int) -> None:
-    """Fan a `new_lesson` notification out to every student with active access.
+    """Fan a `new_lesson` notification out to every student with active access
+    who hasn't already finished the course.
 
     Runs off the request path. Re-reads the lesson (it may have been deleted, or
     its course unpublished, between enqueue and execution) before fanning out.
@@ -81,6 +82,7 @@ def fan_out_new_lesson(lesson_id: int) -> None:
 
     recipient_ids = (
         Enrollment.objects.with_active_access()
+        .exclude_completed()
         .filter(course_id=course.id)
         .values_list("student_profile__user_id", flat=True)
     )
