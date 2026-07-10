@@ -1,10 +1,11 @@
 from django.core import mail
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_teacher
 from apps.curriculum.models import Lesson, Module
-from apps.enrollments.models import Enrollment
+from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.enrollments.tests._factories import make_student
 from apps.notifications.models import Notification, NotificationPreference
 
@@ -80,6 +81,26 @@ class LessonCreatedSignalTests(APITestCase):
 
         recipients = set(Notification.objects.values_list("recipient_id", flat=True))
         self.assertEqual(recipients, {self.s2_user.id})
+
+    def test_completed_students_are_excluded(self):
+        CourseCompletion.objects.create(
+            student_profile=self.s1,
+            course=self.course,
+            title=self.course.title,
+            teacher_name=self.teacher_profile.user.get_full_name(),
+            level=self.course.level,
+            started_at=timezone.now(),
+        )
+
+        self._add_lesson()
+
+        recipients = set(
+            Notification.objects.filter(type=Notification.TypeChoices.NEW_LESSON).values_list(
+                "recipient_id", flat=True
+            )
+        )
+        self.assertEqual(recipients, {self.s2_user.id})
+        self.assertNotIn(self.s1_user.id, recipients)
 
     def test_draft_course_does_not_notify(self):
         draft = make_course(

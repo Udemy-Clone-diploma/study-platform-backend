@@ -4,8 +4,10 @@ from .LessonDocumentSerializer import LessonDocumentSerializer
 from .LessonItemCreateUpdateSerializer import LessonItemCreateUpdateSerializer
 from .LessonItemSerializer import LessonItemSerializer
 from .LessonSerializer import LessonSerializer
+from .MaterialsLessonSerializer import MaterialsLessonSerializer
 from .ModuleCreateUpdateSerializer import ModuleCreateUpdateSerializer
 from .ModuleSerializer import ModuleSerializer
+from .NoteListItemSerializer import NoteListItemSerializer
 from .NoteSerializer import NoteSerializer
 from .QuestionCreateUpdateSerializer import QuestionCreateUpdateSerializer
 from .QuestionSerializer import QuestionSerializer
@@ -22,8 +24,10 @@ __all__ = [
     "LessonItemCreateUpdateSerializer",
     "LessonItemSerializer",
     "LessonSerializer",
+    "MaterialsLessonSerializer",
     "ModuleCreateUpdateSerializer",
     "ModuleSerializer",
+    "NoteListItemSerializer",
     "NoteSerializer",
     "QuestionCreateUpdateSerializer",
     "QuestionSerializer",

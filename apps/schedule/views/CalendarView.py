@@ -8,6 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.enrollments.models import Enrollment
+from apps.homework.models import HomeworkAssignment
 from apps.schedule.models import (
     CohortSchedule, EventInvitation, PersonalEvent, ScheduleSlot,
     Session, TeacherUnavailability,
@@ -250,7 +252,38 @@ class CalendarView(APIView):
         else:
             events, unavailability = [], []
 
-        return Response({"week_start": week_start.isoformat(), "events": events, "unavailability": unavailability})
+        deadlines = self._deadlines_for(user, week_start, week_end)
+
+        return Response({
+            "week_start": week_start.isoformat(),
+            "events": events,
+            "unavailability": unavailability,
+            "deadlines": deadlines,
+        })
+
+    def _deadlines_for(self, user, week_start: date, week_end: date) -> list:
+        if user.role != User.RoleChoices.STUDENT:
+            return []
+
+        active_enrollments = Enrollment.objects.with_active_access().exclude_completed().filter(
+            student_profile=user.student_profile
+        )
+        assignments = HomeworkAssignment.objects.filter(
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            recipients__enrollment__in=active_enrollments,
+            due_at__date__range=[week_start, week_end],
+        ).select_related("course").distinct()
+
+        return [
+            {
+                "date": a.due_at.date().isoformat(),
+                "assignment_id": a.id,
+                "title": a.title,
+                "course_title": a.course.title,
+                "course_slug": a.course.slug,
+            }
+            for a in assignments
+        ]
 
     def _teacher_events(self, user, week_start: date, week_end: date) -> list:
         teacher_profile = user.teacher_profile
@@ -346,6 +379,15 @@ class CalendarView(APIView):
         return events
 
     def _student_events(self, user, week_start: date, week_end: date) -> list:
+        # Excludes finished courses: a completed group enrollment's cohort
+        # session should stop appearing for that student even though other
+        # (still-studying) cohort members keep meeting. Individual slots don't
+        # need this -- completion already frees `ScheduleSlot.booked_by`
+        # (apps/enrollments/signals.py:course_completion_created).
+        active_enrollments = Enrollment.objects.with_active_access().exclude_completed().filter(
+            student_profile=user.student_profile,
+        )
+
         slots = list(
             ScheduleSlot.objects
             .filter(booked_by__student_profile=user.student_profile)
@@ -356,7 +398,7 @@ class CalendarView(APIView):
         )
         cohort_schedules = list(
             CohortSchedule.objects
-            .filter(cohort__members__enrollment__student_profile=user.student_profile)
+            .filter(cohort__members__enrollment__in=active_enrollments)
             .select_related("cohort__course__teacher_profile")
             .distinct()
         )
@@ -431,7 +473,7 @@ class CalendarView(APIView):
             )
             .filter(
                 Q(student_profile=user.student_profile)
-                | Q(cohort__members__enrollment__student_profile=user.student_profile)
+                | Q(cohort__members__enrollment__in=active_enrollments)
             )
             .select_related("course", "cohort", "student_profile__user", "lesson")
             .distinct()

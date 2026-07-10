@@ -44,3 +44,11 @@ class CourseNotEligibleForCompletionError(EnrollmentsError):
 
 class CourseAlreadyCompletedError(EnrollmentsError):
     """The student has already completed this course."""
+
+
+class CourseCompletionRequiresTeacherError(EnrollmentsError):
+    """Group/individual enrollments can only be completed by the teacher, not self-service."""
+
+
+class CourseCompletionNotFoundError(EnrollmentsError):
+    """There is no completion record to revert for this student/course."""

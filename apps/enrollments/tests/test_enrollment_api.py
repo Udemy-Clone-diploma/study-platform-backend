@@ -99,7 +99,7 @@ class EnrollmentApiTests(APITestCase):
         self.assertEqual(enrollment.access_status, Enrollment.AccessStatusChoices.PENDING)
 
     def test_student_enrolls_in_free_course(self):
-        make_pricing_plan(self.course, price="0.00")
+        make_pricing_plan(self.course, format_type="self_paced", price="0.00")
         self.client.force_authenticate(user=self.student_user)
 
         response = self.client.post(
@@ -111,6 +111,42 @@ class EnrollmentApiTests(APITestCase):
         self.assertEqual(enrollment.student_profile, self.student_profile)
         self.assertEqual(enrollment.access_status, Enrollment.AccessStatusChoices.ACTIVE)
         self.assertIsNone(enrollment.order_id)
+
+    def test_free_group_enrollment_requires_a_cohort(self):
+        make_pricing_plan(self.course, format_type="group", price="0.00")
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.post(
+            reverse("course-enroll-free", args=[self.course.slug]),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(
+            Enrollment.objects.filter(
+                student_profile=self.student_profile, course=self.course,
+            ).exists()
+        )
+
+    def test_free_group_enrollment_joins_the_selected_cohort(self):
+        from apps.courses.models import CohortMember
+        from apps.courses.tests._factories import make_cohort
+
+        plan = make_pricing_plan(self.course, format_type="group", price="0.00")
+        cohort = make_cohort(self.course, delivery_format=plan.delivery_format)
+        self.client.force_authenticate(user=self.student_user)
+
+        response = self.client.post(
+            reverse("course-enroll-free", args=[self.course.slug]),
+            {"delivery_format_id": plan.delivery_format_id, "cohort_id": cohort.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        enrollment = Enrollment.objects.get(pk=response.data["id"])
+        self.assertEqual(enrollment.delivery_format_id, plan.delivery_format_id)
+        self.assertTrue(
+            CohortMember.objects.filter(cohort=cohort, enrollment=enrollment).exists()
+        )
 
     def test_free_enrollment_rejects_paid_course(self):
         make_pricing_plan(self.course, price="10.00")

@@ -2,8 +2,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.cart.models import CartItem
-from apps.courses.models import CohortMember
 from apps.enrollments.models import Enrollment
+from apps.enrollments.services import EnrollmentService
 from apps.payments.models import (
     Order,
     Payment,
@@ -11,8 +11,6 @@ from apps.payments.models import (
     PaymentInstallment,
     WebhookEvent,
 )
-from apps.schedule.exceptions import SlotAlreadyBookedError
-from apps.schedule.services import ScheduleService
 
 from .base import PaymentBaseService
 from .exceptions import PaymentError
@@ -323,17 +321,11 @@ class WebhookService(PaymentBaseService):
                     ]
                 )
 
-            if item.cohort_id:
-                CohortMember.objects.get_or_create(
-                    cohort_id=item.cohort_id,
-                    enrollment=enrollment,
-                )
-
-            for slot in item.schedule_slots.all():
-                try:
-                    ScheduleService.book_slot(slot, enrollment)
-                except SlotAlreadyBookedError:
-                    continue
+            EnrollmentService.apply_delivery_setup(
+                enrollment,
+                cohort_id=item.cohort_id,
+                schedule_slot_ids=list(item.schedule_slots.values_list("id", flat=True)),
+            )
 
     @staticmethod
     def _remove_paid_items_from_cart(payment: Payment) -> None:
