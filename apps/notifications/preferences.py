@@ -12,6 +12,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
     "homework_graded": {"in_app": True, "email": True},
     "schedule_event": {"in_app": True, "email": True},
     "new_lesson": {"in_app": True, "email": False},
+    "course_completed": {"in_app": True, "email": True},
 }
 
 

@@ -1,7 +1,10 @@
+from urllib.parse import quote
+
 from django.conf import settings
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path, re_path
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import RedirectView
 from django.views.static import serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -14,6 +17,25 @@ def health(request):
         {"status": "ok", "service": "backend"},
         headers={"Cache-Control": "no-store"},
     )
+
+
+def serve_media(request, path, document_root=None, **kwargs):
+    """Wraps django.views.static.serve to (1) declare UTF-8 for text files --
+    without it browsers guess the charset (often wrong) for uploaded .txt/.md
+    materials, garbling any non-ASCII (e.g. Cyrillic) content -- and (2) force
+    a real "Save As" download when the frontend's Download button links here
+    with `?download=<name>`, instead of just opening the file in a new tab.
+    Plain links (used by the in-app image/PDF/text preview) are untouched, so
+    those keep rendering inline."""
+    response = serve(request, path, document_root=document_root, **kwargs)
+    content_type = response.get("Content-Type", "")
+    if content_type.startswith("text/") and "charset=" not in content_type:
+        response["Content-Type"] = f"{content_type}; charset=utf-8"
+
+    download_name = request.GET.get("download")
+    if download_name:
+        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(download_name)}"
+    return response
 
 
 urlpatterns = [
@@ -38,5 +60,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += [
-        re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
+        # Exempt from X-Frame-Options: media files (PDFs, images...) are previewed
+        # in an <iframe> by the frontend, which the default DENY would block.
+        re_path(r"^media/(?P<path>.*)$", xframe_options_exempt(serve_media), {"document_root": settings.MEDIA_ROOT}),
     ]

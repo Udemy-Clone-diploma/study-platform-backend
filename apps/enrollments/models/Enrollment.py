@@ -12,6 +12,24 @@ class EnrollmentQuerySet(models.QuerySet):
             Q(access_until__isnull=True) | Q(access_until__gte=now)
         )
 
+    def exclude_completed(self):
+        """Excludes enrollments the student has already finished (has a CourseCompletion).
+
+        Used where "currently, actively studying" matters (notification fan-out,
+        deadlines, schedule participation) -- distinct from content access, which
+        a finished student keeps via `with_active_access()`.
+        """
+        from apps.enrollments.models import CourseCompletion
+
+        return self.exclude(
+            models.Exists(
+                CourseCompletion.objects.filter(
+                    student_profile_id=models.OuterRef("student_profile_id"),
+                    course_id=models.OuterRef("course_id"),
+                )
+            )
+        )
+
 
 class ActiveEnrollmentManager(ActiveManager.from_queryset(EnrollmentQuerySet)):
     pass

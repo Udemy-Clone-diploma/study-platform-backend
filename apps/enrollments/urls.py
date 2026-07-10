@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from apps.enrollments.views import (
     CourseCompletionView,
     CourseProgressView,
+    EnrollmentGrowthView,
     EnrollmentViewSet,
     FreeEnrollmentView,
     LessonCompletionView,
@@ -14,6 +15,14 @@ router = DefaultRouter()
 router.register(r"enrollments", EnrollmentViewSet, basename="enrollments")
 
 urlpatterns = [
+    # Must precede the router include: the router's detail route
+    # (`enrollments/<pk>/`) would otherwise swallow `enrollments/growth/`
+    # by treating "growth" as a pk.
+    path(
+        "enrollments/growth/",
+        EnrollmentGrowthView.as_view(),
+        name="enrollment-growth",
+    ),
     path("", include(router.urls)),
     path(
         "courses/<slug:slug>/enroll-free/",

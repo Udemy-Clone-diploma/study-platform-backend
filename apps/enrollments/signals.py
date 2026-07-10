@@ -1,8 +1,10 @@
+from datetime import date
+
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from apps.courses.models import Course
-from apps.enrollments.models import Enrollment, LessonCompletion
+from apps.courses.models import Course, CourseDeliveryFormat
+from apps.enrollments.models import CourseCompletion, Enrollment, LessonCompletion
 
 
 def _active_enrollments_count(course_id: int) -> int:
@@ -59,3 +61,49 @@ def lesson_completion_saved(sender, instance, **kwargs):
 @receiver(post_delete, sender=LessonCompletion)
 def lesson_completion_deleted(sender, instance, **kwargs):
     _recompute_lessons_completed_count(instance.enrollment_id)
+
+
+@receiver(post_save, sender=CourseCompletion)
+def course_completion_created(sender, instance: CourseCompletion, created: bool, **kwargs):
+    """On finishing a course: free up any booked individual slot, cancel its
+    future sessions, and notify the student. Group cohort membership and
+    upcoming group sessions are left alone -- other members still meet."""
+    if not created:
+        return
+
+    enrollment = (
+        Enrollment.objects.filter(
+            student_profile_id=instance.student_profile_id,
+            course_id=instance.course_id,
+        )
+        .select_related("delivery_format", "student_profile__user")
+        .first()
+    )
+    if enrollment is None:
+        return
+
+    if (
+        enrollment.delivery_format_id is not None
+        and enrollment.delivery_format.format_type == CourseDeliveryFormat.FormatType.INDIVIDUAL
+    ):
+        from apps.schedule.models import ScheduleSlot, Session
+
+        today = date.today()
+        for slot in ScheduleSlot.objects.filter(booked_by=enrollment):
+            Session.objects.filter(
+                slot=slot, date__gte=today, status=Session.Status.SCHEDULED,
+            ).update(status=Session.Status.CANCELLED)
+            slot.booked_by = None
+            slot.save(update_fields=["booked_by"])
+
+    from apps.notifications.models import Notification
+    from apps.notifications.services import NotificationService
+
+    NotificationService.create(
+        recipient=enrollment.student_profile.user,
+        type=Notification.TypeChoices.COURSE_COMPLETED,
+        title=instance.title,
+        body=f'Congratulations! You completed "{instance.title}".',
+        link_url="/student-dashboard/certificates",
+        payload={"course_completion_id": instance.id},
+    )

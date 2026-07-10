@@ -8,6 +8,7 @@ class Notification(models.Model):
         HOMEWORK_GRADED = "homework_graded", "Homework graded"
         SCHEDULE_EVENT = "schedule_event", "Schedule event"
         NEW_LESSON = "new_lesson", "New lesson"
+        COURSE_COMPLETED = "course_completed", "Course completed"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,

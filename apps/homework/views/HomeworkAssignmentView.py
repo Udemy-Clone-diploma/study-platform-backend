@@ -1,5 +1,8 @@
+from datetime import date, timedelta
+
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Avg, Count
+from django.db.models.functions import TruncMonth, TruncWeek
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -9,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.models import Cohort, CourseDeliveryFormat
+from apps.courses.models import Cohort, Course, CourseDeliveryFormat
 from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
 from apps.curriculum.models import TestAttempt
 from apps.enrollments.models import Enrollment
@@ -189,6 +192,7 @@ class HomeworkAvailableRecipientsView(APIView):
         course = _teacher_course(self, slug)
         recipients = (
             Enrollment.objects.with_active_access()
+            .exclude_completed()
             .filter(course=course)
             .select_related("student_profile__user", "delivery_format")
             .prefetch_related("cohort_memberships__cohort")
@@ -562,3 +566,61 @@ class HomeworkSubmissionRetrieveView(APIView):
         submission.reviewed_at = None
         submission.save(update_fields=["status", "reviewed_at", "updated_at"])
         return Response(HomeworkSubmissionSerializer(submission, context={"request": request}).data)
+
+
+def _bucket_scores(qs, period: str) -> tuple[list[dict], float]:
+    """Average reviewed homework score per week (last 6) or per month (current year)."""
+    today = timezone.now().date()
+    if period == "yearly":
+        buckets = [date(today.year, m, 1) for m in range(1, 13)]
+        labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        trunc = TruncMonth("reviewed_at")
+    else:
+        this_week = today - timedelta(days=today.weekday())
+        buckets = [this_week - timedelta(weeks=5 - i) for i in range(6)]
+        labels = [f"Week {i + 1}" for i in range(6)]
+        trunc = TruncWeek("reviewed_at")
+
+    windowed = qs.filter(reviewed_at__date__gte=buckets[0])
+    grouped = {
+        row["bucket"].date(): row["avg"]
+        for row in windowed.annotate(bucket=trunc).values("bucket").annotate(avg=Avg("score"))
+    }
+    points = [
+        {"label": label, "value": round(grouped.get(bucket, 0) or 0, 1)}
+        for bucket, label in zip(buckets, labels)
+    ]
+    overall = windowed.aggregate(avg=Avg("score"))["avg"]
+    return points, round(overall, 1) if overall else 0
+
+
+@extend_schema(tags=["Homework"])
+class HomeworkGrowthView(APIView):
+    """GET /homework/growth/ — average reviewed homework score over time, for the dashboard "Growth" widget."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get("period", "weekly")
+        course_slug = request.query_params.get("course")
+        user = request.user
+
+        if user.role == User.RoleChoices.STUDENT:
+            enrollments = _student_enrollment(user)
+            courses = Course.objects.filter(id__in=enrollments.values("course_id")).distinct()
+            if course_slug:
+                enrollments = enrollments.filter(course__slug=course_slug)
+            qs = HomeworkSubmission.objects.filter(
+                enrollment__in=enrollments, score__isnull=False, reviewed_at__isnull=False,
+            )
+        else:
+            # Teachers get a dedicated enrollment-count metric instead
+            # (GET /enrollments/growth/, apps/enrollments/views/EnrollmentGrowthView.py).
+            return Response({"average": 0, "points": [], "courses": []})
+
+        points, average = _bucket_scores(qs, period)
+        return Response({
+            "average": average,
+            "points": points,
+            "courses": [{"slug": c.slug, "title": c.title} for c in courses],
+        })

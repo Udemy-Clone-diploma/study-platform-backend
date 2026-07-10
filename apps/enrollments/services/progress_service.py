@@ -10,6 +10,8 @@ from apps.curriculum.models import Lesson, LessonItem, Test, TestAttempt
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
     CourseAlreadyCompletedError,
+    CourseCompletionNotFoundError,
+    CourseCompletionRequiresTeacherError,
     CourseNotEligibleForCompletionError,
     LessonNotInCourseError,
     MandatoryTestNotPassedError,
@@ -138,10 +140,13 @@ class ProgressService:
         """
         Informational only — does NOT affect course completion """
         enrollment = cls.get_active_enrollment(user, course)
+        return cls._test_stats_for_enrollment(enrollment, course)
 
+    @staticmethod
+    def _test_stats_for_enrollment(enrollment: Enrollment, course: Course) -> dict:
         passed = failed = skipped = 0
         scores = []
-        
+
         tests = Test.objects.filter(
             module__course=course, lesson_items__is_deleted=False,
         ).distinct()
@@ -176,11 +181,14 @@ class ProgressService:
         """
         Informational only — does NOT affect course completion. Homework only
         makes sense for a specific enrollment taught with a teacher  """
-        from apps.courses.models import CourseDeliveryFormat
-        from apps.homework.models import HomeworkAssignmentRecipient, HomeworkSubmission
-
         enrollment = cls.get_active_enrollment(user, course)
-        is_with_teacher = (
+        return cls._homework_stats_for_enrollment(enrollment)
+
+    @staticmethod
+    def _is_with_teacher_format(enrollment: Enrollment) -> bool:
+        from apps.courses.models import CourseDeliveryFormat
+
+        return (
             enrollment.delivery_format_id is not None
             and enrollment.delivery_format.format_type in (
                 CourseDeliveryFormat.FormatType.INDIVIDUAL,
@@ -188,8 +196,14 @@ class ProgressService:
             )
         )
 
+    @classmethod
+    def _homework_stats_for_enrollment(cls, enrollment: Enrollment) -> dict:
+        from apps.homework.models import HomeworkAssignmentRecipient, HomeworkSubmission
+
+        is_with_teacher = cls._is_with_teacher_format(enrollment)
+
         total = HomeworkAssignmentRecipient.objects.filter(enrollment=enrollment).count()
-        
+
         scores = list(
             HomeworkSubmission.objects.filter(
                 enrollment=enrollment, score__isnull=False,
@@ -231,6 +245,10 @@ class ProgressService:
         is_completed = CourseCompletion.objects.filter(
             student_profile=enrollment.student_profile, course=course,
         ).exists()
+        # Group/individual enrollments are finished by the teacher
+        # (ProgressService.teacher_complete_course), never by the student.
+        if cls._is_with_teacher_format(enrollment):
+            return {"can_complete_course": False, "is_course_completed": is_completed}
         eligible = (
             course.lessons_count > 0
             and cls._completion_percent(enrollment, course) >= course.passing_score
@@ -250,6 +268,9 @@ class ProgressService:
         ).exists():
             raise CourseAlreadyCompletedError
 
+        if cls._is_with_teacher_format(enrollment):
+            raise CourseCompletionRequiresTeacherError
+
         eligible = (
             course.lessons_count > 0
             and cls._completion_percent(enrollment, course) >= course.passing_score
@@ -258,6 +279,67 @@ class ProgressService:
         if not eligible:
             raise CourseNotEligibleForCompletionError
 
+        return cls._create_completion(enrollment, course, cls._resolve_final_score(enrollment, course))
+
+    @classmethod
+    @transaction.atomic
+    def teacher_complete_course(cls, course: Course, enrollment: Enrollment) -> CourseCompletion:
+        """Teacher-initiated completion, for delivery formats taught live
+        (group/individual) where the course may have zero curriculum lessons,
+        so `complete_course`'s lesson-progress eligibility can never pass."""
+        if CourseCompletion.objects.filter(
+            student_profile=enrollment.student_profile, course=course,
+        ).exists():
+            raise CourseAlreadyCompletedError
+
+        if not cls._teacher_completion_eligible(course, enrollment):
+            raise CourseNotEligibleForCompletionError
+
+        return cls._create_completion(enrollment, course, cls._resolve_final_score(enrollment, course))
+
+    @classmethod
+    @transaction.atomic
+    def teacher_revert_completion(cls, course: Course, enrollment: Enrollment) -> None:
+        """Undo a teacher-initiated completion: deletes the CourseCompletion
+        record (and any generated certificate files), so the student resumes
+        as actively studying (re-included in schedule/notifications/deadlines)."""
+        completion = CourseCompletion.objects.filter(
+            student_profile=enrollment.student_profile, course=course,
+        ).first()
+        if completion is None:
+            raise CourseCompletionNotFoundError
+
+        if completion.certificate_file:
+            completion.certificate_file.delete(save=False)
+        if completion.certificate_thumbnail:
+            completion.certificate_thumbnail.delete(save=False)
+        completion.delete()
+
+    @staticmethod
+    def _teacher_completion_eligible(course: Course, enrollment: Enrollment) -> bool:
+        from apps.homework.models import HomeworkAssignment, HomeworkSubmission
+
+        has_assignments = HomeworkAssignment.objects.filter(
+            course=course, status=HomeworkAssignment.StatusChoices.PUBLISHED,
+        ).exists()
+        if not has_assignments:
+            return True
+        return HomeworkSubmission.objects.filter(
+            enrollment=enrollment, status=HomeworkSubmission.StatusChoices.REVIEWED,
+        ).exists()
+
+    @classmethod
+    def _resolve_final_score(cls, enrollment: Enrollment, course: Course) -> Decimal | None:
+        homework_stats = cls._homework_stats_for_enrollment(enrollment)
+        if homework_stats["is_with_teacher"] and homework_stats["homework_average"] is not None:
+            return Decimal(str(homework_stats["homework_average"]))
+        test_average = cls._test_stats_for_enrollment(enrollment, course)["test_average"]
+        return Decimal(str(test_average)) if test_average is not None else None
+
+    @classmethod
+    def _create_completion(
+        cls, enrollment: Enrollment, course: Course, final_score: Decimal | None,
+    ) -> CourseCompletion:
         order_item = None
         if enrollment.order_id:
             from apps.payments.models import OrderItem
@@ -267,13 +349,6 @@ class ProgressService:
                 .select_related("order")
                 .first()
             )
-
-        homework_stats = cls.get_homework_stats(user, course)
-        if homework_stats["is_with_teacher"] and homework_stats["homework_average"] is not None:
-            final_score = Decimal(str(homework_stats["homework_average"]))
-        else:
-            test_average = cls.get_test_stats(user, course)["test_average"]
-            final_score = Decimal(str(test_average)) if test_average is not None else None
 
         completion = CourseCompletion.objects.create(
             student_profile=enrollment.student_profile,
@@ -291,7 +366,7 @@ class ProgressService:
         )
 
         if course.with_certificate:
-            cls._attach_certificate(completion, course, user)
+            cls._attach_certificate(completion, course, enrollment.student_profile.user)
 
         return completion
 
