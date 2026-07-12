@@ -1,7 +1,8 @@
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Count, Min, OuterRef, Q, Subquery
+from django.db.models import Count, IntegerField, Min, OuterRef, Prefetch, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -11,10 +12,13 @@ from apps.courses.constants import (
     DEFAULT_POPULAR_COURSES_LIMIT,
     POPULARITY_WINDOW_DAYS,
 )
+from apps.common.files import duplicate_file_field
 from apps.courses.exceptions import CoursesError
 from apps.courses.models import (
     ApprovedCourseRecord,
     Category,
+    Cohort,
+    CohortMember,
     Course,
     CoursePendingEdit,
     ModerationReview,
@@ -28,8 +32,8 @@ from apps.courses.serializers import (
     CourseDetailSerializer,
     CourseListSerializer,
 )
-from apps.curriculum.models import Lesson, LessonItem, Module, Question, Test
-from apps.enrollments.models import Enrollment
+from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
+from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.users.models import User
 
 
@@ -74,6 +78,50 @@ class CourseService:
                     enrollments__is_deleted=False,
                 ),
                 distinct=True,
+            ),
+        )
+
+    @staticmethod
+    def delivery_formats_prefetch() -> Prefetch:
+        """Prefetch for Course.delivery_formats with the active-enrollment and
+        completed-enrollment counts pre-annotated (see CourseDeliveryFormatSerializer
+        .get_enrolled_count/get_completed_count) -- without this, retrieving a course
+        fires one or two COUNT(*) queries per delivery format."""
+        completed_subquery = (
+            Enrollment.objects.filter(
+                delivery_format=OuterRef("pk"),
+                access_status=Enrollment.AccessStatusChoices.ACTIVE,
+                student_profile__course_completions__course=OuterRef("course"),
+            )
+            .order_by()
+            .values("delivery_format")
+            .annotate(c=Count("id", distinct=True))
+            .values("c")
+        )
+        queryset = CourseDeliveryFormat.objects.select_related("pricing").annotate(
+            annotated_enrolled_count=Count(
+                "enrollments",
+                filter=Q(enrollments__access_status=Enrollment.AccessStatusChoices.ACTIVE),
+            ),
+            annotated_completed_count=Coalesce(
+                Subquery(completed_subquery, output_field=IntegerField()), 0,
+            ),
+        )
+        return Prefetch("delivery_formats", queryset=queryset)
+
+    @staticmethod
+    def cohorts_prefetch() -> Prefetch:
+        """Prefetch for Course.cohorts with members' enrollment/student/user chain
+        select_related in one join, instead of three queries per cohort member
+        (CohortMemberSerializer reads enrollment.student_profile.user.* and
+        enrollment.course for the is_completed check)."""
+        members_queryset = CohortMember.objects.select_related(
+            "enrollment__student_profile__user", "enrollment__course",
+        )
+        return Prefetch(
+            "cohorts",
+            queryset=Cohort.objects.prefetch_related(
+                Prefetch("members", queryset=members_queryset),
             ),
         )
 
@@ -229,9 +277,21 @@ class CourseService:
             course=course,
         )
         tags = validated_data.pop("tags", None)
+        old_status = course.status
 
         for attr, value in validated_data.items():
             setattr(course, attr, value)
+
+        # Leaving the moderation pipeline back to draft/archived (withdraw, archive)
+        # releases whichever moderator was assigned — resubmitting later should land
+        # back in the unassigned pool, not stay privately assigned to whoever had it
+        # before. (Re-submitting straight from needs_revision keeps the moderator,
+        # since continuing with the same reviewer for a resubmission is desired.)
+        if course.status != old_status and course.status in (
+            Course.StatusChoices.DRAFT,
+            Course.StatusChoices.ARCHIVED,
+        ):
+            course.moderator_profile = None
 
         course.save()
 
@@ -378,12 +438,17 @@ class CourseService:
             course_type=course.course_type,
             duration_hours=course.duration_hours,
             with_certificate=course.with_certificate,
+            certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            passing_score=course.passing_score,
             status=Course.StatusChoices.DRAFT,
             teacher_profile=teacher_profile,
             category=course.category,
-            image=course.image,
         )
+        if course.image:
+            duplicate_file_field(course.image, new_course.image)
+            new_course.image_hash = course.image_hash
+            new_course.save(update_fields=["image", "image_hash"])
         new_course.tags.set(course.tags.all())
 
         # First pass: copy modules and their tests, recording old->new test ids so
@@ -437,20 +502,135 @@ class CourseService:
                     order=old_lesson.order,
                 )
                 for old_item in old_lesson.items.order_by("order"):
-                    LessonItem.objects.create(
+                    new_item = LessonItem.objects.create(
                         lesson=new_lesson,
                         item_type=old_item.item_type,
                         order=old_item.order,
-                        content=old_item.content,
                         body_html=old_item.body_html,
-                        video=old_item.video,
                         video_url=old_item.video_url,
                         original_video_name=old_item.original_video_name,
                         duration_minutes=old_item.duration_minutes,
                         test=test_map.get(old_item.test_id),
                     )
+                    if old_item.video:
+                        duplicate_file_field(old_item.video, new_item.video)
+                        new_item.video_hash = old_item.video_hash
+                        new_item.save(update_fields=["video", "video_hash"])
 
         return new_course
+
+    @classmethod
+    @transaction.atomic
+    def clone_for_pending_edit(cls, course: Course) -> Course:
+        """Deep-copy a published/hidden course into a hidden PENDING_EDIT shadow draft. """
+        draft = Course.all_objects.create(
+            title=course.title,
+            slug=cls._build_unique_slug(course.title),
+            subtitle=course.subtitle,
+            short_description=course.short_description,
+            full_description=course.full_description,
+            level=course.level,
+            language=course.language,
+            mode=course.mode,
+            delivery_type=course.delivery_type,
+            course_type=course.course_type,
+            duration_hours=course.duration_hours,
+            with_certificate=course.with_certificate,
+            certificate_description=course.certificate_description,
+            is_on_sale=course.is_on_sale,
+            passing_score=course.passing_score,
+            status=Course.StatusChoices.PENDING_EDIT,
+            teacher_profile=course.teacher_profile,
+            category=course.category,
+        )
+        if course.image:
+            duplicate_file_field(course.image, draft.image)
+            draft.image_hash = course.image_hash
+            draft.save(update_fields=["image", "image_hash"])
+        draft.tags.set(course.tags.all())
+
+        module_map: dict[int, Module] = {}
+        test_map: dict[int, Test] = {}
+        for old_mod in course.modules.order_by("order"):
+            new_mod = Module.objects.create(
+                course=draft,
+                source_module=old_mod,
+                title=old_mod.title,
+                description=old_mod.description,
+                order=old_mod.order,
+            )
+            module_map[old_mod.id] = new_mod
+            for old_test in old_mod.tests.order_by("order"):
+                new_test = Test.objects.create(
+                    module=new_mod,
+                    source_test=old_test,
+                    title=old_test.title,
+                    description=old_test.description,
+                    passing_score=old_test.passing_score,
+                    duration_minutes=old_test.duration_minutes,
+                    allow_retakes=old_test.allow_retakes,
+                    max_attempts=old_test.max_attempts,
+                    order=old_test.order,
+                )
+                test_map[old_test.id] = new_test
+                for old_q in old_test.questions.order_by("order"):
+                    Question.objects.create(
+                        test=new_test,
+                        source_question=old_q,
+                        question_type=old_q.question_type,
+                        text=old_q.text,
+                        options=old_q.options,
+                        correct_indices=old_q.correct_indices,
+                        correct_bool=old_q.correct_bool,
+                        sample_answer=old_q.sample_answer,
+                        accepted_answers=old_q.accepted_answers,
+                        order=old_q.order,
+                    )
+
+        # Second pass: lessons + items + documents, now that every test exists.
+        for old_mod in course.modules.order_by("order"):
+            new_mod = module_map[old_mod.id]
+            for old_lesson in old_mod.lessons.order_by("order"):
+                new_lesson = Lesson.objects.create(
+                    module=new_mod,
+                    source_lesson=old_lesson,
+                    title=old_lesson.title,
+                    duration_minutes=old_lesson.duration_minutes,
+                    min_score=old_lesson.min_score,
+                    is_preview=old_lesson.is_preview,
+                    meeting_url=old_lesson.meeting_url,
+                    unlock_after_days=old_lesson.unlock_after_days,
+                    requires_previous=old_lesson.requires_previous,
+                    is_manually_locked=old_lesson.is_manually_locked,
+                    is_mandatory=old_lesson.is_mandatory,
+                    order=old_lesson.order,
+                )
+                for old_item in old_lesson.items.order_by("order"):
+                    new_item = LessonItem.objects.create(
+                        lesson=new_lesson,
+                        source_lesson_item=old_item,
+                        item_type=old_item.item_type,
+                        order=old_item.order,
+                        body_html=old_item.body_html,
+                        video_url=old_item.video_url,
+                        original_video_name=old_item.original_video_name,
+                        duration_minutes=old_item.duration_minutes,
+                        test=test_map.get(old_item.test_id),
+                    )
+                    if old_item.video:
+                        duplicate_file_field(old_item.video, new_item.video)
+                        new_item.video_hash = old_item.video_hash
+                        new_item.save(update_fields=["video", "video_hash"])
+                for old_doc in old_lesson.documents.all():
+                    new_doc = LessonDocument.objects.create(
+                        lesson=new_lesson,
+                        source_document=old_doc,
+                        original_name=old_doc.original_name,
+                    )
+                    duplicate_file_field(old_doc.file, new_doc.file)
+                    new_doc.save(update_fields=["file"])
+
+        return draft
 
     @staticmethod
     def get_rejected_courses_queryset(teacher_profile):
@@ -565,6 +745,7 @@ class CourseService:
     def get_teacher_courses_queryset(cls, teacher_profile):
         return cls.annotate_min_price(
             teacher_profile.courses
+            .exclude(status=Course.StatusChoices.PENDING_EDIT)
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )

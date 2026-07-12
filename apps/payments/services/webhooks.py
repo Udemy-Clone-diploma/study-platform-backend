@@ -2,8 +2,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.cart.models import CartItem
-from apps.courses.models import CohortMember
 from apps.enrollments.models import Enrollment
+from apps.enrollments.services import EnrollmentService
 from apps.payments.models import (
     Order,
     Payment,
@@ -280,8 +280,10 @@ class WebhookService(PaymentBaseService):
         order = payment.order if payment.order_id else None
         items = (
             order.items.select_related("course", "cohort", "pricing_plan__delivery_format")
+            .prefetch_related("schedule_slots")
             if order is not None
             else payment.items.select_related("course", "cohort", "pricing_plan__delivery_format")
+            .prefetch_related("schedule_slots")
         )
         access_order_id = order.id if order is not None else payment.id
 
@@ -319,11 +321,11 @@ class WebhookService(PaymentBaseService):
                     ]
                 )
 
-            if item.cohort_id:
-                CohortMember.objects.get_or_create(
-                    cohort_id=item.cohort_id,
-                    enrollment=enrollment,
-                )
+            EnrollmentService.apply_delivery_setup(
+                enrollment,
+                cohort_id=item.cohort_id,
+                schedule_slot_ids=list(item.schedule_slots.values_list("id", flat=True)),
+            )
 
     @staticmethod
     def _remove_paid_items_from_cart(payment: Payment) -> None:

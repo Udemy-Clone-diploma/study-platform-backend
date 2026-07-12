@@ -4,6 +4,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
+from apps.common.files import duplicate_file_field
 from apps.courses.exceptions import PendingEditLockedError
 from apps.courses.models import (
     ApprovedCourseRecord,
@@ -11,123 +12,74 @@ from apps.courses.models import (
     ModerationReview,
     RejectedCourseRecord,
 )
-from apps.courses.services.course_service import _course_snapshot_kwargs
-from apps.curriculum.models import Lesson, Module, Question, Test
+from apps.courses.services.course_service import CourseService, _course_snapshot_kwargs
+from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
 
 
 def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
-    """Return the list of field names that differ between the pending edit and the live course."""
+    """Return the list of course field names that differ between the draft and the live course."""
     course = pending_edit.course
-    if not course:
+    draft = pending_edit.draft_course
+    if not course or not draft:
         return []
     changed = []
     for field in [
         "title", "subtitle", "short_description", "full_description",
         "level", "language", "mode", "delivery_type", "course_type",
-        "with_certificate", "is_on_sale",
+        "with_certificate", "certificate_description", "is_on_sale", "passing_score",
     ]:
-        if getattr(pending_edit, field) != getattr(course, field):
+        if getattr(draft, field) != getattr(course, field):
             changed.append(field)
-    if pending_edit.category_id != course.category_id:
+    if draft.category_id != course.category_id:
         changed.append("category")
+    draft_tags = set(draft.tags.values_list("id", flat=True))
     live_tags = set(course.tags.values_list("id", flat=True))
-    if set(pending_edit.tag_ids or []) != live_tags:
+    if draft_tags != live_tags:
         changed.append("tags")
-    if pending_edit.image and pending_edit.image.name != (course.image.name if course.image else None):
+    if draft.image_hash != course.image_hash:
         changed.append("image")
     return changed
 
 
-def _correct_indices(q_data: dict) -> list:
-    """Read the answer key from a question snapshot, tolerating the legacy
-    ``correct_index`` scalar in any pending-edit snapshot taken before the
-    switch to ``correct_indices``."""
-    indices = q_data.get("correct_indices")
-    if indices:
-        return indices
-    legacy = q_data.get("correct_index")
-    return [legacy] if legacy is not None else []
-
-
-def _restore_or_create(Model, parent_lookup: dict, id_val, **kwargs):
-    if id_val:
-        obj = Model.all_objects.filter(id=id_val, **parent_lookup).first()
+def _merge_row(Model, live_parent_lookup: dict, source_id, **kwargs):
+    """Update-in-place (and undelete) the live row referenced by source_id, or
+    create a brand-new live row if there's no source (new-since-clone content)."""
+    if source_id:
+        obj = Model.all_objects.filter(id=source_id, **live_parent_lookup).first()
         if obj:
             for k, v in kwargs.items():
                 setattr(obj, k, v)
             obj.is_deleted = False
-            obj.save()
+            # Explicit update_fields (rather than a bare save()) matters beyond
+            # the query itself: LessonItem.save() only recomputes video_hash
+            # when "video" is among the saved fields, and video isn't touched
+            # here (it's merged separately, right after) -- a bare save() would
+            # force a full re-read+re-hash of whatever video the live row
+            # already has, for every single merged item, on every approval.
+            obj.save(update_fields=[*kwargs.keys(), "is_deleted", "updated_at"])
             return obj
-    return Model.objects.create(**parent_lookup, **kwargs)
+    return Model.objects.create(**live_parent_lookup, **kwargs)
+
+
+def _merge_document(live_lesson, draft_doc) -> LessonDocument:
+    """LessonDocument has no is_deleted field """
+    if draft_doc.source_document_id:
+        doc = LessonDocument.objects.filter(id=draft_doc.source_document_id, lesson=live_lesson).first()
+        if doc:
+            duplicate_file_field(draft_doc.file, doc.file)
+            doc.original_name = draft_doc.original_name
+            doc.save()
+            return doc
+    doc = LessonDocument.objects.create(
+        lesson=live_lesson,
+        original_name=draft_doc.original_name,
+    )
+    duplicate_file_field(draft_doc.file, doc.file)
+    doc.save(update_fields=["file"])
+    return doc
 
 
 class PendingEditService:
-
-    @staticmethod
-    def _build_modules_snapshot(course) -> list:
-        modules = (
-            course.modules
-            .prefetch_related("lessons", "lessons__items", "tests", "tests__questions")
-            .order_by("order")
-        )
-        result = []
-        for mod in modules:
-            lessons = [
-                {
-                    "id": lesson.id,
-                    "title": lesson.title,
-                    "duration_minutes": lesson.duration_minutes,
-                    "min_score": lesson.min_score,
-                    "is_preview": lesson.is_preview,
-                    "order": lesson.order,
-                    "items_snapshot": [
-                        {
-                            "id": item.id,
-                            "item_type": item.item_type,
-                            "content": item.content or "",
-                            "video_url": item.video_url,
-                        }
-                        for item in lesson.items.all()
-                    ],
-                }
-                for lesson in mod.lessons.order_by("order")
-            ]
-            tests = []
-            for test in mod.tests.order_by("order"):
-                questions = [
-                    {
-                        "id": q.id,
-                        "question_type": q.question_type,
-                        "text": q.text,
-                        "options": q.options or [],
-                        "correct_indices": q.correct_indices or [],
-                        "correct_bool": q.correct_bool,
-                        "sample_answer": q.sample_answer or "",
-                        "accepted_answers": q.accepted_answers or [],
-                        "order": q.order,
-                    }
-                    for q in test.questions.order_by("order")
-                ]
-                tests.append({
-                    "id": test.id,
-                    "title": test.title,
-                    "description": test.description,
-                    "passing_score": test.passing_score,
-                    "duration_minutes": test.duration_minutes,
-                    "allow_retakes": test.allow_retakes,
-                    "max_attempts": test.max_attempts,
-                    "order": test.order,
-                    "questions": questions,
-                })
-            result.append({
-                "id": mod.id,
-                "title": mod.title,
-                "description": mod.description,
-                "order": mod.order,
-                "lessons": lessons,
-                "tests": tests,
-            })
-        return result
 
     @classmethod
     def get_or_create(cls, course) -> CoursePendingEdit:
@@ -138,61 +90,8 @@ class PendingEditService:
 
     @classmethod
     def _create_from_course(cls, course) -> CoursePendingEdit:
-        return CoursePendingEdit.objects.create(
-            course=course,
-            title=course.title,
-            subtitle=course.subtitle or "",
-            short_description=course.short_description,
-            full_description=course.full_description,
-            level=course.level,
-            language=course.language,
-            mode=course.mode,
-            delivery_type=course.delivery_type,
-            course_type=course.course_type,
-            duration_hours=course.duration_hours,
-            with_certificate=course.with_certificate,
-            is_on_sale=course.is_on_sale,
-            category=course.category,
-            tag_ids=list(course.tags.values_list("id", flat=True)),
-            modules_snapshot=cls._build_modules_snapshot(course),
-        )
-
-    @staticmethod
-    def _ensure_editable(pending_edit: CoursePendingEdit) -> None:
-        if pending_edit.status == CoursePendingEdit.StatusChoices.PENDING:
-            raise PendingEditLockedError(
-                "Cannot edit while pending moderation. Withdraw first."
-            )
-
-    @classmethod
-    def update_metadata(cls, pending_edit: CoursePendingEdit, validated_data: dict) -> CoursePendingEdit:
-        cls._ensure_editable(pending_edit)
-        for attr, value in validated_data.items():
-            setattr(pending_edit, attr, value)
-        pending_edit.save()
-        return pending_edit
-
-    @classmethod
-    def update_modules_snapshot(cls, pending_edit: CoursePendingEdit, modules_data: list) -> CoursePendingEdit:
-        cls._ensure_editable(pending_edit)
-        # Preserve items_snapshot from the original snapshot so the moderator
-        # can always compare against the state at pending-edit creation time.
-        existing_lessons = {
-            lesson["id"]: lesson
-            for mod in (pending_edit.modules_snapshot or [])
-            for lesson in mod.get("lessons", [])
-            if lesson.get("id") is not None
-        }
-        for mod in modules_data:
-            for lesson in mod.get("lessons", []):
-                lesson_id = lesson.get("id")
-                if lesson_id is not None and "items_snapshot" not in lesson:
-                    existing = existing_lessons.get(lesson_id, {})
-                    if "items_snapshot" in existing:
-                        lesson["items_snapshot"] = existing["items_snapshot"]
-        pending_edit.modules_snapshot = modules_data
-        pending_edit.save(update_fields=["modules_snapshot", "updated_at"])
-        return pending_edit
+        draft = CourseService.clone_for_pending_edit(course)
+        return CoursePendingEdit.objects.create(course=course, draft_course=draft)
 
     @staticmethod
     def submit(pending_edit: CoursePendingEdit) -> CoursePendingEdit:
@@ -208,41 +107,51 @@ class PendingEditService:
     def withdraw(pending_edit: CoursePendingEdit) -> CoursePendingEdit:
         if pending_edit.status != CoursePendingEdit.StatusChoices.PENDING:
             raise PendingEditLockedError("Can only withdraw when pending moderation.")
+        # Release the assigned moderator too — withdrawing abandons this review
+        # cycle entirely, so resubmitting later should land back in the
+        # unassigned pool rather than staying privately assigned to whoever
+        # had it before (unlike needs_revision, where the same moderator
+        # continuing to handle the resubmission is the desired behavior).
         pending_edit.status = CoursePendingEdit.StatusChoices.DRAFT
-        pending_edit.save(update_fields=["status", "updated_at"])
+        pending_edit.moderator_profile = None
+        pending_edit.save(update_fields=["status", "moderator_profile", "updated_at"])
         return pending_edit
 
     @staticmethod
     @transaction.atomic
     def discard(pending_edit: CoursePendingEdit) -> None:
         ModerationReview.objects.filter(course=pending_edit.course).delete()
+        draft = pending_edit.draft_course
         pending_edit.delete()
+        draft.delete()
 
     @classmethod
     @transaction.atomic
     def approve(cls, pending_edit: CoursePendingEdit, moderator_profile=None) -> None:
         course = pending_edit.course
+        draft = pending_edit.draft_course
         changed = compute_pending_edit_changed_fields(pending_edit)
 
         for field in [
             "title", "subtitle", "short_description", "full_description",
             "level", "language", "mode", "delivery_type", "course_type",
-            "with_certificate", "is_on_sale", "category",
+            "with_certificate", "certificate_description", "is_on_sale", "passing_score",
         ]:
-            setattr(course, field, getattr(pending_edit, field))
+            setattr(course, field, getattr(draft, field))
+        course.category = draft.category
 
-        if pending_edit.image:
-            ext = os.path.splitext(pending_edit.image.name)[1] or ".png"
-            pending_edit.image.open("rb")
+        if draft.image:
+            ext = os.path.splitext(draft.image.name)[1] or ".png"
+            draft.image.open("rb")
             try:
-                content = pending_edit.image.read()
+                content = draft.image.read()
             finally:
-                pending_edit.image.close()
+                draft.image.close()
             course.image.save(f"icon{ext}", ContentFile(content), save=False)
 
         course.save()
-        course.tags.set(pending_edit.tag_ids or [])
-        cls._apply_modules_snapshot(course, pending_edit.modules_snapshot)
+        course.tags.set(draft.tags.all())
+        cls.merge_into_live(pending_edit)
 
         effective_moderator = moderator_profile or pending_edit.moderator_profile
         ModerationReview.objects.filter(course=course).delete()
@@ -254,6 +163,7 @@ class PendingEditService:
             changed_fields=changed,
         )
         pending_edit.delete()
+        draft.delete()
 
     @staticmethod
     @transaction.atomic
@@ -292,10 +202,13 @@ class PendingEditService:
         if final_action == "rejected":
             # Full rejection: discard the draft entirely; live course is untouched.
             ModerationReview.objects.filter(course=course).delete()
+            draft = pending_edit.draft_course
             pending_edit.delete()
+            draft.delete()
             return pending_edit
 
-        # needs_revision: keep the draft so the teacher can fix and resubmit.
+        # needs_revision: keep the draft as-is so the teacher can fix and resubmit
+        # the same rows — do not re-clone, or in-progress edits would be lost.
         pending_edit.status = CoursePendingEdit.StatusChoices.NEEDS_REVISION
         pending_edit.moderator_comment = final_comment
         pending_edit.save(update_fields=["status", "moderator_comment", "updated_at"])
@@ -316,62 +229,87 @@ class PendingEditService:
         )
         return pending_edit
 
-    @staticmethod
+    @classmethod
     @transaction.atomic
-    def _apply_modules_snapshot(course, modules_data: list) -> None:
-        # Soft-delete all active modules first so their orders don't conflict during restore.
-        Module.all_objects.filter(course=course, is_deleted=False).update(is_deleted=True)
+    def merge_into_live(cls, pending_edit: CoursePendingEdit) -> None:
+        """Merge the draft course's current tree onto the live course.
 
-        for idx, mod_data in enumerate(modules_data, 1):
-            module = _restore_or_create(
-                Module,
-                {"course": course},
-                mod_data.get("id"),
-                title=mod_data.get("title", ""),
-                description=mod_data.get("description", ""),
-                order=mod_data.get("order", idx),
+        For each draft row: if it has a source_* pointing at a live row, that live
+        row is updated in place (same id — preserves LessonCompletion/Note/etc FKs);
+        otherwise a new live row is created. Live rows soft-deleted up front and not
+        re-claimed by any draft row stay deleted (removed by the teacher in the draft).
+        """
+        live_course = pending_edit.course
+        draft_course = pending_edit.draft_course
+
+        Module.all_objects.filter(course=live_course, is_deleted=False).update(is_deleted=True)
+
+        for idx, draft_mod in enumerate(draft_course.modules.order_by("order"), 1):
+            live_mod = _merge_row(
+                Module, {"course": live_course}, draft_mod.source_module_id,
+                title=draft_mod.title, description=draft_mod.description, order=idx,
             )
 
-            Lesson.all_objects.filter(module=module, is_deleted=False).update(is_deleted=True)
-            for l_idx, lesson_data in enumerate(mod_data.get("lessons", []), 1):
-                _restore_or_create(
-                    Lesson,
-                    {"module": module},
-                    lesson_data.get("id"),
-                    title=lesson_data.get("title", ""),
-                    duration_minutes=lesson_data.get("duration_minutes"),
-                    min_score=lesson_data.get("min_score"),
-                    is_preview=lesson_data.get("is_preview", False),
-                    order=lesson_data.get("order", l_idx),
+            # Tests before lessons: LessonItem.test needs the live test's id, resolved
+            # below through test_map (keyed by the draft test's own id).
+            Test.all_objects.filter(module=live_mod, is_deleted=False).update(is_deleted=True)
+            test_map: dict[int, Test] = {}
+            for t_idx, draft_test in enumerate(draft_mod.tests.order_by("order"), 1):
+                live_test = _merge_row(
+                    Test, {"module": live_mod}, draft_test.source_test_id,
+                    title=draft_test.title, description=draft_test.description,
+                    passing_score=draft_test.passing_score, duration_minutes=draft_test.duration_minutes,
+                    allow_retakes=draft_test.allow_retakes, max_attempts=draft_test.max_attempts,
+                    order=t_idx,
                 )
+                test_map[draft_test.id] = live_test
 
-            Test.all_objects.filter(module=module, is_deleted=False).update(is_deleted=True)
-            for t_idx, test_data in enumerate(mod_data.get("tests", []), 1):
-                test = _restore_or_create(
-                    Test,
-                    {"module": module},
-                    test_data.get("id"),
-                    title=test_data.get("title", ""),
-                    description=test_data.get("description", ""),
-                    passing_score=test_data.get("passing_score", 70),
-                    duration_minutes=test_data.get("duration_minutes"),
-                    allow_retakes=test_data.get("allow_retakes", False),
-                    max_attempts=test_data.get("max_attempts"),
-                    order=test_data.get("order", t_idx),
-                )
-
-                Question.all_objects.filter(test=test, is_deleted=False).update(is_deleted=True)
-                for q_idx, q_data in enumerate(test_data.get("questions", []), 1):
-                    _restore_or_create(
-                        Question,
-                        {"test": test},
-                        q_data.get("id"),
-                        question_type=q_data.get("question_type", "single_choice"),
-                        text=q_data.get("text", ""),
-                        options=q_data.get("options", []),
-                        correct_indices=_correct_indices(q_data),
-                        correct_bool=q_data.get("correct_bool"),
-                        sample_answer=q_data.get("sample_answer", ""),
-                        accepted_answers=q_data.get("accepted_answers", []),
-                        order=q_data.get("order", q_idx),
+                Question.all_objects.filter(test=live_test, is_deleted=False).update(is_deleted=True)
+                for q_idx, draft_q in enumerate(draft_test.questions.order_by("order"), 1):
+                    _merge_row(
+                        Question, {"test": live_test}, draft_q.source_question_id,
+                        question_type=draft_q.question_type, text=draft_q.text,
+                        options=draft_q.options, correct_indices=draft_q.correct_indices,
+                        correct_bool=draft_q.correct_bool, sample_answer=draft_q.sample_answer,
+                        accepted_answers=draft_q.accepted_answers, order=q_idx,
                     )
+
+            Lesson.all_objects.filter(module=live_mod, is_deleted=False).update(is_deleted=True)
+            for l_idx, draft_lesson in enumerate(draft_mod.lessons.order_by("order"), 1):
+                live_lesson = _merge_row(
+                    Lesson, {"module": live_mod}, draft_lesson.source_lesson_id,
+                    title=draft_lesson.title, duration_minutes=draft_lesson.duration_minutes,
+                    min_score=draft_lesson.min_score, is_preview=draft_lesson.is_preview,
+                    meeting_url=draft_lesson.meeting_url,
+                    unlock_after_days=draft_lesson.unlock_after_days,
+                    requires_previous=draft_lesson.requires_previous,
+                    is_manually_locked=draft_lesson.is_manually_locked,
+                    is_mandatory=draft_lesson.is_mandatory,
+                    order=l_idx,
+                )
+
+                LessonItem.all_objects.filter(lesson=live_lesson, is_deleted=False).update(is_deleted=True)
+                for i_idx, draft_item in enumerate(draft_lesson.items.order_by("order"), 1):
+                    live_item = _merge_row(
+                        LessonItem, {"lesson": live_lesson}, draft_item.source_lesson_item_id,
+                        item_type=draft_item.item_type, order=i_idx,
+                        body_html=draft_item.body_html,
+                        video_url=draft_item.video_url,
+                        original_video_name=draft_item.original_video_name,
+                        duration_minutes=draft_item.duration_minutes,
+                        test=test_map.get(draft_item.test_id),
+                    )
+                    
+                    if draft_item.video:
+                        duplicate_file_field(draft_item.video, live_item.video)
+                        live_item.video_hash = draft_item.video_hash
+                        live_item.save(update_fields=["video", "video_hash"])
+                    elif live_item.video:
+                        live_item.video = None
+                        live_item.save(update_fields=["video"])
+
+                matched_doc_ids = {
+                    _merge_document(live_lesson, draft_doc).id
+                    for draft_doc in draft_lesson.documents.all()
+                }
+                LessonDocument.objects.filter(lesson=live_lesson).exclude(id__in=matched_doc_ids).delete()

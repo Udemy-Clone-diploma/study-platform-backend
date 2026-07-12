@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import Prefetch
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
 
@@ -24,7 +25,12 @@ class CartService:
             "pricing_plan",
             "pricing_plan__delivery_format",
             "cohort",
-        ).prefetch_related("course__delivery_formats", "course__delivery_formats__pricing", "course__tags")
+        ).prefetch_related(
+            "course__delivery_formats",
+            "course__delivery_formats__pricing",
+            "course__tags",
+            "schedule_slots",
+        )
 
     @classmethod
     def get_base_queryset(cls):
@@ -57,8 +63,14 @@ class CartService:
                 {"detail": "Student profile is required for cart operations."}
             ) from exc
 
+    @staticmethod
+    def _expire_stale_items(cart: Cart) -> None:
+        """Drop cart items whose cohort has already started, so a stale cart doesn't linger."""
+        cart.items.filter(cohort__start_date__lt=timezone.localdate()).delete()
+
     @classmethod
     def _refresh_cart(cls, cart: Cart) -> Cart:
+        cls._expire_stale_items(cart)
         return cls.get_base_queryset().get(pk=cart.pk)
 
     @classmethod
@@ -114,12 +126,13 @@ class CartService:
         course: Course,
         pricing_plan: PricingPlan | None = None,
         cohort=None,
+        schedule_slots=None,
     ) -> Cart:
         cls._validate_course_is_available(course)
         cls._validate_student_is_not_enrolled(cart.student_profile, course)
         cls._validate_cart_currency(cart, pricing_plan)
 
-        _, created = CartItem.objects.get_or_create(
+        item, created = CartItem.objects.get_or_create(
             cart=cart,
             course=course,
             defaults={"pricing_plan": pricing_plan, "cohort": cohort},
@@ -128,6 +141,9 @@ class CartService:
             raise serializers.ValidationError(
                 {"course_id": "Course is already in cart."}
             )
+
+        if schedule_slots:
+            item.schedule_slots.set(schedule_slots)
 
         return cls._refresh_cart(cart)
 
@@ -145,6 +161,7 @@ class CartService:
             validated_data["course"],
             validated_data.get("pricing_plan"),
             validated_data.get("cohort"),
+            validated_data.get("schedule_slots"),
         )
         return cls.serialize_cart(cart, context=context)
 

@@ -15,11 +15,20 @@ class Lesson(models.Model):
     unlock_after_days = models.PositiveIntegerField(null=True, blank=True)
     requires_previous = models.BooleanField(default=False)
     is_manually_locked = models.BooleanField(default=False)
+    is_mandatory = models.BooleanField(default=False)
 
     module = models.ForeignKey(
         Module,
         on_delete=models.CASCADE,
         related_name="lessons",
+    )
+
+    source_lesson = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft_copies",
     )
 
     is_deleted = models.BooleanField(default=False)
@@ -38,6 +47,11 @@ class Lesson(models.Model):
                 fields=["module", "order"],
                 condition=models.Q(is_deleted=False),
                 name="unique_active_lesson_order_per_module",
+            ),
+            models.UniqueConstraint(
+                fields=["source_lesson"],
+                condition=models.Q(source_lesson__isnull=False),
+                name="unique_source_lesson",
             ),
         ]
 

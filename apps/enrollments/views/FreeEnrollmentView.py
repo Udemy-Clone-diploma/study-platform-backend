@@ -33,6 +33,10 @@ class FreeEnrollmentView(APIView):
             enrollment, created = EnrollmentService.enroll_in_free_course(
                 request.user,
                 course,
+                delivery_format_id=request.data.get("delivery_format_id"),
+                pricing_plan_id=request.data.get("pricing_plan_id"),
+                cohort_id=request.data.get("cohort_id"),
+                schedule_slot_ids=request.data.get("schedule_slot_ids"),
             )
         except (CourseNotEnrollableError, FreeEnrollmentUnavailableError) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)

@@ -10,6 +10,7 @@ class Notification(models.Model):
         SCHEDULE_EVENT = "schedule_event", "Schedule event"
         NEW_LESSON = "new_lesson", "New lesson"
         MODERATION_ACTION = "moderation_action", "Moderation action"
+        COURSE_COMPLETED = "course_completed", "Course completed"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,

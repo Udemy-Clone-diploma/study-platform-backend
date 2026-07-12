@@ -15,6 +15,16 @@ class Module(models.Model):
         related_name="modules",
     )
 
+    # Set only on a pending-edit draft course's modules: points back at the live
+    # module this one was cloned from, so approval can merge changes in place.
+    source_module = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft_copies",
+    )
+
     is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -31,6 +41,11 @@ class Module(models.Model):
                 fields=["course", "order"],
                 condition=models.Q(is_deleted=False),
                 name="unique_active_module_order_per_course",
+            ),
+            models.UniqueConstraint(
+                fields=["source_module"],
+                condition=models.Q(source_module__isnull=False),
+                name="unique_source_module",
             ),
         ]
 

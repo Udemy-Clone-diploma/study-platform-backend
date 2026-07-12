@@ -147,7 +147,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = "Europe/Kyiv"
 USE_I18N = True
 USE_TZ = True
 
@@ -319,3 +319,12 @@ CHAT_ATTACHMENT_ALLOWED_TYPES = config(
     ),
     cast=lambda v: [item.strip() for item in v.split(",") if item.strip()],
 )
+# A single broker connection attempt must never stall a request: no retries on
+# publish, no retries establishing the connection itself (kombu retries that
+# separately from task-publish retries), and a tight socket timeout so an
+# unreachable broker fails in ~1s instead of hanging (this matters a lot when
+# fanning a notification out to many recipients in one request, e.g. a whole
+# cohort).
+CELERY_TASK_PUBLISH_RETRY = False
+CELERY_BROKER_CONNECTION_RETRY = False
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 1, "socket_timeout": 1}

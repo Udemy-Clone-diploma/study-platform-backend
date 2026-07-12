@@ -16,6 +16,9 @@ class StudentCompletionsView(generics.ListAPIView):
     serializer_class = CourseCompletionSerializer
 
     def get_queryset(self):
-        return CourseCompletion.objects.filter(
+        qs = CourseCompletion.objects.filter(
             student_profile=self.request.user.student_profile
-        )
+        ).select_related("course")
+        if self.request.query_params.get("with_certificate") == "true":
+            qs = qs.exclude(certificate_url__isnull=True).exclude(certificate_url="")
+        return qs

@@ -1,6 +1,5 @@
 from django.db import models
 
-from apps.common.files import UUIDUploadTo
 from apps.users.models import ModeratorProfile
 
 
@@ -16,42 +15,21 @@ class CoursePendingEdit(models.Model):
         related_name="pending_edit",
     )
 
+    # The hidden PENDING_EDIT shadow course the teacher actually edits. Its full
+    # module/lesson/test/content-item tree IS the pending edit; on approval it's
+    # merged onto `course` and then deleted (see PendingEditService.merge_into_live).
+    draft_course = models.OneToOneField(
+        "courses.Course",
+        on_delete=models.CASCADE,
+        related_name="as_draft_for",
+    )
+
     status = models.CharField(
         max_length=20,
         choices=StatusChoices.choices,
         default=StatusChoices.DRAFT,
     )
 
-    # Course metadata snapshot (full intended state)
-    title = models.CharField(max_length=255)
-    subtitle = models.CharField(max_length=255, blank=True, null=True)
-    short_description = models.CharField(max_length=500)
-    full_description = models.TextField()
-    image = models.ImageField(
-        upload_to=UUIDUploadTo("courses/pending"),
-        null=True,
-        blank=True,
-    )
-    level = models.CharField(max_length=20)
-    language = models.CharField(max_length=20)
-    mode = models.CharField(max_length=20)
-    delivery_type = models.CharField(max_length=20)
-    course_type = models.CharField(max_length=30)
-    duration_hours = models.PositiveIntegerField(null=True, blank=True, default=0)
-    with_certificate = models.BooleanField(default=False)
-    is_on_sale = models.BooleanField(default=False)
-    category = models.ForeignKey(
-        "courses.Category",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    tag_ids = models.JSONField(default=list)
-
-    # Full modules / lessons / tests / questions snapshot
-    modules_snapshot = models.JSONField(default=list)
-
-    # Moderation
     moderator_profile = models.ForeignKey(
         ModeratorProfile,
         on_delete=models.SET_NULL,

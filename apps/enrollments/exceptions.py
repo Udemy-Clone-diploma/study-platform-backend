@@ -32,3 +32,23 @@ class ActiveEnrollmentRequiredError(EnrollmentsError):
 
 class LessonNotInCourseError(EnrollmentsError):
     """The requested lesson does not belong to the target course."""
+
+
+class MandatoryTestNotPassedError(EnrollmentsError):
+    """The lesson is mandatory and its test has not been passed yet."""
+
+
+class CourseNotEligibleForCompletionError(EnrollmentsError):
+    """The student has not yet met this course's completion requirements."""
+
+
+class CourseAlreadyCompletedError(EnrollmentsError):
+    """The student has already completed this course."""
+
+
+class CourseCompletionRequiresTeacherError(EnrollmentsError):
+    """Group/individual enrollments can only be completed by the teacher, not self-service."""
+
+
+class CourseCompletionNotFoundError(EnrollmentsError):
+    """There is no completion record to revert for this student/course."""

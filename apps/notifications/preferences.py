@@ -14,6 +14,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
     "schedule_event": {"in_app": True, "email": True},
     "new_lesson": {"in_app": True, "email": False},
     "moderation_action": {"in_app": True, "email": False},
+    "course_completed": {"in_app": True, "email": True},
 }
 
 

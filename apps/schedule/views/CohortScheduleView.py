@@ -8,10 +8,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
-from apps.courses.models import Cohort
+from apps.courses.models import Cohort, CohortMember
 from apps.schedule.models import CohortSchedule
 from apps.schedule.serializers import CohortScheduleSerializer, CohortScheduleWriteSerializer
-from apps.schedule.services import ScheduleService
+from apps.schedule.services import ScheduleService, ScheduleNotificationService
 
 from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
 
@@ -97,13 +97,33 @@ class CohortScheduleDetailView(APIView):
         except (TeacherScheduleConflictError, InvalidScheduleTimeError) as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        members = [
+            m.enrollment.student_profile.user
+            for m in CohortMember.objects.filter(cohort=cohort).select_related("enrollment__student_profile__user")
+        ]
+        if members:
+            ScheduleNotificationService.notify_recurring_time_changed(
+                members,
+                cohort.course.title,
+                actor=request.user,
+                day_label=schedule.get_day_of_week_display(),
+                new_start=schedule.start_time,
+                new_end=schedule.end_time,
+            )
+
         return Response(CohortScheduleSerializer(schedule).data)
 
     def delete(self, request, slug, cohort_id, schedule_id):
         cohort   = _get_cohort(self, slug, cohort_id)
         ensure_can_modify_course(request.user, cohort.course)
         schedule = _get_cohort_schedule(cohort, schedule_id)
+        members = [
+            m.enrollment.student_profile.user
+            for m in CohortMember.objects.filter(cohort=cohort).select_related("enrollment__student_profile__user")
+        ]
         schedule.delete()
+        if members:
+            ScheduleNotificationService.notify_recurring_cancelled(members, cohort.course.title, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

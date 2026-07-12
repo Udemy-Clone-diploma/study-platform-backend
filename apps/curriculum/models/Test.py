@@ -20,6 +20,16 @@ class Test(models.Model):
         related_name="tests",
     )
 
+    # Set only on a pending-edit draft course's tests: points back at the live
+    # test this one was cloned from, so approval can merge changes in place.
+    source_test = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft_copies",
+    )
+
     is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -36,6 +46,11 @@ class Test(models.Model):
                 fields=["module", "order"],
                 condition=models.Q(is_deleted=False),
                 name="unique_active_test_order_per_module",
+            ),
+            models.UniqueConstraint(
+                fields=["source_test"],
+                condition=models.Q(source_test__isnull=False),
+                name="unique_source_test",
             ),
         ]
 

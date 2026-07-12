@@ -30,7 +30,7 @@ class CohortListCreateView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         cohort = CohortService.create_for_course(course, serializer.validated_data)
         return Response(
-            CohortSerializer(cohort).data,
+            CohortSerializer(cohort, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -56,7 +56,7 @@ class CohortDetailView(generics.RetrieveUpdateDestroyAPIView):
         serializer = self.get_serializer(cohort, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         cohort = CohortService.update_cohort(cohort, serializer.validated_data)
-        return Response(CohortSerializer(cohort).data)
+        return Response(CohortSerializer(cohort, context={"request": request}).data)
 
     def destroy(self, request, *args, **kwargs):
         cohort = self.get_object()
