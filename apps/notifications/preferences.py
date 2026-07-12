@@ -9,9 +9,11 @@ CHANNELS = ("in_app", "email")
 
 DEFAULT_NOTIFICATION_PREFERENCES = {
     "new_message": {"in_app": True, "email": False},
+    "homework_submitted": {"in_app": True, "email": True},
     "homework_graded": {"in_app": True, "email": True},
     "schedule_event": {"in_app": True, "email": True},
     "new_lesson": {"in_app": True, "email": False},
+    "moderation_action": {"in_app": True, "email": False},
 }
 
 

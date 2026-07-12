@@ -280,11 +280,27 @@ CELERY_BROKER_URL = config("CELERY_BROKER_URL", default=REDIS_URL)
 CELERY_TASK_IGNORE_RESULT = True
 
 CHANNEL_REDIS_URL = config("CHANNEL_REDIS_URL", default=REDIS_URL)
+CHANNEL_REDIS_SOCKET_TIMEOUT = config(
+    "CHANNEL_REDIS_SOCKET_TIMEOUT",
+    default=10,
+    cast=float,
+)
+CHANNEL_REDIS_SOCKET_CONNECT_TIMEOUT = config(
+    "CHANNEL_REDIS_SOCKET_CONNECT_TIMEOUT",
+    default=5,
+    cast=float,
+)
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [CHANNEL_REDIS_URL],
+            "hosts": [
+                {
+                    "address": CHANNEL_REDIS_URL,
+                    "socket_timeout": CHANNEL_REDIS_SOCKET_TIMEOUT,
+                    "socket_connect_timeout": CHANNEL_REDIS_SOCKET_CONNECT_TIMEOUT,
+                },
+            ],
         },
     },
 }

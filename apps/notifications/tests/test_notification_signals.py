@@ -1,12 +1,20 @@
 from django.core import mail
 from rest_framework.test import APITestCase
 
+from apps.chat.models import ChatParticipant
+from apps.chat.services import ChatService
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_teacher
 from apps.curriculum.models import Lesson, Module
 from apps.enrollments.models import Enrollment
 from apps.enrollments.tests._factories import make_student
+from apps.homework.models import (
+    HomeworkAssignment,
+    HomeworkAssignmentRecipient,
+    HomeworkSubmission,
+)
 from apps.notifications.models import Notification, NotificationPreference
+from apps.users.tests._factories import make_user
 
 
 class LessonCreatedSignalTests(APITestCase):
@@ -99,3 +107,119 @@ class LessonCreatedSignalTests(APITestCase):
         lesson.save()
 
         self.assertEqual(Notification.objects.count(), 0)
+
+
+class ChatMessageCreatedSignalTests(APITestCase):
+    def setUp(self):
+        self.student = make_user(
+            role="student",
+            email="chat_signal_student@example.com",
+            first_name="Ada",
+            last_name="Lovelace",
+        )
+        self.teacher = make_user(role="teacher", email="chat_signal_teacher@example.com")
+        self.chat, _ = ChatService.create_direct_chat(self.student, self.teacher)
+
+    def test_notifies_other_active_participant(self):
+        message = ChatService.create_message(
+            self.chat,
+            self.student,
+            text="Please check this message.",
+        )
+
+        notification = Notification.objects.get(recipient=self.teacher)
+        self.assertEqual(notification.type, Notification.TypeChoices.NEW_MESSAGE)
+        self.assertEqual(notification.actor, self.student)
+        self.assertEqual(notification.link_url, "/teacher-dashboard/chats")
+        self.assertEqual(notification.payload["chat_id"], self.chat.id)
+        self.assertEqual(notification.payload["message_id"], message.id)
+        self.assertIn("Ada Lovelace", notification.title)
+        self.assertFalse(Notification.objects.filter(recipient=self.student).exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_muted_participant_is_not_notified(self):
+        ChatParticipant.objects.filter(chat=self.chat, user=self.teacher).update(is_muted=True)
+
+        ChatService.create_message(self.chat, self.student, text="Muted message")
+
+        self.assertEqual(Notification.objects.count(), 0)
+
+
+class HomeworkSubmissionSignalTests(APITestCase):
+    def setUp(self):
+        self.teacher, teacher_profile = make_teacher(email="hw_notify_teacher@example.com")
+        self.course = make_course(
+            teacher_profile,
+            slug="hw-notify-course",
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        self.module = Module.objects.create(course=self.course, title="Module", order=1)
+        self.student_user, self.student_profile = make_student(
+            email="hw_notify_student@example.com"
+        )
+        self.enrollment = Enrollment.objects.create(
+            student_profile=self.student_profile,
+            course=self.course,
+        )
+        self.assignment = HomeworkAssignment.objects.create(
+            course=self.course,
+            module=self.module,
+            created_by=self.teacher,
+            title="Portfolio review",
+            description="Submit your work.",
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
+        )
+        HomeworkAssignmentRecipient.objects.create(
+            assignment=self.assignment,
+            enrollment=self.enrollment,
+        )
+
+    def test_submitted_homework_notifies_teacher(self):
+        submission = HomeworkSubmission.objects.create(
+            assignment=self.assignment,
+            enrollment=self.enrollment,
+            content="My solution",
+        )
+
+        notification = Notification.objects.get(recipient=self.teacher)
+        self.assertEqual(notification.type, Notification.TypeChoices.HOMEWORK_SUBMITTED)
+        self.assertEqual(notification.actor, self.student_user)
+        self.assertEqual(notification.link_url, "/teacher-dashboard/homework")
+        self.assertEqual(notification.payload["assignment_id"], self.assignment.id)
+        self.assertEqual(notification.payload["submission_id"], submission.id)
+        self.assertIn("Portfolio review", notification.body)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_reviewed_homework_notifies_student(self):
+        submission = HomeworkSubmission.objects.create(
+            assignment=self.assignment,
+            enrollment=self.enrollment,
+            content="My solution",
+        )
+        Notification.objects.all().delete()
+        mail.outbox.clear()
+
+        submission.status = HomeworkSubmission.StatusChoices.REVIEWED
+        submission.score = 5
+        submission.feedback = "Good work."
+        submission.save()
+
+        notification = Notification.objects.get(recipient=self.student_user)
+        self.assertEqual(notification.type, Notification.TypeChoices.HOMEWORK_GRADED)
+        self.assertEqual(notification.actor, self.teacher)
+        self.assertEqual(notification.title, "Homework returned")
+        self.assertEqual(notification.link_url, "/student-dashboard/homework")
+        self.assertEqual(notification.payload["score"], 5)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_resaving_same_submitted_status_does_not_notify_again(self):
+        submission = HomeworkSubmission.objects.create(
+            assignment=self.assignment,
+            enrollment=self.enrollment,
+            content="My solution",
+        )
+
+        submission.content = "Edited text"
+        submission.save(update_fields=["content", "updated_at"])
+
+        self.assertEqual(Notification.objects.count(), 1)
