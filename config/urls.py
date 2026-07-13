@@ -60,12 +60,8 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-<<<<<<< HEAD
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-=======
     urlpatterns += [
         # Exempt from X-Frame-Options: media files (PDFs, images...) are previewed
         # in an <iframe> by the frontend, which the default DENY would block.
         re_path(r"^media/(?P<path>.*)$", xframe_options_exempt(serve_media), {"document_root": settings.MEDIA_ROOT}),
     ]
->>>>>>> origin/develop

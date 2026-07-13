@@ -4,6 +4,9 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db.models import Avg
+from django.utils import timezone
+from datetime import timedelta
 
 from apps.courses.models import Cohort, CohortMember
 from apps.courses.serializers.CohortGroupSerializer import CohortMemberSerializer, EnrolledStudentSerializer
@@ -15,6 +18,10 @@ from apps.enrollments.exceptions import (
 from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.enrollments.serializers import CourseCompletionSerializer
 from apps.enrollments.services import ProgressService
+from apps.common.files import absolute_media_url
+from apps.curriculum.models import TestAttempt
+from apps.homework.models import HomeworkSubmission
+from apps.schedule.models import Attendance
 
 from ._course_scoped import ensure_can_modify_course, get_course_for_request
 
@@ -99,6 +106,96 @@ class CourseEnrolledStudentsView(generics.GenericAPIView):
             qs = qs.exclude(student_profile_id__in=completed_student_profile_ids)
         context = {"request": request, "completed_student_profile_ids": completed_student_profile_ids}
         return Response(EnrolledStudentSerializer(qs, many=True, context=context).data)
+
+
+@extend_schema(tags=["Cohort Members"])
+class TeacherStudentDashboardView(APIView):
+    """Cross-course student analytics, restricted to a teacher's own enrollments."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id: int):
+        if request.user.role not in {"teacher", "administrator"}:
+            return Response({"detail": "Teachers only."}, status=status.HTTP_403_FORBIDDEN)
+
+        enrollments = Enrollment.objects.filter(student_profile__user_id=student_id).select_related(
+            "student_profile__user", "course", "course__teacher_profile__user"
+        )
+        if request.user.role == "teacher":
+            enrollments = enrollments.filter(course__teacher_profile__user=request.user)
+        enrollments = list(enrollments)
+        if not enrollments:
+            return Response({"detail": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        student = enrollments[0].student_profile
+        user = student.user
+        enrollment_ids = [item.id for item in enrollments]
+        course_ids = [item.course_id for item in enrollments]
+        submissions = HomeworkSubmission.objects.filter(enrollment_id__in=enrollment_ids).select_related(
+            "assignment__course"
+        ).order_by("-submitted_at")
+        attempts = TestAttempt.objects.filter(
+            student_profile=student, test__module__course_id__in=course_ids
+        )
+        absences = Attendance.objects.filter(enrollment_id__in=enrollment_ids, is_present=False).count()
+
+        today = timezone.localdate()
+        week_points = []
+        for offset in range(5, -1, -1):
+            week_start = today - timedelta(days=today.weekday() + offset * 7)
+            week_end = week_start + timedelta(days=7)
+            average = submissions.filter(
+                reviewed_at__date__gte=week_start,
+                reviewed_at__date__lt=week_end,
+                score__isnull=False,
+            ).aggregate(value=Avg("score"))["value"]
+            week_points.append({"label": f"Week {6 - offset}", "value": round(float(average), 1) if average is not None else 0})
+
+        activities = [
+            {
+                "id": submission.id,
+                "course": submission.assignment.course.title,
+                "kind": "Test" if submission.assignment.test_id else "Task",
+                "title": submission.assignment.title,
+                "date": submission.submitted_at.date().isoformat(),
+                "score": submission.score,
+                "status": submission.status,
+            }
+            for submission in submissions[:30]
+        ]
+        courses = []
+        for enrollment in enrollments:
+            total = enrollment.course.lessons_count
+            progress = round(enrollment.lessons_completed_count / total * 100) if total else 0
+            courses.append({
+                "slug": enrollment.course.slug,
+                "title": enrollment.course.title,
+                "teacher": enrollment.course.teacher_profile.user.get_full_name(),
+                "image": absolute_media_url(enrollment.course.image, request),
+                "progress": progress,
+            })
+
+        reviewed_scores = [point["value"] for point in week_points if point["value"] > 0]
+        return Response({
+            "profile": {
+                "id": user.id,
+                "name": user.get_full_name() or user.email,
+                "email": user.email,
+                "avatar": absolute_media_url(user.avatar, request),
+                "socials": {key: getattr(user, key) for key in ("instagram", "linkedin", "facebook", "behance")},
+            },
+            "metrics": {
+                "homeworks_done": submissions.count(),
+                "tests_done": attempts.values("test_id").distinct().count(),
+                "absences": absences,
+            },
+            "activities": activities,
+            "growth": {
+                "average": round(sum(reviewed_scores) / len(reviewed_scores), 1) if reviewed_scores else 0,
+                "points": week_points,
+            },
+            "courses": courses,
+        })
 
 
 @extend_schema(tags=["Cohort Members"])
