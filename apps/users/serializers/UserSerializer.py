@@ -28,6 +28,8 @@ class UserSerializer(serializers.ModelSerializer):
             "avatar",
             "language",
             "is_blocked",
+            "is_deleted",
+            "is_email_verified",
             "date_joined",
             "profile",
             "instagram",
@@ -35,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
             "facebook",
             "behance",
         ]
-        read_only_fields = ["id", "date_joined"]
+        read_only_fields = ["id", "is_deleted", "is_email_verified", "date_joined"]
 
     def get_profile(self, obj) -> dict | None:
         serializer_class = PROFILE_SERIALIZERS.get(obj.role)
