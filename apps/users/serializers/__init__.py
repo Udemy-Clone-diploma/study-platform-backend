@@ -1,5 +1,6 @@
 from apps.users.models import ModeratorProfile, StudentProfile, TeacherProfile
 
+from .AdminNoteSerializer import AdminNoteSerializer
 from .AdminUserCreateSerializer import AdminUserCreateSerializer
 from .AdminUserUpdateSerializer import AdminUserUpdateSerializer
 from .ChangePasswordSerializer import ChangePasswordSerializer
@@ -23,6 +24,7 @@ PROFILE_MODELS = {
 }
 
 __all__ = [
+    "AdminNoteSerializer",
     "AdminUserCreateSerializer",
     "AdminUserUpdateSerializer",
     "ChangePasswordSerializer",
