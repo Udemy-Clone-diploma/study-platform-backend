@@ -25,6 +25,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             "language",
         ]
 
+    def validate_email(self, value):
+        # The implicit UniqueValidator only checks active users; a clash with a
+        # soft-deleted account must be a 400 here, not an IntegrityError.
+        if User.all_objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
     def create(self, validated_data):
         password = validated_data.pop("password")
         date_of_birth = validated_data.pop("date_of_birth", None)
