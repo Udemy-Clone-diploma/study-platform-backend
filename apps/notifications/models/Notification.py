@@ -5,9 +5,11 @@ from django.db import models
 class Notification(models.Model):
     class TypeChoices(models.TextChoices):
         NEW_MESSAGE = "new_message", "New message"
+        HOMEWORK_SUBMITTED = "homework_submitted", "Homework submitted"
         HOMEWORK_GRADED = "homework_graded", "Homework graded"
         SCHEDULE_EVENT = "schedule_event", "Schedule event"
         NEW_LESSON = "new_lesson", "New lesson"
+        MODERATION_ACTION = "moderation_action", "Moderation action"
         COURSE_COMPLETED = "course_completed", "Course completed"
 
     recipient = models.ForeignKey(

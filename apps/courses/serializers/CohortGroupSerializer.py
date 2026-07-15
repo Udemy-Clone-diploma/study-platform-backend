@@ -32,7 +32,7 @@ class CohortMemberSerializer(serializers.ModelSerializer):
 
 class EnrolledStudentSerializer(serializers.Serializer):
     enrollment_id = serializers.IntegerField(source="id")
-    student_id = serializers.IntegerField(source="student_profile.id")
+    student_id = serializers.IntegerField(source="student_profile.user.id")
     student_name = serializers.CharField(source="student_profile.user.get_full_name")
     student_email = serializers.EmailField(source="student_profile.user.email")
     student_avatar = serializers.SerializerMethodField()

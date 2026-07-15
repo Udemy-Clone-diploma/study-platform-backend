@@ -21,6 +21,7 @@ from apps.courses.views import (
     CohortMemberDetailView,
     CohortMemberListCreateView,
     CourseEnrolledStudentsView,
+    TeacherStudentDashboardView,
     EnrollmentCompleteView,
     LessonDocumentDetailView,
     LessonDocumentListView,
@@ -140,6 +141,11 @@ urlpatterns = [
         "courses/<slug:slug>/enrolled-students/",
         CourseEnrolledStudentsView.as_view(),
         name="course-enrolled-students",
+    ),
+    path(
+        "teacher/students/<int:student_id>/dashboard/",
+        TeacherStudentDashboardView.as_view(),
+        name="teacher-student-dashboard",
     ),
     path(
         "courses/<slug:slug>/students/<int:enrollment_id>/complete/",

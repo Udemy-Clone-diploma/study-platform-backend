@@ -38,6 +38,7 @@ ALLOWED_HOSTS = config(
 
 # Application definition   
 DJANGO_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -58,10 +59,12 @@ LOCAL_APPS = [
     "apps.payments",
     "apps.schedule",
     "apps.notifications",
+    "apps.chat",
 ]
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "channels",
     "django_filters",
     "corsheaders",
     "rest_framework_simplejwt.token_blacklist",
@@ -103,6 +106,7 @@ TEMPLATES = [
 AUTH_USER_MODEL = "users.User"
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # Database
@@ -268,10 +272,53 @@ EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "noreply@localhost"
 
+REDIS_URL = config("REDIS_URL", default="redis://localhost:6379/0")
+
 # Celery: notification emails are dispatched to a worker via this broker.
 # Use redis://redis:6379/0 inside the devcontainer compose (see .env.example).
-CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+CELERY_BROKER_URL = config("CELERY_BROKER_URL", default=REDIS_URL)
 CELERY_TASK_IGNORE_RESULT = True
+
+CHANNEL_REDIS_URL = config("CHANNEL_REDIS_URL", default=REDIS_URL)
+CHANNEL_REDIS_SOCKET_TIMEOUT = config(
+    "CHANNEL_REDIS_SOCKET_TIMEOUT",
+    default=10,
+    cast=float,
+)
+CHANNEL_REDIS_SOCKET_CONNECT_TIMEOUT = config(
+    "CHANNEL_REDIS_SOCKET_CONNECT_TIMEOUT",
+    default=5,
+    cast=float,
+)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                {
+                    "address": CHANNEL_REDIS_URL,
+                    "socket_timeout": CHANNEL_REDIS_SOCKET_TIMEOUT,
+                    "socket_connect_timeout": CHANNEL_REDIS_SOCKET_CONNECT_TIMEOUT,
+                },
+            ],
+        },
+    },
+}
+
+CHAT_MESSAGE_MAX_LENGTH = config("CHAT_MESSAGE_MAX_LENGTH", default=4000, cast=int)
+CHAT_ATTACHMENT_MAX_BYTES = config(
+    "CHAT_ATTACHMENT_MAX_BYTES",
+    default=25 * 1024 * 1024,
+    cast=int,
+)
+CHAT_ATTACHMENT_ALLOWED_TYPES = config(
+    "CHAT_ATTACHMENT_ALLOWED_TYPES",
+    default=(
+        "image/jpeg,image/png,image/webp,image/gif,"
+        "application/pdf,text/plain,application/zip"
+    ),
+    cast=lambda v: [item.strip() for item in v.split(",") if item.strip()],
+)
 # A single broker connection attempt must never stall a request: no retries on
 # publish, no retries establishing the connection itself (kombu retries that
 # separately from task-publish retries), and a tight socket timeout so an
