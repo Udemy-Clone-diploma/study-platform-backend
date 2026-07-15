@@ -47,6 +47,7 @@ class UserSearchView(APIView):
         )
         data = [
             {
+                "id":     u.id,
                 "email":  u.email,
                 "name":   u.get_full_name() or u.email,
                 "role":   u.role,

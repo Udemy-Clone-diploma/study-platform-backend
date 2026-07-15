@@ -1,13 +1,14 @@
 from urllib.parse import quote
 
 from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import RedirectView
-from django.views.static import serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from django.views.static import serve
 
 from apps.payments.views import StripeWebhookView
 
@@ -52,6 +53,7 @@ urlpatterns = [
     path("api/v1/", include("apps.enrollments.urls")),
     path("api/v1/", include("apps.homework.urls")),
     path("api/v1/", include("apps.notifications.urls")),
+    path("api/v1/", include("apps.chat.urls")),
     path("api/v1/", include("apps.payments.urls")),
     path("api/v1/", include("apps.reviews.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
