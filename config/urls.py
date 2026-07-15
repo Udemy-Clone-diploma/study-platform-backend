@@ -8,6 +8,7 @@ from django.urls import include, path, re_path
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from django.views.static import serve
 
 from apps.payments.views import StripeWebhookView
 
