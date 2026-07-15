@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.users.views import (
+    AdminNoteView,
     ChangePasswordView,
     LoginView,
     MeView,
@@ -27,6 +28,7 @@ router.register(r"users", UserViewSet, basename="users")
 urlpatterns = [
     path("users/top-teachers/", TopTeachersView.as_view(), name="top-teachers"),
     path("users/search/",       UserSearchView.as_view(),  name="user-search"),
+    path("users/<int:user_id>/note/", AdminNoteView.as_view(), name="user-note"),
     path("auth/register/", RegisterView.as_view(), name="auth-register"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),

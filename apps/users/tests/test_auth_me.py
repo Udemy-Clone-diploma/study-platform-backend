@@ -40,6 +40,17 @@ class MeEndpointTests(APITestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "Updated")
 
+    def test_patch_ignores_role_field(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(
+            self.url, {"role": "administrator"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, "student")
+
 
 class MeProfileTeacherTests(APITestCase):
     """PATCH /auth/me/profile/teacher/ updates the caller's TeacherProfile."""
