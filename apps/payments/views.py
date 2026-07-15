@@ -1,7 +1,10 @@
 import logging
 
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
+from django.db.models import Q
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -9,7 +12,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.payments.models import Order, Payment
+from apps.common.files import absolute_media_url
+from apps.courses.models import Cohort, Course
+from apps.payments.models import Order, Payment, PaymentInstallment
 from apps.payments.serializers import (
     CheckoutSessionCreateSerializer,
     CheckoutSessionSerializer,
@@ -25,6 +30,21 @@ from apps.users.models import User
 from apps.users.permissions import IsStudent
 
 logger = logging.getLogger(__name__)
+
+
+def _derive_order_status(order: Order) -> str:
+    """Paid/unpaid/overdue for the teacher Payments table, derived from order
+    status plus (for installment orders) whether any installment is past due."""
+    if order.status == Order.StatusChoices.PAID:
+        return "paid"
+    if order.payment_type == Order.PaymentTypeChoices.INSTALLMENTS:
+        overdue = order.installments.filter(
+            status=PaymentInstallment.StatusChoices.PENDING,
+            due_date__lt=timezone.now().date(),
+        ).exists()
+        if overdue:
+            return "overdue"
+    return "unpaid"
 
 
 @extend_schema(tags=["Payments"])
@@ -342,6 +362,124 @@ class OrderViewSet(
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+@extend_schema(tags=["Orders"])
+class TeacherOrdersView(APIView):
+    """GET /orders/teacher/ -- one row per (student, course) purchase across
+    the teacher's own courses, for the teacher dashboard Payments table."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        if user.role != User.RoleChoices.TEACHER:
+            return Response({"results": [], "courses": [], "cohorts": []})
+        teacher_profile = user.teacher_profile
+
+        course_slug = request.query_params.get("course")
+        cohort_id = request.query_params.get("cohort")
+        status_param = request.query_params.get("status")
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+        search = request.query_params.get("search")
+
+        orders = (
+            Order.objects.filter(items__course__teacher_profile=teacher_profile)
+            .distinct()
+            .select_related("student_profile__user")
+            .prefetch_related("items__course", "items__cohort", "installments")
+        )
+        if course_slug:
+            orders = orders.filter(items__course__slug=course_slug)
+        if cohort_id:
+            orders = orders.filter(items__cohort_id=cohort_id)
+        if date_from:
+            orders = orders.filter(created_at__date__gte=date_from)
+        if date_to:
+            orders = orders.filter(created_at__date__lte=date_to)
+        if search:
+            orders = orders.filter(
+                Q(student_profile__user__first_name__icontains=search)
+                | Q(student_profile__user__last_name__icontains=search)
+                | Q(student_profile__user__email__icontains=search)
+            )
+
+        rows = []
+        for order in orders.order_by("-created_at"):
+            row_status = _derive_order_status(order)
+            if status_param and row_status != status_param:
+                continue
+            # Installments are prefetched ordered by due_date (see PaymentInstallment.Meta),
+            # so the first still-pending one is the next payment the student owes.
+            next_due = next(
+                (i.due_date for i in order.installments.all() if i.status == PaymentInstallment.StatusChoices.PENDING),
+                None,
+            )
+            for item in order.items.all():
+                if not item.course_id or item.course.teacher_profile_id != teacher_profile.id:
+                    continue
+                if course_slug and item.course.slug != course_slug:
+                    continue
+                if cohort_id and str(item.cohort_id) != cohort_id:
+                    continue
+                cohort_name = None
+                if item.cohort_id:
+                    cohort_name = item.cohort.name or f"Group {item.cohort_id}"
+                rows.append({
+                    "order_id": order.id,
+                    "student_id": order.student_profile_id,
+                    "student_name": order.student_profile.user.get_full_name(),
+                    "student_avatar": absolute_media_url(order.student_profile.user.avatar, request),
+                    "course_slug": item.course.slug,
+                    "course_title": item.course_title,
+                    "cohort_id": item.cohort_id,
+                    "cohort_name": cohort_name,
+                    "payment_plan": order.get_payment_type_display(),
+                    "status": row_status,
+                    "amount": str(item.unit_amount),
+                    "currency": item.currency,
+                    "date": (order.completed_at or order.created_at).isoformat(),
+                    "due_date": next_due.isoformat() if next_due else None,
+                    "has_receipt": row_status == "paid",
+                })
+
+        courses = Course.objects.filter(teacher_profile=teacher_profile)
+        cohorts_qs = (
+            Cohort.objects.filter(course__teacher_profile=teacher_profile, course__slug=course_slug)
+            if course_slug
+            else Cohort.objects.none()
+        )
+
+        return Response({
+            "results": rows,
+            "courses": [{"slug": c.slug, "title": c.title} for c in courses],
+            "cohorts": [{"id": c.id, "name": c.name or f"Group {c.id}"} for c in cohorts_qs],
+        })
+
+
+@extend_schema(tags=["Orders"])
+class TeacherOrderInvoiceView(APIView):
+    """GET /orders/teacher/<order_id>/invoice/ -- download the invoice PDF for
+    an order that includes one of the requesting teacher's courses."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id, *args, **kwargs):
+        user = request.user
+        if user.role != User.RoleChoices.TEACHER:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        order = get_object_or_404(
+            Order.objects.filter(items__course__teacher_profile=user.teacher_profile).distinct(),
+            pk=order_id,
+        )
+        pdf = PaymentService.generate_order_invoice_pdf(order)
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="invoice-{order.id}.pdf"'
+        response["Content-Length"] = str(len(pdf))
+        return response
+
 
 @extend_schema(tags=["Payments"])
 class StripeWebhookView(APIView):
