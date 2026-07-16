@@ -32,6 +32,7 @@ class CourseViewSet(
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = CourseFilter
     ordering_fields = [
+        "title",
         "min_price",
         "students_count",
         "students_enrolled_last_30_days",

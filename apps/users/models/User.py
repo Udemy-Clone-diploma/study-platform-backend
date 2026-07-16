@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
 
 from apps.common.files import UUIDUploadTo
 
@@ -49,6 +50,7 @@ class User(AbstractUser):
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=RoleChoices.choices)
+    date_joined = models.DateTimeField(default=timezone.now, db_index=True)
     status = models.CharField(
         max_length=20,
         choices=StatusChoices.choices,

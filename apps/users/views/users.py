@@ -65,7 +65,7 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = UserFilter
-    ordering_fields = ["date_joined"]
+    ordering_fields = ["date_joined", "email"]
     ordering = ["-date_joined"]
 
     def get_queryset(self):

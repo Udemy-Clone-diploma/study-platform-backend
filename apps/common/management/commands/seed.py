@@ -263,8 +263,9 @@ class Command(BaseCommand):
         ]
 
         # Taxonomy
-        cats = {name: self._category(name) for name in
-                ("Programming", "Design", "Data", "Marketing")}
+        featured_orders = {"IT": 1, "Design": 2, "Marketing": 3}
+        cats = {name: self._category(name, featured_order=featured_orders.get(name))
+                for name in ("Design", "Marketing", "Languages", "IT", "Business")}
         tags = {name: self._tag(name) for name in
                 ("python", "django", "react", "ux", "analytics", "beginner-friendly")}
 
@@ -278,7 +279,7 @@ class Command(BaseCommand):
                      "Design clean REST endpoints with DRF",
                      "Add authentication, permissions, and tests",
                      "Deploy with Docker and CI"],
-            teacher=teachers[0], category=cats["Programming"],
+            teacher=teachers[0], category=cats["IT"],
             tags=[tags["python"], tags["django"], tags["beginner-friendly"]],
             course_type=Course.CourseTypeChoices.PROFESSION,
             level=Course.LevelChoices.BEGINNER,
@@ -345,7 +346,7 @@ class Command(BaseCommand):
             short_description="Learn modern React: components, hooks, and state management.",
             bullets=["Think in components", "Master hooks and state",
                      "Fetch data and handle effects", "Ship a real single-page app"],
-            teacher=teachers[1], category=cats["Programming"],
+            teacher=teachers[1], category=cats["IT"],
             tags=[tags["react"], tags["beginner-friendly"]],
             course_type=Course.CourseTypeChoices.PROFESSION,
             level=Course.LevelChoices.INTERMEDIATE,
@@ -415,7 +416,7 @@ class Command(BaseCommand):
             short_description="Go from spreadsheets to clean dashboards with Python and SQL.",
             bullets=["Clean and shape messy data", "Query with SQL",
                      "Analyze with pandas", "Build dashboards stakeholders trust"],
-            teacher=teachers[0], category=cats["Data"],
+            teacher=teachers[0], category=cats["IT"],
             tags=[tags["python"], tags["analytics"]],
             course_type=Course.CourseTypeChoices.QUALIFICATION,
             level=Course.LevelChoices.ADVANCED,
@@ -450,7 +451,7 @@ class Command(BaseCommand):
             short_description="Build a fullstack app: a Node and Express API with a React UI.",
             bullets=["Build a REST API with Express", "Persist data in a database",
                      "Connect a React frontend", "Wire up authentication end to end"],
-            teacher=teachers[1], category=cats["Programming"],
+            teacher=teachers[1], category=cats["IT"],
             tags=[tags["react"], tags["beginner-friendly"]],
             course_type=Course.CourseTypeChoices.PROFESSION,
             level=Course.LevelChoices.INTERMEDIATE,
@@ -477,7 +478,7 @@ class Command(BaseCommand):
             short_description="Operate Kubernetes at scale: operators, autoscaling, and observability.",
             bullets=["Write a custom operator", "Autoscale workloads",
                      "Set up observability", "Harden cluster security"],
-            teacher=teachers[1], category=cats["Programming"], tags=[tags["python"]],
+            teacher=teachers[1], category=cats["IT"], tags=[tags["python"]],
             course_type=Course.CourseTypeChoices.PROFESSION,
             level=Course.LevelChoices.ADVANCED, mode=Course.ModeChoices.SELF_LEARNING,
             delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
@@ -586,7 +587,10 @@ class Command(BaseCommand):
     # Users
 
     def _user(self, email, role, first, last, **extra):
-        user, created = User.objects.get_or_create(
+        # all_objects: the unique email constraint spans soft-deleted rows, so
+        # a demo user soft-deleted via the admin panel must be found here, not
+        # re-inserted (that would crash the seed with an IntegrityError).
+        user, created = User.all_objects.get_or_create(
             email=email,
             defaults={"role": role, "first_name": first, "last_name": last,
                       "is_email_verified": True, **extra},
@@ -616,9 +620,14 @@ class Command(BaseCommand):
 
     # Taxonomy
 
-    def _category(self, name):
-        return Category.objects.get_or_create(
-            slug=slugify(name), defaults={"name": name})[0]
+    def _category(self, name, featured_order=None):
+        cat, created = Category.objects.get_or_create(
+            slug=slugify(name),
+            defaults={"name": name, "featured_order": featured_order})
+        if not created and cat.featured_order != featured_order:
+            cat.featured_order = featured_order
+            cat.save(update_fields=["featured_order"])
+        return cat
 
     def _tag(self, name):
         return Tag.objects.get_or_create(name=name)[0]

@@ -76,8 +76,10 @@ class FeaturedCategoriesHidesDeletedTests(APITestCase):
     """The featured (top-N) categories endpoint must skip soft-deleted ones."""
 
     def test_deleted_category_not_in_featured(self):
-        live = Category.objects.create(name="Live", slug="live")
-        Category.objects.create(name="Dead", slug="dead", is_deleted=True)
+        live = Category.objects.create(name="Live", slug="live", featured_order=1)
+        Category.objects.create(
+            name="Dead", slug="dead", featured_order=2, is_deleted=True
+        )
 
         response = self.client.get(reverse("categories-featured"))
 

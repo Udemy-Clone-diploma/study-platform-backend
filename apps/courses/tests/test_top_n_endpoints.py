@@ -54,7 +54,9 @@ class TopNLimitParamTests(APITestCase):
                 status=Course.StatusChoices.PUBLISHED,
             )
         for i in range(15):
-            Category.objects.create(name=f"Cat {i:02d}", slug=f"cat-{i:02d}")
+            Category.objects.create(
+                name=f"Cat {i:02d}", slug=f"cat-{i:02d}", featured_order=i + 1
+            )
 
     def test_new_courses_default_limit(self):
         response = self.client.get(reverse("new-courses"))
