@@ -60,7 +60,7 @@ class Course(models.Model):
     # Cached MD5 of `image`'s bytes -- see LessonItem.video_hash for why.
     image_hash = models.CharField(max_length=32, blank=True, default="")
 
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, db_index=True)
 
     subtitle = models.CharField(max_length=255, blank=True, null=True)
 
@@ -149,7 +149,7 @@ class Course(models.Model):
 
     is_deleted = models.BooleanField(default=False)
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     updated_at = models.DateTimeField(auto_now=True)
 

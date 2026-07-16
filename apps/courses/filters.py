@@ -1,7 +1,7 @@
 import django_filters
 from django.db.models import Q
 
-from apps.courses.models import Course
+from apps.courses.models import Category, Course
 
 
 class CharInFilter(django_filters.BaseInFilter, django_filters.CharFilter):
@@ -10,6 +10,24 @@ class CharInFilter(django_filters.BaseInFilter, django_filters.CharFilter):
 
 class NumberInFilter(django_filters.BaseInFilter, django_filters.NumberFilter):
     pass
+
+
+class CategoryFilter(django_filters.FilterSet):
+    search = django_filters.CharFilter(method="filter_search")
+
+    def filter_search(self, queryset, name, value):
+        query = value.strip()
+
+        if not query:
+            return queryset
+
+        return queryset.filter(
+            Q(name__icontains=query) | Q(description__icontains=query)
+        )
+
+    class Meta:
+        model = Category
+        fields = ["search"]
 
 
 class CourseFilter(django_filters.FilterSet):

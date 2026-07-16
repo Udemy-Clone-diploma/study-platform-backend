@@ -32,6 +32,7 @@ from apps.courses.serializers import (
     CourseDetailSerializer,
     CourseListSerializer,
 )
+from apps.courses.services.category_service import CategoryService
 from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
 from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.users.models import User
@@ -806,5 +807,7 @@ class CourseService:
 
     @staticmethod
     def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:
-        categories = Category.objects.all()[:limit]
+        categories = CategoryService.annotate_courses_count(
+            Category.objects.filter(featured_order__isnull=False)
+        ).order_by("featured_order", "name")[:limit]
         return CategorySerializer(categories, many=True).data

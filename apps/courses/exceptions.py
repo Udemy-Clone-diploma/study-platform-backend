@@ -6,6 +6,10 @@ class CourseNotFoundError(CoursesError):
     """No active course exists for the given slug."""
 
 
+class CategoryInUseError(CoursesError):
+    """The category still has courses assigned and cannot be deleted."""
+
+
 class DuplicatePricingKindError(CoursesError):
     """A PricingPlan already exists for this course and kind."""
 
