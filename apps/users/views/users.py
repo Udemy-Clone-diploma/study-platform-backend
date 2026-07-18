@@ -1,3 +1,5 @@
+from django.db.models import Value
+from django.db.models.functions import Concat
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import filters, status, viewsets
@@ -65,15 +67,20 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = UserFilter
-    ordering_fields = ["date_joined", "email"]
+    ordering_fields = ["date_joined", "email", "full_name", "first_name", "last_name"]
     ordering = ["-date_joined"]
 
     def get_queryset(self):
         # The admin list shows deleted users by default (the is_deleted
         # filter narrows to true/false on demand).
         if self.action in ("list", "restore"):
-            return User.all_objects.all()
-        return User.objects.all()
+            queryset = User.all_objects.all()
+        else:
+            queryset = User.objects.all()
+        # Backs ?ordering=full_name for the admin table's User column.
+        return queryset.annotate(
+            full_name=Concat("first_name", Value(" "), "last_name")
+        )
 
     def get_serializer_class(self):
         if self.action == "create":
