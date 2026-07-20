@@ -44,6 +44,8 @@ ENV PYTHONUNBUFFERED=1
 
 ENV PYTHONPATH=/app
 
+ENV GUNICORN_WORKERS=3
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
@@ -53,4 +55,4 @@ EXPOSE 8000
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["sh", "-c", "daphne -b 0.0.0.0 -p 8000 config.asgi:application"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --worker-class gevent --access-logfile - --error-logfile - --timeout 120 --max-requests 1000 --max-requests-jitter 100 config.wsgi:application"]
