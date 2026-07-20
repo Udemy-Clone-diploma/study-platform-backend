@@ -86,6 +86,68 @@ class UserListFilterTests(APITestCase):
         self.assertEqual(emails[0], "admin_setup@example.com")
         self.assertEqual(emails[-1], "blocked@example.com")
 
+    def test_ordering_by_full_name_ascending(self):
+        # ?ordering=full_name is backed by the Concat annotation on the queryset;
+        # admin_setup has empty names, so its lone space sorts first.
+        response = self.client.get(self.url, {"ordering": "full_name"})
+        self.assertEqual(
+            self._result_emails(response),
+            [
+                "admin_setup@example.com",
+                "blocked@example.com",
+                "jane@example.com",
+                "john@example.com",
+            ],
+        )
+
+    def test_ordering_by_full_name_descending(self):
+        response = self.client.get(self.url, {"ordering": "-full_name"})
+        self.assertEqual(
+            self._result_emails(response),
+            [
+                "john@example.com",
+                "jane@example.com",
+                "blocked@example.com",
+                "admin_setup@example.com",
+            ],
+        )
+
+    def test_ordering_by_email(self):
+        response = self.client.get(self.url, {"ordering": "email"})
+        self.assertEqual(
+            self._result_emails(response),
+            [
+                "admin_setup@example.com",
+                "blocked@example.com",
+                "jane@example.com",
+                "john@example.com",
+            ],
+        )
+
+    def test_ordering_by_first_name(self):
+        response = self.client.get(self.url, {"ordering": "first_name"})
+        self.assertEqual(
+            self._result_emails(response),
+            [
+                "admin_setup@example.com",
+                "blocked@example.com",
+                "jane@example.com",
+                "john@example.com",
+            ],
+        )
+
+    def test_ordering_by_last_name(self):
+        response = self.client.get(self.url, {"ordering": "last_name"})
+        self.assertEqual(
+            self._result_emails(response),
+            [
+                "admin_setup@example.com",
+                "blocked@example.com",
+                "jane@example.com",
+                "john@example.com",
+            ],
+        )
+
     def test_params_combine(self):
         response = self.client.get(
             self.url,
