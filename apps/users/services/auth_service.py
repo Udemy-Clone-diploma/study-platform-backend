@@ -38,7 +38,7 @@ class AuthService:
     def login(cls, email: str, password: str) -> dict:
         """Validates credentials and user state. Returns JWT token pair."""
         try:
-            user = User.all_objects.get(email=email)
+            user = User.all_objects.get(email__iexact=email)
         except User.DoesNotExist:
             raise AuthenticationError("Invalid email or password.")
 
@@ -111,7 +111,7 @@ class AuthService:
     def resend_verification_email(email: str) -> None:
         """Sends a verification email if the account exists, is active, and unverified."""
         try:
-            user = User.all_objects.get(email=email, is_deleted=False, is_blocked=False)
+            user = User.all_objects.get(email__iexact=email, is_deleted=False, is_blocked=False)
         except User.DoesNotExist:
             return
 
@@ -122,7 +122,7 @@ class AuthService:
     def request_password_reset(email: str) -> None:
         """Sends a password reset email if the account exists, is active, and email verified."""
         try:
-            user = User.all_objects.get(email=email, is_deleted=False, is_blocked=False)
+            user = User.all_objects.get(email__iexact=email, is_deleted=False, is_blocked=False)
             if user.is_email_verified:
                 EmailService.send_password_reset_email(user)
         except User.DoesNotExist:
@@ -183,7 +183,7 @@ class AuthService:
         """Resends the invitation email if a pending, unactivated teacher account exists."""
         try:
             user = User.all_objects.get(
-                email=email,
+                email__iexact=email,
                 role=User.RoleChoices.TEACHER,
                 status=User.StatusChoices.INACTIVE,
                 is_email_verified=False,

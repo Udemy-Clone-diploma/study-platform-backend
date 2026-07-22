@@ -12,10 +12,10 @@ class TeacherApplicationService:
     @staticmethod
     def email_conflict(email: str) -> str | None:
         """Returns the reason the email can't be used to apply, or None if it's free."""
-        if User.all_objects.filter(email=email).exists():
+        if User.all_objects.filter(email__iexact=email).exists():
             return TeacherApplicationMessages.EMAIL_ALREADY_REGISTERED
         if TeacherApplication.objects.filter(
-            email=email,
+            email__iexact=email,
             status__in=[
                 TeacherApplication.StatusChoices.PENDING,
                 TeacherApplication.StatusChoices.APPROVED,
