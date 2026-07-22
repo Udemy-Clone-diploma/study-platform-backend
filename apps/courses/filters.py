@@ -2,6 +2,7 @@ import django_filters
 from django.db.models import Q
 
 from apps.courses.models import Category, Course
+from apps.users.models import User
 
 
 class CharInFilter(django_filters.BaseInFilter, django_filters.CharFilter):
@@ -48,6 +49,28 @@ class CourseFilter(django_filters.FilterSet):
     rating_min = django_filters.NumberFilter(field_name="rating_avg", lookup_expr="gte")
     plan_kind = django_filters.CharFilter(method="filter_plan_kind")
     search = django_filters.CharFilter(method="filter_search")
+    status = django_filters.CharFilter(method="filter_status")
+
+    def filter_status(self, queryset, name, value):
+        # Admin-only status tabs. Ignored (not a 400) for everyone else so the
+        # public catalog stays published-only even with a handcrafted ?status=;
+        # unknown values are dropped, pending_edit is internal-only.
+        user = getattr(self.request, "user", None)
+        if (
+            user is None
+            or not user.is_authenticated
+            or user.role != User.RoleChoices.ADMINISTRATOR
+        ):
+            return queryset
+        statuses = [
+            item
+            for item in (part.strip() for part in value.split(","))
+            if item in Course.StatusChoices.values
+            and item != Course.StatusChoices.PENDING_EDIT
+        ]
+        if not statuses:
+            return queryset
+        return queryset.filter(status__in=statuses)
 
     def filter_plan_kind(self, queryset, name, value):
         if not value:
@@ -91,4 +114,5 @@ class CourseFilter(django_filters.FilterSet):
             "rating_min",
             "plan_kind",
             "search",
+            "status",
         ]
