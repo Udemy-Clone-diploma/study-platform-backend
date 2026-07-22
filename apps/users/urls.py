@@ -20,6 +20,18 @@ from apps.users.views import (
     PasswordResetRequestView,
     PasswordResetConfirmView,
     PasswordResetValidateView,
+    PublicUserProfileView,
+    AdminUserProfileView,
+    UserReportView,
+    UserReportUnassignedListView,
+    UserReportMineListView,
+    UserReportEscalatedListView,
+    UserReportAllListView,
+    UserReportClaimView,
+    UserReportModeratorActionView,
+    UserReportAdminActionView,
+    ModeratorDashboardView,
+    AdminModeratorDashboardView,
 )
 
 router = DefaultRouter()
@@ -28,6 +40,66 @@ router.register(r"users", UserViewSet, basename="users")
 urlpatterns = [
     path("users/top-teachers/", TopTeachersView.as_view(), name="top-teachers"),
     path("users/search/",       UserSearchView.as_view(),  name="user-search"),
+    path(
+        "users/<int:user_id>/public-profile/",
+        PublicUserProfileView.as_view(),
+        name="user-public-profile",
+    ),
+    path(
+        "users/<int:user_id>/admin-profile/",
+        AdminUserProfileView.as_view(),
+        name="user-admin-profile",
+    ),
+    path(
+        "users/<int:user_id>/report/",
+        UserReportView.as_view(),
+        name="user-report",
+    ),
+    path(
+        "users/moderation/reports/unassigned/",
+        UserReportUnassignedListView.as_view(),
+        name="user-report-moderation-unassigned",
+    ),
+    path(
+        "users/moderation/reports/mine/",
+        UserReportMineListView.as_view(),
+        name="user-report-moderation-mine",
+    ),
+    path(
+        "users/moderation/reports/all/",
+        UserReportAllListView.as_view(),
+        name="user-report-moderation-all",
+    ),
+    path(
+        "users/moderation/reports/escalated/",
+        UserReportEscalatedListView.as_view(),
+        name="user-report-moderation-escalated",
+    ),
+    path(
+        "users/moderation/reports/<int:report_id>/claim/",
+        UserReportClaimView.as_view(),
+        name="user-report-moderation-claim",
+    ),
+    path(
+        "users/moderation/reports/<int:report_id>/moderator-action/",
+        UserReportModeratorActionView.as_view(),
+        name="user-report-moderator-action",
+    ),
+    path(
+        "users/moderation/reports/<int:report_id>/admin-action/",
+        UserReportAdminActionView.as_view(),
+        name="user-report-admin-action",
+    ),
+    path(
+        "users/moderation/dashboard/",
+        ModeratorDashboardView.as_view(),
+        name="moderator-dashboard-statistics",
+    ),
+    path(
+        "users/moderation/moderators/<int:user_id>/dashboard/",
+        AdminModeratorDashboardView.as_view(),
+        name="admin-moderator-dashboard-statistics",
+    ),
     path("users/<int:user_id>/note/", AdminNoteView.as_view(), name="user-note"),
     path("auth/register/", RegisterView.as_view(), name="auth-register"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),

@@ -1,4 +1,5 @@
 from .chat_views import (
+    ChatAttachmentListView,
     ChatMessageAttachmentView,
     ChatMessageDetailView,
     ChatMessageListCreateView,
@@ -13,6 +14,7 @@ from .chat_views import (
 )
 
 __all__ = [
+    "ChatAttachmentListView",
     "ChatMessageAttachmentView",
     "ChatMessageDetailView",
     "ChatMessageListCreateView",

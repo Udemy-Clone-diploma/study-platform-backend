@@ -28,3 +28,23 @@ class SelfActionError(UsersError):
 
 class LastAdministratorError(UsersError):
     """The action would leave the platform without an active administrator."""
+
+
+class CannotReportSelfError(UsersError):
+    """A user attempted to report their own profile."""
+
+
+class UserAlreadyReportedError(UsersError):
+    """The reporter has already reported this user."""
+
+
+class UserReportNotFoundError(UsersError):
+    """The requested user report does not exist."""
+
+
+class UserReportConflictError(UsersError):
+    """The requested report transition conflicts with its current state."""
+
+
+class UserReportPermissionError(UsersError):
+    """The actor is not allowed to process this report."""
