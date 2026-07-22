@@ -54,6 +54,7 @@ LOCAL_APPS = [
     "apps.cart",
     "apps.curriculum",
     "apps.enrollments",
+    "apps.certificates",
     "apps.homework",
     "apps.reviews",
     "apps.payments",
@@ -171,6 +172,11 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "email_verification": "5/hour",
         "password_reset": "5/hour",
+        # Public and unauthenticated, so this is per IP -- which means a whole
+        # office behind one NAT address shares the budget. Set high enough for a
+        # company batch-checking candidates; enumeration is stopped by the
+        # serial's ~729-million keyspace, not by this.
+        "certificate_verify": "300/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",

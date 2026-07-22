@@ -51,6 +51,7 @@ urlpatterns = [
     path("api/v1/", include("apps.cart.urls")),
     path("api/v1/", include("apps.curriculum.urls")),
     path("api/v1/", include("apps.enrollments.urls")),
+    path("api/v1/", include("apps.certificates.urls")),
     path("api/v1/", include("apps.homework.urls")),
     path("api/v1/", include("apps.notifications.urls")),
     path("api/v1/", include("apps.chat.urls")),
