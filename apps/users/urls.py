@@ -20,15 +20,30 @@ from apps.users.views import (
     PasswordResetRequestView,
     PasswordResetConfirmView,
     PasswordResetValidateView,
+    TeacherInvitationConfirmView,
+    TeacherInvitationValidateView,
+    TeacherInvitationResendView,
+    TeacherApplicationSubmitView,
+    TeacherApplicationEmailCheckView,
+    TeacherApplicationModerationViewSet,
 )
 
 router = DefaultRouter()
 router.register(r"users", UserViewSet, basename="users")
+router.register(r"teacher-applications", TeacherApplicationModerationViewSet, basename="teacher-applications")
 
 urlpatterns = [
     path("users/top-teachers/", TopTeachersView.as_view(), name="top-teachers"),
     path("users/search/",       UserSearchView.as_view(),  name="user-search"),
     path("users/<int:user_id>/note/", AdminNoteView.as_view(), name="user-note"),
+    path(
+        "teacher-applications/submit/",
+        TeacherApplicationSubmitView.as_view(),
+        name="teacher-application-submit"),
+    path(
+        "teacher-applications/check-email/",
+        TeacherApplicationEmailCheckView.as_view(),
+        name="teacher-application-check-email"),
     path("auth/register/", RegisterView.as_view(), name="auth-register"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
@@ -56,7 +71,19 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(), 
         name="auth-password-reset-confirm"),
     path(
-        "auth/password-reset/<str:uidb64>/<str:token>/validate/", 
-        PasswordResetValidateView.as_view(), 
+        "auth/password-reset/<str:uidb64>/<str:token>/validate/",
+        PasswordResetValidateView.as_view(),
         name="auth-password-reset-validate"),
+    path(
+        "auth/teacher-invitation/<str:uidb64>/<str:token>/",
+        TeacherInvitationConfirmView.as_view(),
+        name="auth-teacher-invitation-confirm"),
+    path(
+        "auth/teacher-invitation/<str:uidb64>/<str:token>/validate/",
+        TeacherInvitationValidateView.as_view(),
+        name="auth-teacher-invitation-validate"),
+    path(
+        "auth/teacher-invitation/resend/",
+        TeacherInvitationResendView.as_view(),
+        name="auth-teacher-invitation-resend"),
 ]

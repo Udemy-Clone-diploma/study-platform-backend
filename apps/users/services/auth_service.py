@@ -11,7 +11,11 @@ from apps.users.exceptions import (
 )
 from apps.users.models import User
 from apps.users.services.email_service import EmailService
-from apps.users.tokens import email_verification_token, password_reset_token
+from apps.users.tokens import (
+    email_verification_token,
+    password_reset_token,
+    teacher_invitation_token,
+)
 
 
 class AuthService:
@@ -34,7 +38,7 @@ class AuthService:
     def login(cls, email: str, password: str) -> dict:
         """Validates credentials and user state. Returns JWT token pair."""
         try:
-            user = User.all_objects.get(email=email)
+            user = User.all_objects.get(email__iexact=email)
         except User.DoesNotExist:
             raise AuthenticationError("Invalid email or password.")
 
@@ -107,7 +111,7 @@ class AuthService:
     def resend_verification_email(email: str) -> None:
         """Sends a verification email if the account exists, is active, and unverified."""
         try:
-            user = User.all_objects.get(email=email, is_deleted=False, is_blocked=False)
+            user = User.all_objects.get(email__iexact=email, is_deleted=False, is_blocked=False)
         except User.DoesNotExist:
             return
 
@@ -118,7 +122,7 @@ class AuthService:
     def request_password_reset(email: str) -> None:
         """Sends a password reset email if the account exists, is active, and email verified."""
         try:
-            user = User.all_objects.get(email=email, is_deleted=False, is_blocked=False)
+            user = User.all_objects.get(email__iexact=email, is_deleted=False, is_blocked=False)
             if user.is_email_verified:
                 EmailService.send_password_reset_email(user)
         except User.DoesNotExist:
@@ -151,4 +155,55 @@ class AuthService:
         """Validates token and sets the new password."""
         user = cls._resolve_user_for_password_reset(uidb64, token)
         user.set_password(password)
+        user.save()
+
+    @staticmethod
+    def _resolve_user_for_teacher_invitation(uidb64: str, token: str) -> User:
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.all_objects.get(pk=uid)
+        except (ValueError, User.DoesNotExist):
+            raise InvalidTokenError()
+
+        if user.is_deleted or user.is_blocked:
+            raise InvalidTokenError()
+
+        if not teacher_invitation_token.check_token(user, token):
+            raise InvalidTokenError()
+
+        return user
+
+    @classmethod
+    def validate_teacher_invitation_token(cls, uidb64: str, token: str) -> None:
+        """Validates a teacher invitation token without making any changes."""
+        cls._resolve_user_for_teacher_invitation(uidb64, token)
+
+    @staticmethod
+    def resend_teacher_invitation_email(email: str) -> None:
+        """Resends the invitation email if a pending, unactivated teacher account exists."""
+        try:
+            user = User.all_objects.get(
+                email__iexact=email,
+                role=User.RoleChoices.TEACHER,
+                status=User.StatusChoices.INACTIVE,
+                is_email_verified=False,
+                is_deleted=False,
+                is_blocked=False,
+            )
+        except User.DoesNotExist:
+            return
+
+        EmailService.send_teacher_invitation_email(user)
+
+    @classmethod
+    def confirm_teacher_invitation(cls, uidb64: str, token: str, password: str) -> None:
+        """Sets the teacher's own password and activates the account.
+
+        Since the link could only have reached the applicant's inbox, using
+        it also counts as confirming the email — one step does both.
+        """
+        user = cls._resolve_user_for_teacher_invitation(uidb64, token)
+        user.set_password(password)
+        user.is_email_verified = True
+        user.status = User.StatusChoices.ACTIVE
         user.save()
