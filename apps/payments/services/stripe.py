@@ -70,6 +70,17 @@ class StripeService(PaymentBaseService):
         )
 
     @classmethod
+    def _create_stripe_refund(cls, *, payment: Payment, amount, reason: str):
+        stripe = cls._load_stripe()
+        return stripe.Refund.create(
+            payment_intent=payment.stripe_payment_intent_id,
+            amount=cls._to_minor_units(amount),
+            # Stripe's own `reason` accepts only its three fixed codes, so the
+            # administrator's free text rides along as metadata instead.
+            metadata={"payment_id": str(payment.id), "reason": reason},
+        )
+
+    @classmethod
     def _retrieve_stripe_payment_intent(cls, payment_intent_id: str):
         stripe = cls._load_stripe()
         return stripe.PaymentIntent.retrieve(payment_intent_id)

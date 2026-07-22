@@ -5,8 +5,10 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema
-from rest_framework import mixins, status, viewsets
+from django.utils.dateparse import parse_date
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -14,6 +16,7 @@ from rest_framework.views import APIView
 
 from apps.common.files import absolute_media_url
 from apps.courses.models import Cohort, Course
+from apps.payments.filters import PaymentFilter
 from apps.payments.models import Order, Payment, PaymentInstallment
 from apps.payments.serializers import (
     CheckoutSessionCreateSerializer,
@@ -22,12 +25,16 @@ from apps.payments.serializers import (
     PaymentIntentCreateSerializer,
     PaymentIntentSerializer,
     PaymentIntentStatusSerializer,
+    PaymentCategoryRevenueSerializer,
     PaymentIntentStatusSyncSerializer,
     PaymentSerializer,
+    PaymentSummarySerializer,
+    PaymentTimeseriesPointSerializer,
+    RefundCreateSerializer,
 )
-from apps.payments.services import PaymentError, PaymentService
+from apps.payments.services import PaymentError, PaymentService, RefundError
 from apps.users.models import User
-from apps.users.permissions import IsStudent
+from apps.users.permissions import IsAdmin, IsStudent
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +63,10 @@ class PaymentViewSet(
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post", "head", "options"]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = PaymentFilter
+    ordering_fields = ["created_at", "amount", "status"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         queryset = (
@@ -73,6 +84,7 @@ class PaymentViewSet(
                 "order__items__course",
                 "order__items__pricing_plan",
                 "order__installments",
+                "refunds",
             )
         )
         user = self.request.user
@@ -87,7 +99,118 @@ class PaymentViewSet(
             "sync_payment_intent_status",
         }:
             return [IsStudent()]
+        if self.action in {"summary", "timeseries", "revenue_by_category", "refund"}:
+            return [IsAdmin()]
         return super().get_permissions()
+
+    @extend_schema(
+        responses={200: PaymentSummarySerializer},
+        summary="Aggregated payment totals for the admin Finance panel",
+    )
+    @action(detail=False, methods=["get"], url_path="summary")
+    def summary(self, request, *args, **kwargs):
+        summary = PaymentService.payment_summary(self.filter_queryset(self.get_queryset()))
+        summary["previous"] = self._previous_summary(request)
+        return Response(PaymentSummarySerializer(summary).data)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "group_by",
+                str,
+                description="Bucket size: day (default), week or month.",
+            )
+        ],
+        responses={200: PaymentTimeseriesPointSerializer(many=True)},
+        summary="Gross revenue over time for the admin Finance panel chart",
+    )
+    @action(detail=False, methods=["get"], url_path="summary/timeseries")
+    def timeseries(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        date_from, date_to = self._requested_window(request)
+        try:
+            points = PaymentService.payment_timeseries(
+                queryset,
+                request.query_params.get("group_by", "day"),
+                date_from=date_from,
+                date_to=date_to,
+            )
+        except PaymentError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(PaymentTimeseriesPointSerializer(points, many=True).data)
+
+    @extend_schema(
+        responses={200: PaymentCategoryRevenueSerializer(many=True)},
+        summary="Gross revenue split by course category, for the admin Finance donut",
+    )
+    @action(detail=False, methods=["get"], url_path="revenue-by-category")
+    def revenue_by_category(self, request, *args, **kwargs):
+        rows = PaymentService.revenue_by_category(
+            self.filter_queryset(self.get_queryset())
+        )
+        return Response(PaymentCategoryRevenueSerializer(rows, many=True).data)
+
+    def _requested_window(self, request):
+        """The date range the caller asked for. Already validated by
+        PaymentFilter, which 400s on a malformed date before this runs."""
+        return (
+            parse_date(request.query_params.get("date_from") or ""),
+            parse_date(request.query_params.get("date_to") or ""),
+        )
+
+    def _previous_summary(self, request):
+        date_from, date_to = self._requested_window(request)
+        if not date_from or not date_to:
+            return None
+
+        previous_from, previous_to = PaymentService.previous_window(date_from, date_to)
+        # Re-run the same filters with only the window swapped, so the
+        # comparison differs from the current period in nothing else.
+        params = request.query_params.copy()
+        params["date_from"] = previous_from.isoformat()
+        params["date_to"] = previous_to.isoformat()
+        queryset = PaymentFilter(params, queryset=self.get_queryset(), request=request).qs
+
+        return {
+            "date_from": previous_from,
+            "date_to": previous_to,
+            **PaymentService.payment_summary(queryset),
+        }
+
+    @extend_schema(
+        request=RefundCreateSerializer,
+        responses={200: PaymentSerializer},
+        summary="Refund a payment through Stripe (administrators only)",
+    )
+    @action(detail=True, methods=["post"], url_path="refund")
+    def refund(self, request, *args, **kwargs):
+        payment = self.get_object()
+        serializer = RefundCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            PaymentService.refund_payment(
+                payment=payment,
+                amount=serializer.validated_data.get("amount"),
+                reason=serializer.validated_data["reason"],
+                created_by=request.user,
+            )
+        except RefundError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        except ImproperlyConfigured as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:
+            logger.exception("Could not refund payment %s.", payment.id)
+            return Response(
+                {"detail": "Could not refund the payment through Stripe."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # Re-read so the response carries a fresh `refunds` prefetch, which the
+        # instance from get_object() cached before the new row existed.
+        refunded = self.get_queryset().get(pk=payment.pk)
+        return Response(self.get_serializer(refunded).data)
 
     @extend_schema(summary="Download a receipt PDF for a successful payment")
     @action(detail=True, methods=["get"], url_path="receipt")
