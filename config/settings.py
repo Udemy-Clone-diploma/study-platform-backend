@@ -172,10 +172,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "email_verification": "5/hour",
         "password_reset": "5/hour",
-        # Public and unauthenticated, so this is per IP -- which means a whole
-        # office behind one NAT address shares the budget. Set high enough for a
-        # company batch-checking candidates; enumeration is stopped by the
-        # serial's ~729-million keyspace, not by this.
+        "teacher_application": "5/hour",
+        "teacher_application_check": "30/hour",
+        "teacher_invitation_resend": "5/hour",
         "certificate_verify": "300/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

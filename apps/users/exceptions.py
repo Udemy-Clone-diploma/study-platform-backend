@@ -28,3 +28,7 @@ class SelfActionError(UsersError):
 
 class LastAdministratorError(UsersError):
     """The action would leave the platform without an active administrator."""
+
+
+class ApplicationAlreadyDecidedError(UsersError):
+    """The teacher application has already been approved or cancelled."""
