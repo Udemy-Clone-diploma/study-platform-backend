@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -48,6 +49,10 @@ class ArticleListCreateView(ListCreateAPIView):
         if category_slug:
             qs = qs.filter(category__slug=category_slug)
 
+        search = request.query_params.get("search")
+        if search:
+            qs = qs.filter(Q(title__icontains=search) | Q(subtitle__icontains=search))
+
         is_staff = user.is_authenticated and user.role in _STAFF_ROLES
 
         assigned = request.query_params.get("assigned")
@@ -56,7 +61,12 @@ class ArticleListCreateView(ListCreateAPIView):
             if assigned == "unassigned":
                 return qs.filter(moderator_profile__isnull=True).order_by("created_at")
             if assigned == "mine":
-                return qs.filter(moderator_profile=_moderator_profile(user)).order_by("-updated_at")
+                moderator_profile = _moderator_profile(user)
+                # An administrator without a ModeratorProfile would otherwise match
+                # moderator_profile=None here, which is exactly the "unassigned" queryset.
+                if moderator_profile is None:
+                    return qs.none()
+                return qs.filter(moderator_profile=moderator_profile).order_by("-updated_at")
 
         if request.query_params.get("mine") == "true":
             if not user.is_authenticated:
@@ -71,7 +81,9 @@ class ArticleListCreateView(ListCreateAPIView):
         if is_staff and status_param:
             return qs.filter(status=status_param)
 
-        return qs.filter(status=Article.StatusChoices.PUBLISHED)
+        # Published articles are ordered by when they actually went live, not created_at
+        # (which reflects the draft's original creation time, not its publish date).
+        return qs.filter(status=Article.StatusChoices.PUBLISHED).order_by("-published_at")
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

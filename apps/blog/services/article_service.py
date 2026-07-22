@@ -136,12 +136,12 @@ class ArticleService:
 
     @classmethod
     def delete_article(cls, article: Article, user: User) -> None:
-        is_staff = user.role in _STAFF_ROLES
-        if not is_staff:
-            if article.author_id != user.id:
-                raise BlogError("Only the article's author (or staff) can delete it.")
-            if article.status in (Article.StatusChoices.REVIEW, Article.StatusChoices.PUBLISHED):
-                raise BlogError("Withdraw or archive this article before deleting it.")
+        # Staff can archive any article (see archive_article) but only ever delete their own --
+        # deleting someone else's work outright isn't a moderation action, just archiving is.
+        if article.author_id != user.id:
+            raise BlogError("Only the article's author can delete it. Staff can archive it instead.")
+        if article.status in (Article.StatusChoices.REVIEW, Article.StatusChoices.PUBLISHED):
+            raise BlogError("Withdraw or archive this article before deleting it.")
         article.is_deleted = True
         article.save(update_fields=["is_deleted", "updated_at"])
 

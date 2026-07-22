@@ -8,7 +8,7 @@ from apps.users.models import ModeratorProfile
 
 from .BlogCategory import BlogCategory
 
-ARTICLE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "svg"]
+ARTICLE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "jfif", "webp", "svg"]
 
 
 class Article(models.Model):

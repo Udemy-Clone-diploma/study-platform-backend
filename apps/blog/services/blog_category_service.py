@@ -1,3 +1,6 @@
+from django.db import transaction
+from django.db.models import Count, Q, QuerySet
+from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.blog.exceptions import BlogCategoryInUseError
@@ -7,6 +10,14 @@ SLUG_MAX_LENGTH = BlogCategory._meta.get_field("slug").max_length
 
 
 class BlogCategoryService:
+    @staticmethod
+    def annotate_articles_count(queryset: QuerySet) -> QuerySet:
+        # Reverse-FK annotations bypass ActiveManager, so soft-deleted
+        # articles must be excluded explicitly.
+        return queryset.annotate(
+            articles_count=Count("articles", filter=Q(articles__is_deleted=False)),
+        )
+
     @classmethod
     def create_category(cls, validated_data: dict) -> BlogCategory:
         if not validated_data.get("slug"):
@@ -24,14 +35,27 @@ class BlogCategoryService:
         category.save()
         return category
 
-    @staticmethod
-    def delete_category(category: BlogCategory) -> None:
-        count = Article.objects.filter(category=category).count()
+    @classmethod
+    @transaction.atomic
+    def delete_category(
+        cls,
+        category: BlogCategory,
+        *,
+        archive_articles: bool = False,
+        move_to: BlogCategory | None = None,
+    ) -> None:
+        articles = Article.objects.filter(category=category)
+        count = articles.count()
         if count:
-            noun = "article" if count == 1 else "articles"
-            raise BlogCategoryInUseError(
-                f"Category is assigned to {count} {noun}. Move them first.",
-            )
+            if archive_articles:
+                articles.update(status=Article.StatusChoices.ARCHIVED, updated_at=timezone.now())
+            elif move_to is not None:
+                articles.update(category=move_to, updated_at=timezone.now())
+            else:
+                noun = "article" if count == 1 else "articles"
+                raise BlogCategoryInUseError(
+                    f"Category is assigned to {count} {noun}. Move them first.",
+                )
         category.is_deleted = True
         category.save(update_fields=["is_deleted"])
 

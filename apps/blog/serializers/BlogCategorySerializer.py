@@ -4,9 +4,14 @@ from apps.blog.models import BlogCategory
 
 
 class BlogCategorySerializer(serializers.ModelSerializer):
+    # Populated by BlogCategoryService.annotate_articles_count; DRF omits the key
+    # when the serializer runs on an instance without the annotation (e.g. the
+    # category embedded in article payloads).
+    articles_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = BlogCategory
-        fields = ["id", "name", "slug", "description", "order"]
+        fields = ["id", "name", "slug", "description", "order", "articles_count"]
 
 
 class BlogCategoryCreateUpdateSerializer(serializers.ModelSerializer):

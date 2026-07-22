@@ -32,15 +32,18 @@ LOREM = [
 
 # (title, subtitle) pairs, 8 per category slug (matches apps/blog/migrations/0002_seed_categories.py).
 BLOG_TOPICS: dict[str, list[tuple[str, str]]] = {
+    # Student Stories are staff-authored profiles: title is the student's name, subtitle
+    # is their one-line hook, and STUDENT_STORY_BODIES below carries their real narrative
+    # (unlike every other category, which just gets random LOREM paragraphs).
     "student-stories": [
-        ("From Marketing to UX: My Career Pivot", "How switching fields after five years led to a design role I love."),
-        ("How I Landed My First Junior Developer Job", "No CS degree, no problem — here's the roadmap that worked for me."),
-        ("Teaching Myself to Code at 35", "It's never too late to start a new career in tech."),
-        ("From Bootcamp Graduate to Team Lead in Two Years", "Lessons learned scaling from junior to leading a small team."),
-        ("Why I Left Finance for Data Analytics", "Spreadsheets got me hooked on numbers — now I build dashboards for a living."),
-        ("My First Freelance Client (and What Went Wrong)", "Mistakes I made so you don't have to."),
-        ("Studying While Working Full-Time: What Actually Worked", "Time-blocking, accountability, and saying no to everything else."),
-        ("Building a Portfolio With Zero Experience", "Three side projects that got me hired."),
+        ("Priya Sharma", "Five years in marketing taught me everything except how to say I wanted more — until I found UX."),
+        ("Daniel Kim", "No computer science degree, no internship, no connections — just a plan and eight months of consistency."),
+        ("Sofia Martinez", "Thirty-five, no technical background, and convinced it was too late — I was wrong."),
+        ("Olena Petrenko", "Two years ago I was the newest bootcamp graduate on the team. Now I lead it."),
+        ("Marcus Bailey", "Spreadsheets were supposed to be temporary. They turned into a career I never planned for."),
+        ("Aiden Walsh", "My first paying client taught me more about freelancing than any course did — mostly through my own mistakes."),
+        ("Grace Okafor", "Studying after a full workday sounded impossible until I stopped trying to do it the way everyone else did."),
+        ("Liam Anderson", "No agency experience, no client work, no design job — just three side projects and a decision to start anyway."),
     ],
     "career-growth": [
         ("Negotiating Your First Raise", "A practical script for a conversation most people avoid."),
@@ -114,6 +117,51 @@ BLOG_TOPICS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
+# Real first-person narratives for Student Stories, keyed by slugify(name) — everything else
+# in the category uses LOREM, but these are meant to read as actual student journeys.
+STUDENT_STORY_BODIES: dict[str, list[str]] = {
+    "priya-sharma": [
+        "I spent five years writing campaign briefs before I admitted I was more interested in why people clicked than what made them click. Marketing gave me a front-row seat to user behavior, but I never got to shape the experience itself.",
+        "I enrolled in a part-time UX course while still working full-time, sketching wireframes during my lunch break and testing prototypes on coworkers who had no idea they were my first users. The hardest part wasn't the software — it was unlearning the instinct to sell and learning to listen instead.",
+        "Six months after finishing the program, I landed a junior UX role at a fintech startup. My manager still jokes that I'm the only designer on the team who can also write the launch copy. Turns out the pivot wasn't a departure from marketing — it was a deeper way into it.",
+    ],
+    "daniel-kim": [
+        "Everyone told me I needed a CS degree to get hired as a developer. I didn't have one, and going back to school for four years wasn't an option, so I built my own roadmap instead: two structured courses, one real project a month, and a public GitHub profile I updated every week.",
+        "The rejections came fast — eleven of them before my first interview. What changed things was building a small tool that solved an actual problem for a local business, not another to-do app. It gave me something real to talk about instead of tutorials I'd copied.",
+        "I got my offer as a junior developer eight months after writing my first line of code. I still don't have a degree. I have a portfolio, a habit of shipping, and proof that the roadmap works if you follow it long enough to matter.",
+    ],
+    "sofia-martinez": [
+        "I was thirty-five when I decided to learn to code, and every voice in my head told me I'd missed the window. I had a mortgage, a full-time job in retail management, and exactly zero hours of free time to spare.",
+        "I started with fifteen minutes before work and thirty minutes before bed. It was slow. Some weeks I only finished one lesson. But slow was still forward, and after a year of showing up in small pieces, the fundamentals finally clicked.",
+        "I'm two years in now, working as a backend developer at a logistics company. My advice to anyone who thinks they've started too late: the only real deadline is the one you set for yourself, and mine turned out to be fifteen minutes a day.",
+    ],
+    "olena-petrenko": [
+        "I finished my coding bootcamp with more anxiety than confidence. My first week on the job, I was convinced everyone could tell I'd only been writing code for four months.",
+        "What got me through wasn't talent — it was asking questions out loud instead of pretending I understood, and volunteering for the parts of projects nobody else wanted. Slowly, \"the new bootcamp grad\" became \"the person who actually knows how this feature works.\"",
+        "Two years later, I'm leading the same team I once felt intimidated by. I still remember what it's like to not know the answer, and I think that's exactly why I'm good at helping the next junior developer find it.",
+    ],
+    "marcus-bailey": [
+        "I spent six years in corporate finance building the same quarterly reports, and somewhere along the way I realized the part I actually enjoyed wasn't the finance — it was finding the story hidden inside the numbers.",
+        "I started teaching myself SQL and data visualization on weekends, using our own company's sales data as practice. When I built a dashboard that caught a pricing error nobody else had noticed, my manager asked who'd made it, and I got my first real chance to move into analytics.",
+        "I now build dashboards for a living instead of spreadsheets nobody reads twice. The finance background didn't go to waste — it's why I know which numbers actually matter to the people asking for them.",
+    ],
+    "aiden-walsh": [
+        "I took my first freelance web design client six weeks after finishing my course, thrilled to finally get paid for something I loved. I didn't have a contract, I quoted a flat fee for \"a few small changes,\" and I found out the hard way what an open-ended scope really costs.",
+        "The project took three times longer than planned and I made almost nothing per hour by the end. But I also learned exactly what I needed for the next client: a written scope, a revision limit, and the confidence to say a request was outside the original agreement.",
+        "That rough first project is the reason my business has actual contracts today. I don't look back on it as a failure — it was the most expensive, most useful lesson of my freelance career, and I only had to pay for it once.",
+    ],
+    "grace-okafor": [
+        "I was working full-time when I decided to study data analytics, and for the first month I tried to squeeze lessons in wherever I could find a spare half hour. It didn't work — I was tired, distracted, and quietly giving up.",
+        "What changed everything was time-blocking two fixed hours every morning before work, and saying no to almost everything else for those months: fewer social plans, fewer late nights, one clear priority. It wasn't glamorous, but it was sustainable.",
+        "I finished the program without burning out, which surprised me more than passing the final project did. The lesson that stuck with me: motivation gets you started, but a schedule you can actually keep is what gets you to the end.",
+    ],
+    "liam-anderson": [
+        "Every job posting wanted a portfolio full of client work I didn't have. So instead of waiting for permission, I gave myself three fake briefs and built them like they were real: a rebrand for a coffee shop that didn't exist, an app redesign for a service I used every day, and a case study breaking down my own design decisions.",
+        "I treated each one like a real project — user research, iterations, a written process, not just polished final screens. Recruiters told me later that the process pages were what made them stop scrolling, not the visuals.",
+        "Those three self-initiated projects got me my first design interview, and eventually my first job. I didn't need real clients to prove I could do the work. I just needed to prove it to myself first, and let the portfolio show the rest.",
+    ],
+}
+
 
 class Command(BaseCommand):
     help = "Seed 8 demo blog articles per category (idempotent, random authors from existing staff/teachers)."
@@ -142,7 +190,11 @@ class Command(BaseCommand):
             for i, (title, subtitle) in enumerate(topics):
                 slug = slugify(title)
                 author = random.choice(authors)
-                body_html = f"<p>{random.choice(LOREM)}</p><p>{random.choice(LOREM)}</p>"
+                story_paragraphs = STUDENT_STORY_BODIES.get(slug)
+                if story_paragraphs:
+                    body_html = "".join(f"<p>{p}</p>" for p in story_paragraphs)
+                else:
+                    body_html = f"<p>{random.choice(LOREM)}</p><p>{random.choice(LOREM)}</p>"
                 published_at = now - timezone.timedelta(days=random.randint(1, 120))
                 _, created = Article.objects.get_or_create(
                     slug=slug,
