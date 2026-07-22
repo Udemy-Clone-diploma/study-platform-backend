@@ -220,8 +220,13 @@ class InvoiceService(PaymentBaseService):
 
     @classmethod
     def generate_payment_receipt_pdf(cls, payment: Payment) -> bytes:
-        """Build a receipt only for a payment that the backend has marked successful."""
-        if not payment.is_successful:
+        """Build a receipt only for a payment the backend has marked successful.
+        Refunded payments keep theirs: the receipt records a charge that did
+        happen, and the refund does not erase it."""
+        if payment.status not in {
+            Payment.StatusChoices.SUCCEEDED,
+            Payment.StatusChoices.REFUNDED,
+        }:
             raise PaymentError("Receipt is available only after successful payment.")
 
         paid_at = payment.processed_at or payment.created_at
