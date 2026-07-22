@@ -43,8 +43,12 @@ class CourseViewSet(
     ordering = ["-published_at"]
 
     def get_queryset(self):
+        # DELETE archives via soft delete (status=archived + is_deleted=True),
+        # so the admin table's Archived tab needs all_objects to see those rows.
+        is_admin_list = self.action == "list" and self._is_admin_request()
+        manager = Course.all_objects if is_admin_list else Course.objects
         queryset = (
-            Course.objects.select_related(
+            manager.select_related(
                 "teacher_profile__user",
                 "moderator_profile",
                 "category",
@@ -54,7 +58,14 @@ class CourseViewSet(
         queryset = CourseService.annotate_min_price(queryset)
         queryset = CourseService.annotate_recent_enrollments(queryset)
         if self.action == "list":
-            queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
+            if is_admin_list:
+                # PENDING_EDIT rows are internal shadow drafts; the admin table
+                # reads pending_edit_status off the live course row instead.
+                queryset = queryset.exclude(
+                    status=Course.StatusChoices.PENDING_EDIT
+                )
+            else:
+                queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
         elif self.action == "retrieve":
             queryset = queryset.prefetch_related(
                 "modules",
@@ -69,6 +80,14 @@ class CourseViewSet(
                 CourseService.cohorts_prefetch(),
             )
         return queryset
+
+    def _is_admin_request(self) -> bool:
+        user = self.request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and user.role == User.RoleChoices.ADMINISTRATOR
+        )
 
     def get_permissions(self):
         if self.action in {"list", "retrieve"}:
