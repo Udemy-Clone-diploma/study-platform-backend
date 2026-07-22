@@ -444,6 +444,7 @@ class UserReportService:
     @staticmethod
     def _build_profile_snapshot(user: User) -> dict:
         snapshot = dict(PublicUserSerializer(user).data)
+        snapshot.pop("email", None)
         snapshot.pop("is_self", None)
         snapshot.pop("has_reported", None)
         return snapshot
