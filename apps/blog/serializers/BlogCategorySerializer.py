@@ -11,7 +11,7 @@ class BlogCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BlogCategory
-        fields = ["id", "name", "slug", "description", "order", "articles_count"]
+        fields = ["id", "name", "slug", "headline", "description", "order", "articles_count"]
 
 
 class BlogCategoryCreateUpdateSerializer(serializers.ModelSerializer):
@@ -19,7 +19,7 @@ class BlogCategoryCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BlogCategory
-        fields = ["name", "slug", "description", "order"]
+        fields = ["name", "slug", "headline", "description", "order"]
 
     # Both uniqueness checks run against all_objects because the DB unique
     # constraints span soft-deleted rows; validating only active rows would

@@ -10,6 +10,7 @@ class BlogCategory(models.Model):
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(unique=True)
+    headline = models.CharField(max_length=200)
     description = models.TextField(blank=True, default="")
     order = models.PositiveIntegerField(default=0)
     is_deleted = models.BooleanField(default=False)
