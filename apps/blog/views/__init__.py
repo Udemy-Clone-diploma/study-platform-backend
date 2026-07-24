@@ -1,3 +1,4 @@
+from .ArticleModerationSnapshotViews import ArticleModerationSnapshotListView
 from .ArticleViews import (
     ArticleApproveView,
     ArticleArchiveView,
@@ -18,6 +19,7 @@ __all__ = [
     "ArticleAssignModeratorView",
     "ArticleDetailView",
     "ArticleListCreateView",
+    "ArticleModerationSnapshotListView",
     "ArticlePublishView",
     "ArticleRejectView",
     "ArticleRestoreView",
