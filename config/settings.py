@@ -61,6 +61,7 @@ LOCAL_APPS = [
     "apps.schedule",
     "apps.notifications",
     "apps.chat",
+    "apps.blog",
 ]
 
 THIRD_PARTY_APPS = [
