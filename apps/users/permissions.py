@@ -25,6 +25,14 @@ class IsAdminOrModerator(RolePermission):
     allowed_roles = ("administrator", "moderator")
 
 
+class IsAdminOrModeratorOrTeacher(RolePermission):
+    allowed_roles = ("administrator", "moderator", "teacher")
+
+
+class IsModerator(RolePermission):
+    allowed_roles = ("moderator",)
+
+
 class IsTeacher(RolePermission):
     allowed_roles = ("teacher",)
 

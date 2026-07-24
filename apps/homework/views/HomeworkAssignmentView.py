@@ -603,6 +603,7 @@ class HomeworkGrowthView(APIView):
     def get(self, request):
         period = request.query_params.get("period", "weekly")
         course_slug = request.query_params.get("course")
+        student_id = request.query_params.get("student_id")
         user = request.user
 
         if user.role == User.RoleChoices.STUDENT:
@@ -612,6 +613,31 @@ class HomeworkGrowthView(APIView):
                 enrollments = enrollments.filter(course__slug=course_slug)
             qs = HomeworkSubmission.objects.filter(
                 enrollment__in=enrollments, score__isnull=False, reviewed_at__isnull=False,
+            )
+        elif student_id and user.role in {
+            User.RoleChoices.TEACHER,
+            User.RoleChoices.ADMINISTRATOR,
+        }:
+            try:
+                numeric_student_id = int(student_id)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "student_id must be an integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            enrollments = Enrollment.objects.filter(
+                student_profile__user_id=numeric_student_id,
+            )
+            if user.role == User.RoleChoices.TEACHER:
+                enrollments = enrollments.filter(course__teacher_profile__user=user)
+            courses = Course.objects.filter(id__in=enrollments.values("course_id")).distinct()
+            if course_slug:
+                enrollments = enrollments.filter(course__slug=course_slug)
+            qs = HomeworkSubmission.objects.filter(
+                enrollment__in=enrollments,
+                score__isnull=False,
+                reviewed_at__isnull=False,
             )
         else:
             # Teachers get a dedicated enrollment-count metric instead
