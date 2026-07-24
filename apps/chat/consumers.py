@@ -9,6 +9,7 @@ from apps.chat.models import ChatParticipant, ChatRoom, Message
 from apps.chat.serializers import MessageCreateSerializer, MessageUpdateSerializer
 from apps.chat.services import ChatService
 from apps.chat.views.chat_views import get_chat_for_user, message_queryset_for_user
+from apps.users.models import User
 
 
 ONLINE_USER_CONNECTIONS: dict[int, int] = {}
@@ -71,6 +72,11 @@ def _assert_active_participant(user, chat_id: int) -> bool:
 
 
 @database_sync_to_async
+def _user_is_blocked(user_id: int) -> bool:
+    return User.all_objects.filter(pk=user_id, is_blocked=True).exists()
+
+
+@database_sync_to_async
 def _create_message(user, payload: dict) -> int:
     chat = get_chat_for_user(user, payload.get("chat_id"))
     serializer = MessageCreateSerializer(data=payload, context={"chat": chat})
@@ -127,6 +133,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             return
 
         self.user_id = self.user.pk
+        if await _user_is_blocked(self.user_id):
+            await self.close(code=4403)
+            return
+
         became_online = _mark_user_connected(self.user_id)
 
         await self.channel_layer.group_add(events.user_group_name(self.user.pk), self.channel_name)
@@ -156,6 +166,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(events.chat_group_name(chat_id), self.channel_name)
 
     async def receive_json(self, content, **kwargs):
+        if await _user_is_blocked(self.user_id):
+            await self.close(code=4403)
+            return
+
         event_type = content.get("type")
         payload = content.get("payload") or content
 
@@ -232,6 +246,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def chat_event(self, event):
+        if await _user_is_blocked(self.user_id):
+            await self.close(code=4403)
+            return
+
         payload = dict(event["payload"])
         if payload.pop("sender_channel_name", None) == self.channel_name:
             return

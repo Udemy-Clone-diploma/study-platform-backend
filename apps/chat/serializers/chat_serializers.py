@@ -297,6 +297,7 @@ class DirectChatCreateSerializer(serializers.Serializer):
 
 class GroupChatCreateSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255, trim_whitespace=True)
+    image = serializers.ImageField(required=False, allow_null=True)
     participant_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         allow_empty=False,
@@ -318,6 +319,7 @@ class GroupChatCreateSerializer(serializers.Serializer):
             request.user,
             self.validated_data["title"],
             self.validated_data["participant_ids"],
+            image=self.validated_data.get("image"),
         )
 
 

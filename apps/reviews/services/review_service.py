@@ -1,5 +1,6 @@
 from django.db import IntegrityError, transaction
 from django.db.models import Count, QuerySet
+from django.utils import timezone
 
 from apps.courses.models import Course
 from apps.enrollments.exceptions import ActiveEnrollmentRequiredError
@@ -79,7 +80,16 @@ class ReviewService:
         if review.moderation_status == Review.ModerationStatusChoices.APPROVED:
             review.moderation_status = ""
             review.moderator_profile = None
-            review.save(update_fields=["moderation_status", "moderator_profile"])
+            review.moderation_assigned_at = None
+            review.moderated_at = None
+            review.save(
+                update_fields=[
+                    "moderation_status",
+                    "moderator_profile",
+                    "moderation_assigned_at",
+                    "moderated_at",
+                ]
+            )
 
         return report
 
@@ -112,7 +122,16 @@ class ReviewService:
             raise ReviewAlreadyAssignedError
         review.moderator_profile = moderator_profile
         review.moderation_status = Review.ModerationStatusChoices.PENDING
-        review.save(update_fields=["moderator_profile", "moderation_status"])
+        review.moderation_assigned_at = timezone.now()
+        review.moderated_at = None
+        review.save(
+            update_fields=[
+                "moderator_profile",
+                "moderation_status",
+                "moderation_assigned_at",
+                "moderated_at",
+            ]
+        )
         return review
 
     @classmethod
@@ -121,7 +140,8 @@ class ReviewService:
         if review.moderator_profile_id != getattr(moderator_profile, "id", None):
             raise ReviewNotAssignedToModeratorError
         review.moderation_status = Review.ModerationStatusChoices.APPROVED
-        review.save(update_fields=["moderation_status"])
+        review.moderated_at = timezone.now()
+        review.save(update_fields=["moderation_status", "moderated_at"])
         return review
 
     @classmethod
@@ -131,5 +151,6 @@ class ReviewService:
             raise ReviewNotAssignedToModeratorError
         review.moderation_status = Review.ModerationStatusChoices.REJECTED
         review.is_deleted = True
-        review.save(update_fields=["moderation_status", "is_deleted"])
+        review.moderated_at = timezone.now()
+        review.save(update_fields=["moderation_status", "is_deleted", "moderated_at"])
         return review

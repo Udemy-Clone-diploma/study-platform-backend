@@ -1,3 +1,5 @@
+import re
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -40,7 +42,6 @@ from apps.chat.serializers import (
     ReadStatusSerializer,
 )
 from apps.chat.services import ChatService
-from apps.notifications.models import Notification
 from apps.notifications.services import NotificationService
 from apps.users.models import User
 
@@ -73,6 +74,28 @@ def message_queryset_for_user(user):
         .prefetch_related("attachments")
         .distinct()
     )
+
+
+CHAT_LINK_PATTERN = re.compile(r"https?://[^\s<>()]+")
+
+
+def chat_message_links(text: str) -> list[str]:
+    links = []
+    for match in CHAT_LINK_PATTERN.findall(text or ""):
+        link = match.rstrip(".,!?;:)]}")
+        if link and link not in links:
+            links.append(link)
+    return links
+
+
+def chat_attachment_kind(file_type: str) -> str:
+    if file_type.startswith("image/"):
+        return "image"
+    if file_type.startswith("video/"):
+        return "video"
+    if file_type == "text/uri-list":
+        return "link"
+    return "file"
 
 
 @extend_schema(tags=["Chat"])
@@ -463,18 +486,11 @@ class ModeratorChatUserActionView(APIView):
                     official_participant_created,
                     official_message,
                 ) = ChatService.create_official_warning_message(target, report, note)
-            NotificationService.create(
+            NotificationService.send_email_only(
                 recipient=target,
-                type=Notification.TypeChoices.MODERATION_ACTION,
                 title=title,
                 body=body,
                 link_url=f"/{target.role}-dashboard/chats",
-                actor=request.user,
-                payload={
-                    "moderation_action_id": moderation_action.pk,
-                    "action": action,
-                    "report_id": report.pk if report else None,
-                },
             )
 
         if official_participant_created and official_chat and official_participant:
@@ -607,3 +623,51 @@ class ChatMessageAttachmentView(APIView):
             ChatMessageAttachmentSerializer(attachment, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+@extend_schema(tags=["Chat"])
+class ChatAttachmentListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, chat_id: int):
+        chat = get_chat_for_user(request.user, chat_id)
+        participant = ChatService.get_active_participation(request.user, chat.pk)
+        messages = (
+            Message.objects.filter(chat=chat, is_deleted=False)
+            .select_related("sender", "reply_to")
+            .prefetch_related("attachments")
+            .order_by("-created_at", "-id")
+        )
+        if participant.history_cleared_at:
+            messages = messages.filter(created_at__gt=participant.history_cleared_at)
+
+        results = []
+        for message in messages:
+            message_data = ChatMessageSerializer(message, context={"request": request}).data
+            for attachment in message.attachments.all():
+                attachment_data = ChatMessageAttachmentSerializer(
+                    attachment,
+                    context={"request": request},
+                ).data
+                attachment_data.update(
+                    {
+                        "kind": chat_attachment_kind(attachment.file_type),
+                        "message": message_data,
+                    }
+                )
+                results.append(attachment_data)
+
+            for link_index, link in enumerate(chat_message_links(message.text)):
+                results.append(
+                    {
+                        "id": f"link-{message.pk}-{link_index}",
+                        "url": link,
+                        "file_type": "text/uri-list",
+                        "size": 0,
+                        "created_at": message.created_at,
+                        "kind": "link",
+                        "message": message_data,
+                    }
+                )
+
+        return Response(results)
