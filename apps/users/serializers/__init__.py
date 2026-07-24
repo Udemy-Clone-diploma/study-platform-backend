@@ -15,6 +15,9 @@ from .PublicUserSerializer import PublicUserSerializer
 from .RefreshTokenSerializer import RefreshTokenSerializer
 from .StudentProfileSerializer import StudentProfileSerializer
 from .TeacherProfileSerializer import TeacherProfileSerializer
+from .TeacherApplicationCreateSerializer import TeacherApplicationCreateSerializer
+from .TeacherApplicationDecisionSerializer import TeacherApplicationDecisionSerializer
+from .TeacherApplicationSerializer import TeacherApplicationSerializer
 from .UserRegistrationSerializer import UserRegistrationSerializer
 from .UserReportCreateSerializer import UserReportCreateSerializer
 from .UserReportParticipantSerializer import UserReportParticipantSerializer
@@ -51,6 +54,9 @@ __all__ = [
     "RefreshTokenSerializer",
     "StudentProfileSerializer",
     "TeacherProfileSerializer",
+    "TeacherApplicationCreateSerializer",
+    "TeacherApplicationDecisionSerializer",
+    "TeacherApplicationSerializer",
     "UserRegistrationSerializer",
     "UserReportCreateSerializer",
     "UserReportParticipantSerializer",

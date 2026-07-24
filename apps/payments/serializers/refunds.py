@@ -6,6 +6,19 @@ from rest_framework import serializers
 from apps.payments.models import Refund
 
 
+class RefundCreateSerializer(serializers.Serializer):
+    """Body of POST /payments/<id>/refund/. Omitting `amount` refunds whatever
+    is still refundable on the payment."""
+
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=False,
+    )
+    reason = serializers.CharField(required=False, allow_blank=True, default="")
+
+
 class RefundSerializer(serializers.ModelSerializer):
     payment_info = serializers.SerializerMethodField()
     created_by_info = serializers.SerializerMethodField()

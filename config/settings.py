@@ -60,6 +60,7 @@ LOCAL_APPS = [
     "apps.schedule",
     "apps.notifications",
     "apps.chat",
+    "apps.blog",
 ]
 
 THIRD_PARTY_APPS = [
@@ -172,6 +173,9 @@ REST_FRAMEWORK = {
         "email_verification": "5/hour",
         "password_reset": "5/hour",
         "user_report": "10/hour",
+        "teacher_application": "5/hour",
+        "teacher_application_check": "30/hour",
+        "teacher_invitation_resend": "5/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",

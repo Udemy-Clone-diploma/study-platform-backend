@@ -1,4 +1,4 @@
-from .auth import ChangePasswordView, LoginView, LogoutView, MeView, ModeratorProfileView, RegisterView, StudentProfileView, TeacherProfileView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView
+from .auth import ChangePasswordView, LoginView, LogoutView, MeView, ModeratorProfileView, RegisterView, StudentProfileView, TeacherProfileView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView, TeacherInvitationConfirmView, TeacherInvitationValidateView, TeacherInvitationResendView
 from .AdminNoteView import AdminNoteView
 from .TopTeachersView import TopTeachersView
 from .PublicUserProfileView import PublicUserProfileView
@@ -16,6 +16,8 @@ from .ModeratorDashboardView import (
     ModeratorDashboardView,
 )
 from .users import UserViewSet, UserSearchView
+from .TeacherApplicationSubmitView import TeacherApplicationEmailCheckView, TeacherApplicationSubmitView
+from .TeacherApplicationModerationView import TeacherApplicationModerationViewSet
 
 __all__ = [
     "AdminNoteView",
@@ -35,6 +37,9 @@ __all__ = [
     "PasswordResetRequestView",
     "PasswordResetConfirmView",
     "PasswordResetValidateView",
+    "TeacherInvitationConfirmView",
+    "TeacherInvitationValidateView",
+    "TeacherInvitationResendView",
     "TopTeachersView",
     "PublicUserProfileView",
     "AdminUserProfileView",
@@ -48,4 +53,7 @@ __all__ = [
     "UserReportAdminActionView",
     "ModeratorDashboardView",
     "AdminModeratorDashboardView",
+    "TeacherApplicationSubmitView",
+    "TeacherApplicationEmailCheckView",
+    "TeacherApplicationModerationViewSet",
 ]
