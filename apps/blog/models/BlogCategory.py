@@ -8,10 +8,24 @@ class BlogCategory(models.Model):
     Only administrators may create/edit/delete them (see apps.blog.permissions.IsAdmin usage
     in ArticleViews) -- teachers/moderators just assign an existing one to their articles."""
 
-    name = models.CharField(max_length=100, unique=True)
+    # name_en is the canonical/stable identifier (slug generation, uniqueness checks);
+    # the other locales are optional and fall back to it when blank (apps.common.i18n).
+    name_en = models.CharField(max_length=100, unique=True)
+    name_uk = models.CharField(max_length=100, blank=True, default="")
+    name_fr = models.CharField(max_length=100, blank=True, default="")
+    name_es = models.CharField(max_length=100, blank=True, default="")
+    name_de = models.CharField(max_length=100, blank=True, default="")
     slug = models.SlugField(unique=True)
-    headline = models.CharField(max_length=200)
-    description = models.TextField(blank=True, default="")
+    headline_en = models.CharField(max_length=200)
+    headline_uk = models.CharField(max_length=200, blank=True, default="")
+    headline_fr = models.CharField(max_length=200, blank=True, default="")
+    headline_es = models.CharField(max_length=200, blank=True, default="")
+    headline_de = models.CharField(max_length=200, blank=True, default="")
+    description_en = models.TextField(blank=True, default="")
+    description_uk = models.TextField(blank=True, default="")
+    description_fr = models.TextField(blank=True, default="")
+    description_es = models.TextField(blank=True, default="")
+    description_de = models.TextField(blank=True, default="")
     order = models.PositiveIntegerField(default=0)
     is_deleted = models.BooleanField(default=False)
 
@@ -20,9 +34,9 @@ class BlogCategory(models.Model):
 
     class Meta:
         db_table = "blog_categories"
-        ordering = ["order", "name"]
+        ordering = ["order", "name_en"]
         verbose_name = "blog category"
         verbose_name_plural = "blog categories"
 
     def __str__(self):
-        return self.name
+        return self.name_en

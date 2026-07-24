@@ -5,8 +5,10 @@ from apps.blog.models import Article, ArticleModerationSnapshot, BlogCategory
 
 @admin.register(BlogCategory)
 class BlogCategoryAdmin(admin.ModelAdmin):
-    list_display = ["name", "slug", "order", "is_deleted"]
-    ordering = ["order", "name"]
+    list_display = ["name_en", "slug", "order", "is_deleted"]
+    search_fields = ["name_en", "name_uk", "name_fr", "name_es", "name_de", "slug"]
+    ordering = ["order", "name_en"]
+    prepopulated_fields = {"slug": ("name_en",)}
 
 
 @admin.register(Article)

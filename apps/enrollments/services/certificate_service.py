@@ -101,7 +101,7 @@ class CertificateService:
         if tag_names:
             return ", ".join(tag_names)
         if course.category_id:
-            return course.category.name
+            return course.category.name_en
         return ""
 
     # ── raster rendering ────────────────────────────────────────────────

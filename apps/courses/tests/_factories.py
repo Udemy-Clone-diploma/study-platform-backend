@@ -17,7 +17,7 @@ def make_teacher(email="teacher@example.com", first_name="", last_name=""):
 
 
 def make_category(name="Development", slug="development", **overrides):
-    return Category.objects.create(name=name, slug=slug, **overrides)
+    return Category.objects.create(name_en=name, slug=slug, **overrides)
 
 
 COURSE_DEFAULTS = dict(

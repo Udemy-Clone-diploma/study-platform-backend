@@ -24,5 +24,5 @@ class FeaturedCategoriesView(APIView):
             limit = parse_limit(request, default=DEFAULT_FEATURED_CATEGORIES_LIMIT)
         except InvalidLimitError as e:
             return Response({"limit": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        categories = CourseService.get_categories(limit=limit)
+        categories = CourseService.get_categories(limit=limit, context={"request": request})
         return Response(categories)

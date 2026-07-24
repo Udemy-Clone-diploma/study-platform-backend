@@ -8,7 +8,7 @@ from apps.common.serializers import MessageSerializer
 from apps.courses.exceptions import CategoryInUseError
 from apps.courses.filters import CategoryFilter
 from apps.courses.models import Category
-from apps.courses.serializers import CategorySerializer
+from apps.courses.serializers import CategorySerializer, CategoryWriteSerializer
 from apps.courses.services import CategoryService
 from apps.users.permissions import IsAdmin
 
@@ -16,17 +16,24 @@ from apps.users.permissions import IsAdmin
 @extend_schema(tags=["Categories"])
 class CategoryViewSet(
     mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
     mixins.CreateModelMixin,
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    serializer_class = CategorySerializer
     http_method_names = ["get", "post", "patch", "delete"]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = CategoryFilter
-    ordering_fields = ["name", "courses_count"]
-    ordering = ["name"]
+    ordering_fields = ["name_en", "courses_count"]
+    ordering = ["name_en"]
+
+    def get_serializer_class(self):
+        # retrieve is admin-only (see get_permissions) and exists specifically so
+        # the admin edit form can load every locale value, not just the resolved one.
+        if self.action in ("create", "partial_update", "retrieve"):
+            return CategoryWriteSerializer
+        return CategorySerializer
 
     def get_queryset(self):
         return CategoryService.annotate_courses_count(Category.objects.all())

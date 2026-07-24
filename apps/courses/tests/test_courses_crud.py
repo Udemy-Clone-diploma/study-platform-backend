@@ -21,7 +21,7 @@ class CourseViewSetTests(APITestCase):
             level="senior",
         )
         self.client.force_authenticate(user=teacher_user)
-        self.category = make_category(description="Programming courses")
+        self.category = make_category(description_en="Programming courses")
         self.tag = Tag.objects.create(name="Python")
         self.course = make_course(
             self.teacher_profile,
