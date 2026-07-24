@@ -18,7 +18,10 @@ class StudentCompletionsView(generics.ListAPIView):
     def get_queryset(self):
         qs = CourseCompletion.objects.filter(
             student_profile=self.request.user.student_profile
-        ).select_related("course")
+        ).select_related("course").prefetch_related("certificates")
         if self.request.query_params.get("with_certificate") == "true":
-            qs = qs.exclude(certificate_url__isnull=True).exclude(certificate_url="")
+            # Filtered on the file, not the older certificate_url text column:
+            # the file is what the download actually serves, so a row with only
+            # a URL would come back as a certificate nothing can open.
+            qs = qs.exclude(certificate_file__isnull=True).exclude(certificate_file="")
         return qs

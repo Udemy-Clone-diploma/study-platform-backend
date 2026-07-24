@@ -41,14 +41,18 @@ logger = logging.getLogger(__name__)
 
 def _derive_order_status(order: Order) -> str:
     """Paid/unpaid/overdue for the teacher Payments table, derived from order
-    status plus (for installment orders) whether any installment is past due."""
+    status plus (for installment orders) whether any installment is past due.
+    Scans the prefetched installments instead of filtering in the DB, which
+    would bypass the caller's prefetch and cost a query per order."""
     if order.status == Order.StatusChoices.PAID:
         return "paid"
     if order.payment_type == Order.PaymentTypeChoices.INSTALLMENTS:
-        overdue = order.installments.filter(
-            status=PaymentInstallment.StatusChoices.PENDING,
-            due_date__lt=timezone.now().date(),
-        ).exists()
+        today = timezone.now().date()
+        overdue = any(
+            installment.status == PaymentInstallment.StatusChoices.PENDING
+            and installment.due_date < today
+            for installment in order.installments.all()
+        )
         if overdue:
             return "overdue"
     return "unpaid"
@@ -74,6 +78,7 @@ class PaymentViewSet(
                 "user",
                 "student_profile__user",
                 "order",
+                "order__user",
                 "installment",
             )
             .prefetch_related(
@@ -84,6 +89,7 @@ class PaymentViewSet(
                 "order__items__course",
                 "order__items__pricing_plan",
                 "order__installments",
+                "order__payments",
                 "refunds",
             )
         )
