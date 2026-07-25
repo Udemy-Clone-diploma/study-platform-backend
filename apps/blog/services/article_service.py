@@ -3,7 +3,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.blog.exceptions import ArticleAlreadyAssignedError, ArticleNotAssignedToModeratorError, BlogError
-from apps.blog.models import Article
+from apps.blog.models import Article, ArticleModerationSnapshot
+from apps.common.files import duplicate_file_field
 from apps.users.models import User
 
 _STAFF_ROLES = (User.RoleChoices.MODERATOR, User.RoleChoices.ADMINISTRATOR)
@@ -158,6 +159,24 @@ class ArticleService:
         return article
 
     @classmethod
+    def _create_snapshot(cls, article: Article, moderator_profile, decision: str, comment: str = "") -> None:
+        """Freezes the article's current display fields into a permanent moderation
+        record -- see ArticleModerationSnapshot for why this exists instead of relying
+        on the live Article row (which keeps mutating after the decision)."""
+        snapshot = ArticleModerationSnapshot(
+            article=article,
+            moderator_profile=moderator_profile,
+            decision=decision,
+            comment=comment,
+            title=article.title,
+            subtitle=article.subtitle,
+            author_name=article.author.get_full_name(),
+        )
+        duplicate_file_field(article.cover_image, snapshot.cover_image)
+        snapshot.save()
+
+    @classmethod
+    @transaction.atomic
     def approve_article(cls, article: Article, moderator_profile) -> Article:
         if article.status != Article.StatusChoices.REVIEW:
             raise BlogError("Only articles under review can be approved.")
@@ -167,9 +186,11 @@ class ArticleService:
         article.published_at = timezone.now()
         article.moderator_comment = ""
         article.save(update_fields=["status", "published_at", "moderator_comment", "updated_at"])
+        cls._create_snapshot(article, moderator_profile, ArticleModerationSnapshot.Decision.PUBLISHED)
         return article
 
     @classmethod
+    @transaction.atomic
     def reject_article(cls, article: Article, moderator_profile, comment: str) -> Article:
         if article.status != Article.StatusChoices.REVIEW:
             raise BlogError("Only articles under review can be rejected.")
@@ -178,4 +199,5 @@ class ArticleService:
         article.status = Article.StatusChoices.REJECTED
         article.moderator_comment = comment
         article.save(update_fields=["status", "moderator_comment", "updated_at"])
+        cls._create_snapshot(article, moderator_profile, ArticleModerationSnapshot.Decision.REJECTED, comment)
         return article

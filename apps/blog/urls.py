@@ -6,6 +6,7 @@ from apps.blog.views import (
     ArticleAssignModeratorView,
     ArticleDetailView,
     ArticleListCreateView,
+    ArticleModerationSnapshotListView,
     ArticlePublishView,
     ArticleRejectView,
     ArticleRestoreView,
@@ -18,6 +19,7 @@ from apps.blog.views import (
 urlpatterns = [
     path("blog/categories/", BlogCategoryListCreateView.as_view(), name="blog-categories"),
     path("blog/categories/<slug:slug>/", BlogCategoryDetailView.as_view(), name="blog-category-detail"),
+    path("blog/moderation-snapshots/", ArticleModerationSnapshotListView.as_view(), name="blog-moderation-snapshots"),
     path("blog/articles/", ArticleListCreateView.as_view(), name="blog-articles"),
     path("blog/articles/<slug:slug>/", ArticleDetailView.as_view(), name="blog-article-detail"),
     path("blog/articles/<slug:slug>/submit/", ArticleSubmitReviewView.as_view(), name="blog-article-submit"),

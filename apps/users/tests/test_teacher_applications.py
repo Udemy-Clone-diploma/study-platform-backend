@@ -54,7 +54,7 @@ class TeacherApplicationSubmitTests(APITestCase):
         self.assertEqual(application.status, TeacherApplication.StatusChoices.PENDING)
 
     def test_submit_with_directions(self):
-        category = Category.objects.create(name="Мови", slug="movy")
+        category = Category.objects.create(name_en="Мови", slug="movy")
 
         response = self.client.post(
             self.url, _application_payload(directions=[category.id]), format="json"

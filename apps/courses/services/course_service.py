@@ -43,7 +43,7 @@ def _course_snapshot_kwargs(course: Course) -> dict:
         "course_slug": course.slug,
         "course_title": course.title,
         "course_image_url": course.image.url if course.image else None,
-        "course_category": course.category.name if course.category else "",
+        "course_category": course.category.name_en if course.category else "",
         "course_level": course.level,
     }
 
@@ -806,8 +806,8 @@ class CourseService:
         return CourseListSerializer(courses, many=True, context=context or {}).data
 
     @staticmethod
-    def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:
+    def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT, context=None) -> list[dict]:
         categories = CategoryService.annotate_courses_count(
             Category.objects.filter(featured_order__isnull=False)
-        ).order_by("featured_order", "name")[:limit]
-        return CategorySerializer(categories, many=True).data
+        ).order_by("featured_order", "name_en")[:limit]
+        return CategorySerializer(categories, many=True, context=context or {}).data

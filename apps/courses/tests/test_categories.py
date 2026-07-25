@@ -11,14 +11,14 @@ from ._factories import make_course, make_teacher
 class CategoryViewSetTests(APITestCase):
     def setUp(self):
         self.category_dev = Category.objects.create(
-            name="Development",
+            name_en="Development",
             slug="development",
-            description="Programming courses",
+            description_en="Programming courses",
         )
         self.category_design = Category.objects.create(
-            name="Design",
+            name_en="Design",
             slug="design",
-            description="Design courses",
+            description_en="Design courses",
         )
 
     def test_list_returns_all_categories(self):
@@ -51,11 +51,11 @@ class CategoryWritePermissionTests(APITestCase):
     """Only administrators may create, update, or delete categories."""
 
     def setUp(self):
-        self.category = Category.objects.create(name="Development", slug="development")
+        self.category = Category.objects.create(name_en="Development", slug="development")
 
     def test_anonymous_cannot_create(self):
         response = self.client.post(
-            reverse("categories-list"), {"name": "New"}, format="json"
+            reverse("categories-list"), {"name_en": "New"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -67,7 +67,7 @@ class CategoryWritePermissionTests(APITestCase):
         self.client.force_authenticate(user=student)
 
         response = self.client.post(
-            reverse("categories-list"), {"name": "New"}, format="json"
+            reverse("categories-list"), {"name_en": "New"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -80,7 +80,7 @@ class CategoryWritePermissionTests(APITestCase):
 
         response = self.client.patch(
             reverse("categories-detail", args=[self.category.pk]),
-            {"name": "Renamed"},
+            {"name_en": "Renamed"},
             format="json",
         )
 
@@ -109,7 +109,7 @@ class CategoryCreateTests(APITestCase):
     def test_create_with_explicit_slug(self):
         response = self.client.post(
             reverse("categories-list"),
-            {"name": "Data Science", "slug": "data-sci"},
+            {"name_en": "Data Science", "slug": "data-sci"},
             format="json",
         )
 
@@ -120,7 +120,7 @@ class CategoryCreateTests(APITestCase):
     def test_slug_auto_generated_from_name_when_omitted(self):
         response = self.client.post(
             reverse("categories-list"),
-            {"name": "Machine Learning"},
+            {"name_en": "Machine Learning"},
             format="json",
         )
 
@@ -128,30 +128,30 @@ class CategoryCreateTests(APITestCase):
         self.assertEqual(response.data["slug"], "machine-learning")
 
     def test_duplicate_name_rejected_case_insensitive(self):
-        Category.objects.create(name="Design", slug="design")
+        Category.objects.create(name_en="Design", slug="design")
 
         response = self.client.post(
-            reverse("categories-list"), {"name": "design"}, format="json"
+            reverse("categories-list"), {"name_en": "design"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_explicit_slug_colliding_with_soft_deleted_rejected(self):
-        Category.objects.create(name="Retired", slug="taken", is_deleted=True)
+        Category.objects.create(name_en="Retired", slug="taken", is_deleted=True)
 
         response = self.client.post(
             reverse("categories-list"),
-            {"name": "Fresh", "slug": "taken"},
+            {"name_en": "Fresh", "slug": "taken"},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_auto_slug_suffixes_past_soft_deleted_collision(self):
-        Category.objects.create(name="Retired", slug="gaming", is_deleted=True)
+        Category.objects.create(name_en="Retired", slug="gaming", is_deleted=True)
 
         response = self.client.post(
-            reverse("categories-list"), {"name": "Gaming"}, format="json"
+            reverse("categories-list"), {"name_en": "Gaming"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -164,7 +164,7 @@ class CategoryUpdateTests(APITestCase):
             email="admin@example.com", password="pass12345", role="administrator"
         )
         self.client.force_authenticate(user=admin)
-        self.category = Category.objects.create(name="Development", slug="development")
+        self.category = Category.objects.create(name_en="Development", slug="development")
 
     def test_patch_sets_featured_order(self):
         response = self.client.patch(
@@ -179,11 +179,11 @@ class CategoryUpdateTests(APITestCase):
         self.assertEqual(self.category.featured_order, 5)
 
     def test_patch_duplicate_name_rejected(self):
-        Category.objects.create(name="Design", slug="design")
+        Category.objects.create(name_en="Design", slug="design")
 
         response = self.client.patch(
             reverse("categories-detail", args=[self.category.pk]),
-            {"name": "Design"},
+            {"name_en": "Design"},
             format="json",
         )
 
@@ -192,12 +192,12 @@ class CategoryUpdateTests(APITestCase):
     def test_patch_keeping_own_name_allowed(self):
         response = self.client.patch(
             reverse("categories-detail", args=[self.category.pk]),
-            {"name": "Development", "description": "Updated"},
+            {"name_en": "Development", "description_en": "Updated"},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["description"], "Updated")
+        self.assertEqual(response.data["description_en"], "Updated")
 
 
 class CategoryDeleteTests(APITestCase):
@@ -209,7 +209,7 @@ class CategoryDeleteTests(APITestCase):
         _, self.teacher_profile = make_teacher()
 
     def test_delete_empty_category_soft_deletes(self):
-        category = Category.objects.create(name="Empty", slug="empty")
+        category = Category.objects.create(name_en="Empty", slug="empty")
 
         response = self.client.delete(
             reverse("categories-detail", args=[category.pk])
@@ -220,7 +220,7 @@ class CategoryDeleteTests(APITestCase):
         self.assertTrue(Category.all_objects.get(pk=category.pk).is_deleted)
 
     def test_delete_category_with_active_course_returns_409(self):
-        category = Category.objects.create(name="Busy", slug="busy")
+        category = Category.objects.create(name_en="Busy", slug="busy")
         make_course(self.teacher_profile, category=category)
 
         response = self.client.delete(
@@ -232,7 +232,7 @@ class CategoryDeleteTests(APITestCase):
         self.assertFalse(category.is_deleted)
 
     def test_soft_deleted_course_does_not_block_delete(self):
-        category = Category.objects.create(name="Stale", slug="stale")
+        category = Category.objects.create(name_en="Stale", slug="stale")
         course = make_course(self.teacher_profile, category=category)
         course.is_deleted = True
         course.save(update_fields=["is_deleted"])

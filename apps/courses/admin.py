@@ -24,10 +24,10 @@ class TagAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "slug", "is_deleted")
+    list_display = ("name_en", "slug", "is_deleted")
     list_filter = ("is_deleted",)
-    search_fields = ("name", "slug")
-    prepopulated_fields = {"slug": ("name",)}
+    search_fields = ("name_en", "name_uk", "name_fr", "name_es", "name_de", "slug")
+    prepopulated_fields = {"slug": ("name_en",)}
 
 
 class PricingPlanInline(admin.TabularInline):

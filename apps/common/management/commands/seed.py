@@ -624,10 +624,21 @@ class Command(BaseCommand):
 
     # Taxonomy
 
+    # Translations for the fixed set of demo categories below (apps.courses.migrations
+    # .0051_translate_categories backfills the same values for already-seeded databases).
+    CATEGORY_TRANSLATIONS = {
+        "Design": {"name_uk": "Дизайн", "name_fr": "Design", "name_es": "Diseño", "name_de": "Design"},
+        "Marketing": {"name_uk": "Маркетинг", "name_fr": "Marketing", "name_es": "Marketing", "name_de": "Marketing"},
+        "Languages": {"name_uk": "Мови", "name_fr": "Langues", "name_es": "Idiomas", "name_de": "Sprachen"},
+        "IT": {"name_uk": "ІТ", "name_fr": "Informatique", "name_es": "TI", "name_de": "IT"},
+        "Business": {"name_uk": "Бізнес", "name_fr": "Affaires", "name_es": "Negocios", "name_de": "Wirtschaft"},
+    }
+
     def _category(self, name, featured_order=None):
+        translations = self.CATEGORY_TRANSLATIONS.get(name, {})
         cat, created = Category.objects.get_or_create(
             slug=slugify(name),
-            defaults={"name": name, "featured_order": featured_order})
+            defaults={"name_en": name, "featured_order": featured_order, **translations})
         if not created and cat.featured_order != featured_order:
             cat.featured_order = featured_order
             cat.save(update_fields=["featured_order"])

@@ -1,4 +1,4 @@
-from .CategorySerializer import CategorySerializer
+from .CategorySerializer import CategorySerializer, CategoryWriteSerializer
 from .CohortSerializer import CohortSerializer
 from .CohortGroupSerializer import CohortMemberSerializer, EnrolledStudentSerializer
 from .CourseCreateUpdateSerializer import CourseCreateUpdateSerializer
@@ -17,6 +17,7 @@ from .TagSerializer import TagSerializer
 
 __all__ = [
     "CategorySerializer",
+    "CategoryWriteSerializer",
     "CohortSerializer",
     "CohortMemberSerializer",
     "EnrolledStudentSerializer",
