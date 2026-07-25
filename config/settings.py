@@ -54,6 +54,7 @@ LOCAL_APPS = [
     "apps.cart",
     "apps.curriculum",
     "apps.enrollments",
+    "apps.certificates",
     "apps.homework",
     "apps.reviews",
     "apps.payments",
@@ -172,9 +173,11 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "email_verification": "5/hour",
         "password_reset": "5/hour",
+        "user_report": "10/hour",
         "teacher_application": "5/hour",
         "teacher_application_check": "30/hour",
         "teacher_invitation_resend": "5/hour",
+        "certificate_verify": "300/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
@@ -189,6 +192,7 @@ SPECTACULAR_SETTINGS = {
     "TAGS": [
         {"name": "Auth", "description": "Registration, login, logout, token refresh, email verification, password reset, and current-user endpoints."},
         {"name": "Users", "description": "Admin user management and top teachers listing."},
+        {"name": "User moderation", "description": "User report queues and moderation decisions."},
         {"name": "Courses", "description": "Course CRUD, new courses, and popular courses."},
         {"name": "Categories", "description": "Course category listing and featured categories."},
         {"name": "Cart", "description": "Student course cart operations."},

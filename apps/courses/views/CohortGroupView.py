@@ -118,16 +118,32 @@ class TeacherStudentDashboardView(APIView):
         if request.user.role not in {"teacher", "administrator"}:
             return Response({"detail": "Teachers only."}, status=status.HTTP_403_FORBIDDEN)
 
-        enrollments = Enrollment.objects.filter(student_profile__user_id=student_id).select_related(
+        enrollment_queryset = Enrollment.objects.filter(
+            student_profile__user_id=student_id
+        ).select_related(
             "student_profile__user", "course", "course__teacher_profile__user"
         )
         if request.user.role == "teacher":
-            enrollments = enrollments.filter(course__teacher_profile__user=request.user)
-        enrollments = list(enrollments)
-        if not enrollments:
+            enrollment_queryset = enrollment_queryset.filter(
+                course__teacher_profile__user=request.user
+            )
+        all_enrollments = list(enrollment_queryset)
+        if not all_enrollments:
             return Response({"detail": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        student = enrollments[0].student_profile
+        selected_course = request.query_params.get("course", "").strip()
+        enrollments = (
+            [item for item in all_enrollments if item.course.slug == selected_course]
+            if selected_course
+            else all_enrollments
+        )
+        if selected_course and not enrollments:
+            return Response(
+                {"detail": "The student is not enrolled in this course."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        student = all_enrollments[0].student_profile
         user = student.user
         enrollment_ids = [item.id for item in enrollments]
         course_ids = [item.course_id for item in enrollments]
@@ -154,6 +170,8 @@ class TeacherStudentDashboardView(APIView):
         activities = [
             {
                 "id": submission.id,
+                "assignment_id": submission.assignment_id,
+                "course_slug": submission.assignment.course.slug,
                 "course": submission.assignment.course.title,
                 "kind": "Test" if submission.assignment.test_id else "Task",
                 "title": submission.assignment.title,
@@ -164,7 +182,7 @@ class TeacherStudentDashboardView(APIView):
             for submission in submissions[:30]
         ]
         courses = []
-        for enrollment in enrollments:
+        for enrollment in all_enrollments:
             total = enrollment.course.lessons_count
             progress = round(enrollment.lessons_completed_count / total * 100) if total else 0
             courses.append({

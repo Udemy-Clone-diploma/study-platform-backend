@@ -183,7 +183,12 @@ class ChatService:
         return chat, created
 
     @staticmethod
-    def create_group_chat(created_by, title: str, participant_ids: list[int]) -> ChatRoom:
+    def create_group_chat(
+        created_by,
+        title: str,
+        participant_ids: list[int],
+        image=None,
+    ) -> ChatRoom:
         user_ids = list(dict.fromkeys([created_by.pk, *participant_ids]))
         users = list(User.objects.filter(pk__in=user_ids, is_deleted=False))
         if len(users) != len(user_ids):
@@ -194,6 +199,7 @@ class ChatService:
                 type=ChatRoom.TypeChoices.GROUP,
                 title=title,
                 created_by=created_by,
+                image=image,
             )
             participants = []
             for user in users:
@@ -306,7 +312,13 @@ class ChatService:
         return message
 
     @staticmethod
-    def create_official_warning_message(target, report, moderator_note: str = ""):
+    def create_official_warning_message(
+        target,
+        report,
+        moderator_note: str = "",
+        *,
+        warning_context: str = "chat",
+    ):
         chat, _ = ChatRoom.objects.get_or_create(
             direct_key=f"school_admin_{target.pk}",
             defaults={
@@ -341,17 +353,36 @@ class ChatService:
         note_section = (
             f"\n\nModerator's note:\n{moderator_note.strip()}" if moderator_note.strip() else ""
         )
+        if warning_context == "account":
+            reviewed_activity = (
+                "The School Administration has reviewed a complaint concerning your account "
+                "and determined that the reported activity does not comply with our platform "
+                "standards."
+            )
+            consequence = (
+                "Repeated violations may result in temporary or permanent restriction of access "
+                "to the platform."
+            )
+        else:
+            reviewed_activity = (
+                "The School Administration has reviewed a report concerning your recent activity "
+                "in the platform chat and determined that the reported message does not comply "
+                "with our standards of respectful and appropriate communication."
+            )
+            consequence = (
+                "Repeated violations may result in temporary or permanent restriction of access "
+                "to chat features."
+            )
+
         warning_text = (
             "OFFICIAL WARNING FROM THE SCHOOL ADMINISTRATION\n\n"
-            "The School Administration has reviewed a report concerning your recent activity "
-            "in the platform chat and determined that the reported message does not comply with "
-            "our standards of respectful and appropriate communication.\n\n"
+            f"{reviewed_activity}\n\n"
             f"Reason: {report.get_reason_display()}"
             f"{note_section}\n\n"
             "Please refrain from repeating this behavior. All users are expected to communicate "
             "respectfully and must not post abusive, threatening, discriminatory, misleading, "
-            "unsolicited, or otherwise inappropriate content. Repeated violations may result in "
-            "temporary or permanent restriction of access to chat features.\n\n"
+            "unsolicited, or otherwise inappropriate content. "
+            f"{consequence}\n\n"
             "If you believe this warning was issued in error, please contact the School "
             "Administration through the support channel.\n\n"
             "This is an automated read-only notification. Replies are not accepted."

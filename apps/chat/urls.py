@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.chat.views import (
+    ChatAttachmentListView,
     ChatMessageAttachmentView,
     ChatMessageDetailView,
     ChatMessageListCreateView,
@@ -20,6 +21,7 @@ router.register(r"chats", ChatRoomViewSet, basename="chats")
 
 urlpatterns = [
     path("chats/<int:chat_id>/messages/", ChatMessageListCreateView.as_view(), name="chat-messages"),
+    path("chats/<int:chat_id>/attachments/", ChatAttachmentListView.as_view(), name="chat-attachments"),
     path("messages/<int:message_id>/", ChatMessageDetailView.as_view(), name="chat-message-detail"),
     path("messages/<int:message_id>/report/", MessageReportCreateView.as_view(), name="chat-message-report"),
     path("moderation/message-reports/", ModeratorMessageReportListView.as_view(), name="moderator-message-reports"),

@@ -1,8 +1,13 @@
+import logging
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from apps.chat.models import ChatParticipant, ChatRoom, Message
 from apps.chat.serializers import ChatMessageSerializer, ChatRoomSerializer
+
+
+logger = logging.getLogger(__name__)
 
 
 def chat_group_name(chat_id: int) -> str:
@@ -17,13 +22,18 @@ def _send(group: str, payload: dict):
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return
-    async_to_sync(channel_layer.group_send)(
-        group,
-        {
-            "type": "chat.event",
-            "payload": payload,
-        },
-    )
+    try:
+        async_to_sync(channel_layer.group_send)(
+            group,
+            {
+                "type": "chat.event",
+                "payload": payload,
+            },
+        )
+    except Exception:
+        # A broker outage must not turn an otherwise successful HTTP action
+        # (such as uploading an attachment) into a 500 response.
+        logger.warning("Could not publish chat event to %s", group, exc_info=True)
 
 
 def _message_payload(message: Message) -> dict:
