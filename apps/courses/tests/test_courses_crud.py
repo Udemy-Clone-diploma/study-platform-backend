@@ -2,7 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.courses.models import Course, Tag
+from apps.courses.models import Course, CourseDeliveryFormat, Tag
 from apps.users.models import ModeratorProfile, User
 
 from ._factories import make_category, make_course, make_teacher
@@ -40,6 +40,10 @@ class CourseViewSetTests(APITestCase):
     def test_list_uses_list_serializer(self):
         self.course.status = Course.StatusChoices.PUBLISHED
         self.course.save(update_fields=["status"])
+        # The public catalog hides courses with no delivery format.
+        CourseDeliveryFormat.objects.create(
+            course=self.course, format_type=self.course.delivery_type,
+        )
 
         response = self.client.get(reverse("courses-list"))
 
