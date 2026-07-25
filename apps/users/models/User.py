@@ -47,6 +47,9 @@ class User(AbstractUser):
     class LanguageChoices(models.TextChoices):
         ENGLISH = "en", "English"
         UKRAINIAN = "uk", "Ukrainian"
+        FRENCH = "fr", "French"
+        SPANISH = "es", "Spanish"
+        GERMAN = "de", "German"
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=RoleChoices.choices)
