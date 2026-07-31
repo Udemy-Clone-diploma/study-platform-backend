@@ -24,6 +24,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     image_hash = serializers.SerializerMethodField()
     is_enrolled = serializers.SerializerMethodField()
+    enrollment_access_status = serializers.SerializerMethodField()
     group_chat_url = serializers.SerializerMethodField()
     total_duration_minutes = serializers.SerializerMethodField()
     moderation_review = ModerationReviewSerializer(read_only=True)
@@ -35,11 +36,12 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             "slug", "teacher", "moderator_id", "category",
             "level", "language", "mode", "delivery_type", "course_type",
             "duration_hours", "lessons_count", "total_duration_minutes",
-            "with_certificate", "certificate_description", "is_on_sale", "passing_score",
+            "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
+            "passing_score",
             "rating_avg", "rating_count", "students_count", "status",
             "moderator_comment",
             "created_at", "updated_at", "published_at",
-            "is_enrolled", "group_chat_url",
+            "is_enrolled", "enrollment_access_status", "group_chat_url",
             "tags", "modules", "delivery_formats", "cohorts",
             "moderation_review",
         ]
@@ -74,3 +76,10 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         if request is None:
             return False
         return EnrollmentService.is_enrolled(request.user, obj)
+
+    def get_enrollment_access_status(self, obj) -> str | None:
+        from apps.enrollments.services.enrollment_service import EnrollmentService
+        request = self.context.get("request")
+        if request is None:
+            return None
+        return EnrollmentService.get_access_status(request.user, obj)

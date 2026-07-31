@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -123,6 +124,12 @@ class Course(models.Model):
 
     is_on_sale = models.BooleanField(default=False)
 
+    discount_percent = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(99)],
+    )
+
     passing_score = models.PositiveSmallIntegerField(
         default=80,
         validators=[MinValueValidator(1), MaxValueValidator(100)],
@@ -166,6 +173,11 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        if self.is_on_sale and not self.discount_percent:
+            raise ValidationError({"discount_percent": "Required when is_on_sale is enabled."})
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")

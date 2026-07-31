@@ -59,8 +59,8 @@ class CohortInline(admin.TabularInline):
 
 @admin.register(Course)
 class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("title", "slug", "status", "lessons_count", "is_deleted")
-    list_filter = ("status", "is_deleted", "level", "language")
+    list_display = ("title", "slug", "status", "lessons_count", "is_on_sale", "discount_percent", "is_deleted")
+    list_filter = ("status", "is_deleted", "level", "language", "is_on_sale")
     search_fields = ("title", "slug")
     prepopulated_fields = {"slug": ("title",)}
     inlines = [CourseDeliveryFormatInline, CohortInline]

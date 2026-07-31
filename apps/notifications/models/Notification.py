@@ -11,6 +11,7 @@ class Notification(models.Model):
         NEW_LESSON = "new_lesson", "New lesson"
         MODERATION_ACTION = "moderation_action", "Moderation action"
         COURSE_COMPLETED = "course_completed", "Course completed"
+        PAYMENT_OVERDUE = "payment_overdue", "Payment overdue"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,

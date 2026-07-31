@@ -149,7 +149,9 @@ class CheckoutService(PaymentBaseService):
                 )
 
             configured_counts.add(plan.installment_count)
-            installment_amounts_by_item[item.id] = cls._decimal_money(plan.installment_amount)
+            # final_installment_amount applies the course's current discount (if any) --
+            # installment_amount alone would silently ignore an active sale.
+            installment_amounts_by_item[item.id] = cls._decimal_money(plan.final_installment_amount)
 
         if len(configured_counts) != 1:
             raise PaymentError("All cart items must use the same installment count.")
