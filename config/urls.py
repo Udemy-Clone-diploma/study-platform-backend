@@ -16,11 +16,19 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django.views.static import serve
 
 from apps.payments.views import StripeWebhookView
+from apps.common.cache import cache_is_available
 
 
 def health(request):
+    cache_available = cache_is_available()
     return JsonResponse(
-        {"status": "ok", "service": "backend"},
+        {
+            "status": "ok" if cache_available else "degraded",
+            "service": "backend",
+            "components": {
+                "cache": "ok" if cache_available else "unavailable",
+            },
+        },
         headers={"Cache-Control": "no-store"},
     )
 

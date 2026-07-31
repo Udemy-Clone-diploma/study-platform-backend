@@ -21,11 +21,13 @@ class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
     pricing = NestedPricingSerializer(read_only=True)
     enrolled_count = serializers.SerializerMethodField()
     completed_count = serializers.SerializerMethodField()
+    chat_id = serializers.IntegerField(source="group_chat_id", read_only=True)
 
     class Meta:
         model = CourseDeliveryFormat
         fields = [
             "id", "format_type",
+            "chat_id",
             "start_type", "course_start_date", "access_duration_days",
             "start_date", "enrollment_deadline", "unlock_mode",
             "max_students", "enrolled_count", "completed_count",

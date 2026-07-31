@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.courses.models import Course
+from apps.common.cache import invalidate_cache_on_commit
 from apps.curriculum.models import Lesson, LessonItem, Test, TestAttempt
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
@@ -17,6 +18,7 @@ from apps.enrollments.exceptions import (
     MandatoryTestNotPassedError,
 )
 from apps.enrollments.models import CourseCompletion, Enrollment, LessonCompletion
+from apps.enrollments.cache import invalidate_course_progress_for_user
 from apps.users.models import StudentProfile, User
 
 logger = logging.getLogger(__name__)
@@ -116,6 +118,11 @@ class ProgressService:
         Enrollment.objects.filter(pk=enrollment.pk).update(
             last_lesson_id=lesson.id,
             last_opened_at=timezone.now(),
+        )
+        invalidate_cache_on_commit(
+            invalidate_course_progress_for_user,
+            user.pk,
+            course.pk,
         )
 
     @classmethod

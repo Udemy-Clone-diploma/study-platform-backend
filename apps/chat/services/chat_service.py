@@ -214,6 +214,94 @@ class ChatService:
         return chat
 
     @staticmethod
+    def _cohort_chat_title(cohort) -> str:
+        group_name = cohort.name or "Study group"
+        return f"{cohort.course.title} — {group_name}"[:255]
+
+    @staticmethod
+    def _delivery_format_chat_title(delivery_format) -> str:
+        return (
+            f"{delivery_format.course.title} — "
+            f"{delivery_format.get_format_type_display()}"
+        )[:255]
+
+    @classmethod
+    def ensure_cohort_chat(cls, cohort: "object") -> ChatRoom:
+        """Return the cohort chat, creating it with the course teacher as owner.
+
+        The relation on Cohort makes this operation idempotent. Existing cohort
+        members are also synchronized so the helper is safe for legacy rows and
+        for membership records created outside the HTTP view.
+        """
+        from apps.courses.models import Cohort, CohortMember
+
+        with transaction.atomic():
+            locked_cohort = (
+                Cohort.objects.select_for_update()
+                .select_related("course__teacher_profile__user")
+                .get(pk=cohort.pk)
+            )
+            if locked_cohort.group_chat_id:
+                chat = ChatRoom.objects.get(pk=locked_cohort.group_chat_id)
+            else:
+                chat = cls.create_group_chat(
+                    created_by=locked_cohort.course.teacher_profile.user,
+                    title=cls._cohort_chat_title(locked_cohort),
+                    participant_ids=[],
+                )
+                Cohort.objects.filter(pk=locked_cohort.pk).update(group_chat_id=chat.pk)
+
+            member_user_ids = list(
+                CohortMember.objects.filter(cohort_id=locked_cohort.pk).values_list(
+                    "enrollment__student_profile__user_id", flat=True
+                )
+            )
+
+        cls.add_participants(chat, member_user_ids)
+        cohort.group_chat_id = chat.pk
+        return chat
+
+    @classmethod
+    def ensure_delivery_format_chat(cls, delivery_format: "object") -> ChatRoom | None:
+        """Ensure the shared chat for self-paced and scheduled formats exists."""
+        from apps.courses.models import CourseDeliveryFormat
+        from apps.enrollments.models import Enrollment
+
+        if delivery_format.format_type not in {
+            CourseDeliveryFormat.FormatType.SELF_PACED,
+            CourseDeliveryFormat.FormatType.SCHEDULED,
+        }:
+            return None
+
+        with transaction.atomic():
+            locked_format = (
+                CourseDeliveryFormat.objects.select_for_update()
+                .select_related("course__teacher_profile__user")
+                .get(pk=delivery_format.pk)
+            )
+            if locked_format.group_chat_id:
+                chat = ChatRoom.objects.get(pk=locked_format.group_chat_id)
+            else:
+                chat = cls.create_group_chat(
+                    created_by=locked_format.course.teacher_profile.user,
+                    title=cls._delivery_format_chat_title(locked_format),
+                    participant_ids=[],
+                )
+                CourseDeliveryFormat.objects.filter(pk=locked_format.pk).update(
+                    group_chat_id=chat.pk
+                )
+
+            student_user_ids = list(
+                Enrollment.objects.with_active_access()
+                .filter(delivery_format_id=locked_format.pk)
+                .values_list("student_profile__user_id", flat=True)
+            )
+
+        cls.add_participants(chat, student_user_ids)
+        delivery_format.group_chat_id = chat.pk
+        return chat
+
+    @staticmethod
     def add_participants(chat: ChatRoom, user_ids: list[int]) -> list[ChatParticipant]:
         if chat.type != ChatRoom.TypeChoices.GROUP:
             raise ValidationError("Participants can only be managed for group chats.")

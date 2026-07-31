@@ -24,6 +24,13 @@ class CourseDeliveryFormat(models.Model):
         on_delete=models.CASCADE,
         related_name="delivery_formats",
     )
+    group_chat = models.OneToOneField(
+        "chat.ChatRoom",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delivery_format_group",
+    )
     format_type = models.CharField(max_length=20, choices=FormatType.choices)
 
     # --- self_paced fields ---

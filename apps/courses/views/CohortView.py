@@ -1,13 +1,17 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.courses.models import Cohort
 from apps.courses.serializers import CohortSerializer
 from apps.courses.services import CohortService
 
-from ._course_scoped import ensure_can_modify_course, get_course_for_request
+from ._course_scoped import (
+    ensure_can_modify_course,
+    ensure_can_view_course_management,
+    get_course_for_request,
+)
 
 
 @extend_schema(tags=["Cohorts"])
@@ -15,12 +19,11 @@ class CohortListCreateView(generics.ListCreateAPIView):
     serializer_class = CohortSerializer
 
     def get_permissions(self):
-        if self.request.method == "POST":
-            return [IsAuthenticated()]
-        return [AllowAny()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
+        ensure_can_view_course_management(self.request.user, course)
         return Cohort.objects.filter(course=course)
 
     def create(self, request, *args, **kwargs):
@@ -42,12 +45,11 @@ class CohortDetailView(generics.RetrieveUpdateDestroyAPIView):
     http_method_names = ["get", "patch", "delete"]
 
     def get_permissions(self):
-        if self.request.method == "GET":
-            return [AllowAny()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
+        ensure_can_view_course_management(self.request.user, course)
         return Cohort.objects.filter(course=course)
 
     def partial_update(self, request, *args, **kwargs):

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
@@ -9,11 +10,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.blog.cache import (
+    public_article_detail_cache_key,
+    public_article_list_cache_key,
+)
 from apps.blog.exceptions import ArticleAlreadyAssignedError, ArticleNotAssignedToModeratorError, BlogError
 from apps.blog.models import Article
 from apps.blog.permissions import CanCreateArticle, CanManageArticle
-from apps.blog.serializers import ArticleCreateUpdateSerializer, ArticleDetailSerializer, ArticleListSerializer
+from apps.blog.serializers import (
+    ArticleCreateUpdateSerializer,
+    ArticleDetailSerializer,
+    ArticleListSerializer,
+    PublicArticleDetailSerializer,
+    PublicArticleListSerializer,
+)
 from apps.blog.services.article_service import ArticleService
+from apps.common.cache import cache_get_or_set, jittered_cache_timeout
 from apps.users.models import User
 from apps.users.permissions import IsAdminOrModerator
 
@@ -37,8 +49,24 @@ class ArticleListCreateView(ListCreateAPIView):
     parser_classes = [MultiPartParser, FormParser]
     pagination_class = None
 
+    def _is_public_listing(self) -> bool:
+        request = self.request
+        user = request.user
+        is_staff = user.is_authenticated and user.role in _STAFF_ROLES
+        if request.query_params.get("mine") == "true":
+            return False
+        if is_staff and request.query_params.get("assigned"):
+            return False
+        if is_staff and request.query_params.get("status"):
+            return False
+        return True
+
     def get_serializer_class(self):
-        return ArticleCreateUpdateSerializer if self.request.method == "POST" else ArticleListSerializer
+        if self.request.method == "POST":
+            return ArticleCreateUpdateSerializer
+        if self._is_public_listing():
+            return PublicArticleListSerializer
+        return ArticleListSerializer
 
     def get_queryset(self):
         request = self.request
@@ -85,6 +113,23 @@ class ArticleListCreateView(ListCreateAPIView):
         # (which reflects the draft's original creation time, not its publish date).
         return qs.filter(status=Article.StatusChoices.PUBLISHED).order_by("-published_at")
 
+    def list(self, request, *args, **kwargs):
+        if not self._is_public_listing():
+            return super().list(request, *args, **kwargs)
+
+        data = cache_get_or_set(
+            public_article_list_cache_key(request),
+            lambda: self.get_serializer(
+                self.filter_queryset(self.get_queryset()),
+                many=True,
+            ).data,
+            timeout=jittered_cache_timeout(
+                settings.CACHE_DEFAULT_TIMEOUT,
+                settings.CACHE_TTL_JITTER_SECONDS,
+            ),
+        )
+        return Response(data)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -123,6 +168,34 @@ class ArticleDetailView(RetrieveUpdateDestroyAPIView):
         if self.request.method in ("PATCH", "PUT", "DELETE"):
             self.check_object_permissions(self.request, article)
         return article
+
+    def retrieve(self, request, *args, **kwargs):
+        article = self.get_object()
+        user = request.user
+        is_owner_or_staff = user.is_authenticated and (
+            user.role in _STAFF_ROLES or article.author_id == user.id
+        )
+        if (
+            article.status == Article.StatusChoices.PUBLISHED
+            and not is_owner_or_staff
+        ):
+            data = cache_get_or_set(
+                public_article_detail_cache_key(
+                    request,
+                    article_id=article.pk,
+                    slug=article.slug,
+                ),
+                lambda: PublicArticleDetailSerializer(
+                    article,
+                    context={"request": request},
+                ).data,
+                timeout=jittered_cache_timeout(
+                    settings.CACHE_DEFAULT_TIMEOUT,
+                    settings.CACHE_TTL_JITTER_SECONDS,
+                ),
+            )
+            return Response(data)
+        return Response(self.get_serializer(article).data)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

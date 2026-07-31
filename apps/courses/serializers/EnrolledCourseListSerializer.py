@@ -1,13 +1,18 @@
 from rest_framework import serializers
 
-from .CourseListSerializer import CourseListSerializer
+from .PublicCourseListSerializer import PublicCourseListSerializer
 
 
-class EnrolledCourseListSerializer(CourseListSerializer):
+class EnrolledCourseListSerializer(PublicCourseListSerializer):
+    enrolled_at = serializers.DateTimeField(read_only=True, default=None)
     progress_percent = serializers.SerializerMethodField()
 
-    class Meta(CourseListSerializer.Meta):
-        fields = CourseListSerializer.Meta.fields + ["progress_percent"]
+    class Meta(PublicCourseListSerializer.Meta):
+        fields = PublicCourseListSerializer.Meta.fields + [
+            "enrolled_at",
+            "progress_percent",
+        ]
+        read_only_fields = fields
 
     def get_progress_percent(self, obj) -> int:
         completed = getattr(obj, "enrollment_lessons_completed", None) or 0

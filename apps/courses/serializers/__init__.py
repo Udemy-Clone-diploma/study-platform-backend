@@ -13,6 +13,14 @@ from .CourseTeacherSerializer import CourseTeacherSerializer
 from .EnrolledCourseListSerializer import EnrolledCourseListSerializer
 from .ModerationReviewSerializer import ModerationReviewSerializer
 from .PricingPlanSerializer import PricingPlanSerializer
+from .PublicCategorySerializer import PublicCategorySerializer
+from .PublicCourseCohortSerializer import PublicCourseCohortSerializer
+from .PublicCourseDeliveryFormatSerializer import PublicCourseDeliveryFormatSerializer
+from .PublicCourseDetailSerializer import PublicCourseDetailSerializer
+from .PublicCourseListSerializer import PublicCourseListSerializer
+from .PublicCourseTeacherSerializer import PublicCourseTeacherSerializer
+from .PublicPricingPlanSerializer import PublicPricingPlanSerializer
+from .PublicTagSerializer import PublicTagSerializer
 from .TagSerializer import TagSerializer
 
 __all__ = [
@@ -34,5 +42,13 @@ __all__ = [
     "EnrolledCourseListSerializer",
     "ModerationReviewSerializer",
     "PricingPlanSerializer",
+    "PublicCategorySerializer",
+    "PublicCourseCohortSerializer",
+    "PublicCourseDeliveryFormatSerializer",
+    "PublicCourseDetailSerializer",
+    "PublicCourseListSerializer",
+    "PublicCourseTeacherSerializer",
+    "PublicPricingPlanSerializer",
+    "PublicTagSerializer",
     "TagSerializer",
 ]

@@ -32,7 +32,7 @@ class CourseDetailTeacherInfoTests(APITestCase):
         cls.student_user, cls.student_profile = make_student(email="detail_student@example.com")
 
     def test_detail_includes_teacher_payload(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         teacher = response.data["teacher"]
@@ -42,21 +42,21 @@ class CourseDetailTeacherInfoTests(APITestCase):
         self.assertIn("avatar", teacher)
 
     def test_detail_includes_category_payload(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         self.assertEqual(response.data["category"]["slug"], self.category.slug)
 
     def test_detail_returns_image_url_or_none(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         # image is a SerializerMethodField; with no upload it should be None.
         self.assertIsNone(response.data["image"])
 
-    def test_detail_reports_anonymous_user_as_not_enrolled(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+    def test_public_detail_excludes_personal_enrollment_state(self):
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(response.data["is_enrolled"])
+        self.assertNotIn("is_enrolled", response.data)
 
     def test_detail_reports_active_student_enrollment(self):
         Enrollment.objects.create(

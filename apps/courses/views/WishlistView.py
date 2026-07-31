@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.courses.exceptions import CourseNotFoundError
-from apps.courses.serializers import CourseListSerializer
+from apps.courses.serializers import PublicCourseListSerializer
 from apps.courses.services import WishlistService
 from apps.users.permissions import IsStudent
 
@@ -15,7 +15,7 @@ from apps.users.permissions import IsStudent
 )
 class WishlistListView(generics.ListAPIView):
     permission_classes = [IsStudent]
-    serializer_class = CourseListSerializer
+    serializer_class = PublicCourseListSerializer
 
     def get_queryset(self):
         return WishlistService.get_wishlisted_courses(self.request.user.student_profile)
