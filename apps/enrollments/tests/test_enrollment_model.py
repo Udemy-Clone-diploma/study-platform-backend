@@ -63,3 +63,41 @@ class EnrollmentModelTests(TestCase):
         )
 
         self.assertFalse(has_access)
+
+    def test_suspend_blocks_content_access_but_stays_visible(self):
+        enrollment = Enrollment.objects.create(
+            student_profile=self.student_profile,
+            course=self.course,
+        )
+
+        enrollment.suspend()
+        enrollment.refresh_from_db()
+
+        self.assertEqual(enrollment.access_status, Enrollment.AccessStatusChoices.SUSPENDED)
+        self.assertFalse(
+            EnrollmentService.student_has_course_access(self.student_profile, self.course)
+        )
+        self.assertIn(
+            enrollment,
+            Enrollment.objects.with_visible_access().filter(student_profile=self.student_profile),
+        )
+        self.assertNotIn(
+            enrollment,
+            Enrollment.objects.with_active_access().filter(student_profile=self.student_profile),
+        )
+
+    def test_get_access_status_reports_suspended_and_none(self):
+        self.assertIsNone(
+            EnrollmentService.get_access_status(self.student_user, self.course)
+        )
+
+        enrollment = Enrollment.objects.create(
+            student_profile=self.student_profile,
+            course=self.course,
+        )
+        enrollment.suspend()
+
+        self.assertEqual(
+            EnrollmentService.get_access_status(self.student_user, self.course),
+            Enrollment.AccessStatusChoices.SUSPENDED,
+        )

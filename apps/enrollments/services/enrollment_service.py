@@ -303,3 +303,22 @@ class EnrollmentService:
         except StudentProfile.DoesNotExist:
             return False
         return cls.student_has_course_access(student_profile, course)
+
+    @classmethod
+    def get_access_status(cls, user, course: Course) -> str | None:
+        """The raw `Enrollment.access_status` for this user/course, or None if
+        no enrollment row exists at all. Unlike `is_enrolled` (which is False
+        for any non-active status), this lets callers distinguish "never
+        enrolled" from "suspended for an overdue installment" etc."""
+        if not user or not user.is_authenticated:
+            return None
+        if user.role != User.RoleChoices.STUDENT:
+            return None
+        try:
+            student_profile = user.student_profile
+        except StudentProfile.DoesNotExist:
+            return None
+        enrollment = Enrollment.objects.filter(
+            student_profile=student_profile, course=course,
+        ).first()
+        return enrollment.access_status if enrollment else None

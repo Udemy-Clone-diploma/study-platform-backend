@@ -24,6 +24,7 @@ class CourseListSerializer(serializers.ModelSerializer):
     original_price = serializers.SerializerMethodField()
     currency = serializers.CharField(source="min_currency", read_only=True, allow_null=True)
     enrolled_at = serializers.DateTimeField(read_only=True, default=None)
+    enrollment_access_status = serializers.CharField(read_only=True, default=None, allow_null=True)
     students_enrolled_last_30_days = serializers.IntegerField(read_only=True, default=0)
 
     pending_edit_status = serializers.SerializerMethodField()
@@ -42,6 +43,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             "rating_avg", "rating_count", "students_count",
             "students_enrolled_last_30_days", "status",
             "published_at", "created_at", "tags", "enrolled_at",
+            "enrollment_access_status",
             "pending_edit_status", "moderator_id",
         ]
 

@@ -790,25 +790,32 @@ class CourseService:
 
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
-        active_enrollments = Enrollment.objects.with_active_access().filter(
+        # with_visible_access (not with_active_access) so a suspended course --
+        # overdue installment -- stays listed instead of vanishing from "my
+        # courses"; enrollment_access_status lets the frontend show why.
+        visible_enrollments = Enrollment.objects.with_visible_access().filter(
             student_profile=student_profile,
         )
-        enrolled_at_subquery = active_enrollments.filter(
+        enrolled_at_subquery = visible_enrollments.filter(
             course_id=OuterRef("pk"),
         ).values("access_granted_at")[:1]
-        completed_subquery = active_enrollments.filter(
+        completed_subquery = visible_enrollments.filter(
             course_id=OuterRef("pk"),
         ).values("lessons_completed_count")[:1]
+        access_status_subquery = visible_enrollments.filter(
+            course_id=OuterRef("pk"),
+        ).values("access_status")[:1]
 
         queryset = (
             Course.objects.filter(
-                pk__in=active_enrollments.values_list("course_id", flat=True),
+                pk__in=visible_enrollments.values_list("course_id", flat=True),
             )
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
             .annotate(
                 enrolled_at=Subquery(enrolled_at_subquery),
                 enrollment_lessons_completed=Subquery(completed_subquery),
+                enrollment_access_status=Subquery(access_status_subquery),
             )
         )
         return cls.annotate_min_price(queryset)

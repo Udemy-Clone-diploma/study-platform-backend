@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import stripe
+from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -11,7 +12,9 @@ from apps.cart.models import Cart, CartItem
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_pricing_plan, make_teacher
 from apps.enrollments.models import Enrollment
+from apps.enrollments.services import EnrollmentService
 from apps.enrollments.tests._factories import make_student
+from apps.notifications.models import Notification
 from apps.payments.models import (
     Order,
     OrderItem,
@@ -749,6 +752,136 @@ class PaymentCheckoutTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.StatusChoices.PROCESSING)
+
+
+class OverdueInstallmentTests(APITestCase):
+    def setUp(self):
+        _, self.teacher_profile = make_teacher(email="overdue_teacher@example.com")
+        self.course = make_course(
+            self.teacher_profile,
+            title="Overdue Course",
+            slug="overdue-course",
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        self.plan = make_pricing_plan(
+            self.course,
+            price="25.00",
+            installment_count=4,
+            installment_amount="6.25",
+        )
+        self.student_user, self.student_profile = make_student(
+            email="overdue_student@example.com"
+        )
+        self.order = Order.objects.create(
+            user=self.student_user,
+            student_profile=self.student_profile,
+            total_amount="25.00",
+            currency=self.plan.currency,
+            payment_type=Order.PaymentTypeChoices.INSTALLMENTS,
+            installments_count=4,
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            course=self.course,
+            pricing_plan=self.plan,
+            course_title=self.course.title,
+            course_slug=self.course.slug,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
+            unit_amount="6.25",
+            currency=self.plan.currency,
+        )
+        self.overdue_installment = PaymentInstallment.objects.create(
+            order=self.order,
+            installment_number=2,
+            amount="6.25",
+            currency=self.plan.currency,
+            due_date=timezone.localdate() - timezone.timedelta(days=3),
+            status=PaymentInstallment.StatusChoices.PENDING,
+        )
+        self.enrollment = Enrollment.objects.create(
+            student_profile=self.student_profile,
+            course=self.course,
+            order_id=self.order.id,
+            access_status=Enrollment.AccessStatusChoices.ACTIVE,
+        )
+
+    def test_command_suspends_access_and_notifies_on_overdue_installment(self):
+        call_command("check_overdue_installments")
+
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.SUSPENDED)
+        self.assertFalse(
+            EnrollmentService.student_has_course_access(self.student_profile, self.course)
+        )
+        notification = Notification.objects.get(
+            recipient=self.student_user, type=Notification.TypeChoices.PAYMENT_OVERDUE,
+        )
+        self.assertIn(self.course.title, notification.body)
+
+    def test_command_is_idempotent_for_already_suspended_enrollment(self):
+        call_command("check_overdue_installments")
+        call_command("check_overdue_installments")
+
+        self.assertEqual(
+            Notification.objects.filter(
+                recipient=self.student_user,
+                type=Notification.TypeChoices.PAYMENT_OVERDUE,
+            ).count(),
+            1,
+        )
+
+    def test_command_ignores_future_and_paid_installments(self):
+        self.overdue_installment.due_date = timezone.localdate() + timezone.timedelta(days=3)
+        self.overdue_installment.save(update_fields=["due_date"])
+
+        call_command("check_overdue_installments")
+
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.ACTIVE)
+        self.assertFalse(
+            Notification.objects.filter(type=Notification.TypeChoices.PAYMENT_OVERDUE).exists()
+        )
+
+    def test_paying_overdue_installment_restores_suspended_access(self):
+        call_command("check_overdue_installments")
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.SUSPENDED)
+
+        payment = Payment.objects.create(
+            user=self.student_user,
+            student_profile=self.student_profile,
+            order=self.order,
+            installment=self.overdue_installment,
+            amount="6.25",
+            currency=self.plan.currency,
+            status=Payment.StatusChoices.PROCESSING,
+            stripe_session_id="cs_overdue_paid",
+        )
+        PaymentItem.objects.create(
+            payment=payment,
+            course=self.course,
+            pricing_plan=self.plan,
+            course_title=self.course.title,
+            course_slug=self.course.slug,
+            pricing_plan_kind=self.plan.delivery_format.format_type,
+            unit_amount="6.25",
+            currency=self.plan.currency,
+        )
+
+        PaymentService.handle_checkout_session_completed(
+            {
+                "id": "cs_overdue_paid",
+                "payment_status": "paid",
+                "payment_intent": "pi_overdue_paid",
+                "customer": "cus_overdue_paid",
+            }
+        )
+
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.ACTIVE)
+        self.assertTrue(
+            EnrollmentService.student_has_course_access(self.student_profile, self.course)
+        )
 
 
 class OrderInvoiceTests(APITestCase):
