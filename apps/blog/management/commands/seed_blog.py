@@ -4,13 +4,16 @@ Idempotent: articles are created with get_or_create on their slug, so running it
 repeatedly will not duplicate rows.
 
     python manage.py seed_blog
+    python manage.py seed_blog --cover-image /path/to/cover.png
 
 Requires at least one teacher/moderator/administrator user to already exist
 (e.g. via `python manage.py seed`) -- authors are picked at random from them.
 """
 
 import random
+from pathlib import Path
 
+from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
@@ -166,8 +169,19 @@ STUDENT_STORY_BODIES: dict[str, list[str]] = {
 class Command(BaseCommand):
     help = "Seed 8 demo blog articles per category (idempotent, random authors from existing staff/teachers)."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--cover-image",
+            type=Path,
+            help="Optional image copied into every seeded article that has no cover yet.",
+        )
+
     @transaction.atomic
     def handle(self, *args, **options):
+        cover_image_path = options.get("cover_image")
+        if cover_image_path and not cover_image_path.is_file():
+            raise CommandError(f"Cover image not found: {cover_image_path}")
+
         authors = list(
             User.objects.filter(
                 role__in=[User.RoleChoices.TEACHER, User.RoleChoices.MODERATOR, User.RoleChoices.ADMINISTRATOR],
@@ -183,6 +197,7 @@ class Command(BaseCommand):
             raise CommandError("No blog categories found. Run `python manage.py migrate blog` first.")
 
         created_count = 0
+        covers_assigned = 0
         now = timezone.now()
 
         for category in categories:
@@ -196,7 +211,7 @@ class Command(BaseCommand):
                 else:
                     body_html = f"<p>{random.choice(LOREM)}</p><p>{random.choice(LOREM)}</p>"
                 published_at = now - timezone.timedelta(days=random.randint(1, 120))
-                _, created = Article.objects.get_or_create(
+                article, created = Article.objects.get_or_create(
                     slug=slug,
                     defaults={
                         "title": title,
@@ -210,7 +225,16 @@ class Command(BaseCommand):
                 )
                 if created:
                     created_count += 1
+                if cover_image_path and not article.cover_image:
+                    with cover_image_path.open("rb") as image_file:
+                        article.cover_image.save(
+                            cover_image_path.name,
+                            File(image_file),
+                            save=True,
+                        )
+                    covers_assigned += 1
 
         self.stdout.write(self.style.SUCCESS(
-            f"Done. Created {created_count} new articles ({Article.objects.count()} total).",
+            f"Done. Created {created_count} new articles, assigned {covers_assigned} covers "
+            f"({Article.objects.count()} total).",
         ))
