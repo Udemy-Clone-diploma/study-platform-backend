@@ -7,6 +7,7 @@ from apps.blog.exceptions import BlogCategoryInUseError
 from apps.blog.models import Article, BlogCategory
 
 SLUG_MAX_LENGTH = BlogCategory._meta.get_field("slug").max_length
+NAME_MAX_LENGTH = BlogCategory._meta.get_field("name_en").max_length
 
 
 class BlogCategoryService:
@@ -27,14 +28,14 @@ class BlogCategoryService:
     @classmethod
     def create_category(cls, validated_data: dict) -> BlogCategory:
         if not validated_data.get("slug"):
-            validated_data["slug"] = cls._generate_unique_slug(validated_data["name"])
+            validated_data["slug"] = cls._generate_unique_slug(validated_data["name_en"])
         return BlogCategory.objects.create(**validated_data)
 
     @classmethod
     def update_category(cls, category: BlogCategory, validated_data: dict) -> BlogCategory:
         if "slug" in validated_data and not validated_data["slug"]:
             validated_data["slug"] = cls._generate_unique_slug(
-                validated_data.get("name", category.name), exclude_pk=category.pk,
+                validated_data.get("name_en", category.name_en), exclude_pk=category.pk,
             )
         for field, value in validated_data.items():
             setattr(category, field, value)
@@ -62,8 +63,14 @@ class BlogCategoryService:
                 raise BlogCategoryInUseError(
                     f"Category is assigned to {count} {noun}. Move them first.",
                 )
+        # name_en/slug uniqueness spans soft-deleted rows (see _generate_unique_slug),
+        # so free the name up for reuse by mangling the deleted row's own copy. The
+        # pk suffix keeps it unique even if the same name gets deleted more than once.
+        suffix = f"-deleted-{category.pk}"
+        category.name_en = f"{category.name_en}{suffix}"[:NAME_MAX_LENGTH]
+        category.slug = f"{category.slug[: SLUG_MAX_LENGTH - len(suffix)]}{suffix}"
         category.is_deleted = True
-        category.save(update_fields=["is_deleted"])
+        category.save(update_fields=["name_en", "slug", "is_deleted"])
 
     @staticmethod
     def _generate_unique_slug(name: str, exclude_pk: int | None = None) -> str:

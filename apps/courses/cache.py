@@ -6,6 +6,7 @@ from apps.common.cache import (
     build_versioned_cache_key,
     bump_namespace_generation,
 )
+from apps.common.i18n import resolve_locale
 
 PUBLIC_COURSES_CACHE_NAMESPACE = "public-courses"
 PUBLIC_CATEGORIES_CACHE_NAMESPACE = "public-categories"
@@ -39,6 +40,7 @@ def public_course_detail_cache_key(request: Request, slug: str) -> str:
         "detail",
         _request_origin(request),
         slug,
+        resolve_locale(request),
     )
 
 
@@ -48,6 +50,7 @@ def public_new_courses_cache_key(request: Request, limit: int) -> str:
         "new",
         _request_origin(request),
         limit,
+        resolve_locale(request),
     )
 
 
@@ -57,6 +60,7 @@ def public_popular_courses_cache_key(request: Request, limit: int) -> str:
         "popular",
         _request_origin(request),
         limit,
+        resolve_locale(request),
     )
 
 
@@ -75,6 +79,7 @@ def public_featured_categories_cache_key(request: Request, limit: int) -> str:
         "featured",
         _request_origin(request),
         limit,
+        resolve_locale(request),
     )
 
 

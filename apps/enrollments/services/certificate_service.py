@@ -10,7 +10,6 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas as pdfcanvas
 
 from apps.courses.models import Course
-from apps.enrollments.models import CourseCompletion
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "certificate"
 BLOB_1 = ASSETS_DIR / "blob-1.png"
@@ -78,20 +77,23 @@ class CertificateService:
 
     @classmethod
     def render_certificate_assets(
-        cls, *, course: Course, completion: CourseCompletion, student_name: str,
+        cls, *, course: Course, student_name: str, course_title: str,
+        teacher_name: str, completed_at,
     ) -> tuple[bytes, bytes]:
+        """Takes the snapshot values explicitly rather than a CourseCompletion,
+        because certificates issued by hand have no completion behind them."""
         teacher_profile = getattr(course, "teacher_profile", None)
         image = cls._render_image(
             student_name=student_name,
-            course_title=completion.title,
+            course_title=course_title,
             course_type=course.course_type,
             certificate_description=course.certificate_description,
             duration_hours=course.duration_hours,
             focus_text=cls._focus_text(course),
-            teacher_name=completion.teacher_name,
+            teacher_name=teacher_name,
             teacher_specialization=teacher_profile.specialization if teacher_profile else "",
             signature_file=teacher_profile.signature if teacher_profile else None,
-            completed_at=completion.completed_at,
+            completed_at=completed_at,
         )
         return cls._wrap_as_pdf(image), cls._thumbnail(image)
 
@@ -101,7 +103,7 @@ class CertificateService:
         if tag_names:
             return ", ".join(tag_names)
         if course.category_id:
-            return course.category.name
+            return course.category.name_en
         return ""
 
     # ── raster rendering ────────────────────────────────────────────────

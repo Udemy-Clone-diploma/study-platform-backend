@@ -587,7 +587,12 @@ def _bucket_scores(qs, period: str) -> tuple[list[dict], float]:
         for row in windowed.annotate(bucket=trunc).values("bucket").annotate(avg=Avg("score"))
     }
     points = [
-        {"label": label, "value": round(grouped.get(bucket, 0) or 0, 1)}
+        {
+            "label": label,
+            "date": bucket.isoformat(),
+            "period": period,
+            "value": round(grouped.get(bucket, 0) or 0, 1),
+        }
         for bucket, label in zip(buckets, labels)
     ]
     overall = windowed.aggregate(avg=Avg("score"))["avg"]

@@ -7,7 +7,13 @@ from django.utils import timezone
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory, APITestCase
 
-from apps.courses.cache import public_course_list_cache_key
+from apps.courses.cache import (
+    public_course_detail_cache_key,
+    public_course_list_cache_key,
+    public_featured_categories_cache_key,
+    public_new_courses_cache_key,
+    public_popular_courses_cache_key,
+)
 from apps.courses.models import (
     Course,
     CourseDeliveryFormat,
@@ -48,6 +54,9 @@ class PublicCourseResponseCacheTests(APITestCase):
             name="Cached category",
             slug="cached-category",
             featured_order=1,
+            name_uk="Кешована категорія",
+            description_en="Cached category description",
+            description_uk="Опис кешованої категорії",
         )
         cls.course = make_course(
             cls.teacher,
@@ -154,6 +163,35 @@ class PublicCourseResponseCacheTests(APITestCase):
             public_course_list_cache_key(first),
             public_course_list_cache_key(different),
         )
+
+    def test_localized_public_endpoints_use_distinct_cache_keys(self):
+        factory = APIRequestFactory()
+        english = Request(factory.get("/api/v1/courses/cached-course/public/?lang=en"))
+        ukrainian = Request(factory.get("/api/v1/courses/cached-course/public/?lang=uk"))
+
+        key_builders = (
+            lambda request: public_course_detail_cache_key(
+                request,
+                self.course.slug,
+            ),
+            lambda request: public_new_courses_cache_key(request, 8),
+            lambda request: public_popular_courses_cache_key(request, 8),
+            lambda request: public_featured_categories_cache_key(request, 6),
+        )
+        for build_key in key_builders:
+            with self.subTest(key_builder=build_key):
+                self.assertNotEqual(build_key(english), build_key(ukrainian))
+
+    def test_featured_categories_cache_preserves_requested_locale(self):
+        url = reverse("categories-featured")
+
+        english = self.client.get(url, {"lang": "en"})
+        ukrainian = self.client.get(url, {"lang": "uk"})
+
+        self.assertEqual(english.status_code, 200)
+        self.assertEqual(ukrainian.status_code, 200)
+        self.assertEqual(english.data[0]["name"], "Cached category")
+        self.assertEqual(ukrainian.data[0]["name"], "Кешована категорія")
 
     def test_course_save_invalidates_catalog_and_detail(self):
         list_url = reverse("courses-list")

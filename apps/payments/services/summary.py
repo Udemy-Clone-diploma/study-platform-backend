@@ -243,7 +243,7 @@ class SummaryService(PaymentBaseService):
             )
             .values(
                 "course__category_id",
-                "course__category__name",
+                "course__category__name_en",
                 "course__category__slug",
                 "payment__currency",
             )
@@ -255,7 +255,7 @@ class SummaryService(PaymentBaseService):
                 # Null when the course was hard-deleted or has no category. The
                 # bucket is kept rather than dropped so the donut still adds up.
                 "category_id": row["course__category_id"],
-                "category": row["course__category__name"],
+                "category": row["course__category__name_en"],
                 "slug": row["course__category__slug"],
                 "currency": row["payment__currency"],
                 "gross_revenue": row["gross_revenue"] or ZERO,

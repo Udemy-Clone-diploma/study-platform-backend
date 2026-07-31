@@ -1,6 +1,7 @@
 import django_filters
 from django.db.models import Q
 
+from apps.common.i18n import SUPPORTED_LOCALES
 from apps.courses.models import Category, Course
 from apps.users.models import User
 
@@ -22,9 +23,12 @@ class CategoryFilter(django_filters.FilterSet):
         if not query:
             return queryset
 
-        return queryset.filter(
-            Q(name__icontains=query) | Q(description__icontains=query)
-        )
+        # Matches whichever locale the admin actually typed the category in.
+        condition = Q()
+        for locale in SUPPORTED_LOCALES:
+            condition |= Q(**{f"name_{locale}__icontains": query})
+            condition |= Q(**{f"description_{locale}__icontains": query})
+        return queryset.filter(condition)
 
     class Meta:
         model = Category
@@ -86,12 +90,18 @@ class CourseFilter(django_filters.FilterSet):
         if not query:
             return queryset
 
+        # Category name is matched across every locale the admin filled in
+        # (apps.common.i18n), since the course's category can be typed in any of them.
+        category_condition = Q()
+        for locale in SUPPORTED_LOCALES:
+            category_condition |= Q(**{f"category__name_{locale}__icontains": query})
+
         return queryset.filter(
             Q(title__icontains=query)
             | Q(subtitle__icontains=query)
             | Q(short_description__icontains=query)
             | Q(full_description__icontains=query)
-            | Q(category__name__icontains=query)
+            | category_condition
             | Q(tags__name__icontains=query)
             | Q(teacher_profile__user__first_name__icontains=query)
             | Q(teacher_profile__user__last_name__icontains=query)

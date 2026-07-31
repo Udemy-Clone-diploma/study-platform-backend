@@ -29,7 +29,10 @@ class FeaturedCategoriesView(APIView):
             return Response({"limit": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         categories = cache_get_or_set(
             public_featured_categories_cache_key(request, limit),
-            lambda: CourseService.get_categories(limit=limit),
+            lambda: CourseService.get_categories(
+                limit=limit,
+                context={"request": request},
+            ),
             timeout=jittered_cache_timeout(
                 settings.PUBLIC_CATEGORY_CACHE_TIMEOUT,
                 settings.CACHE_TTL_JITTER_SECONDS,

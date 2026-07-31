@@ -27,11 +27,14 @@ can log in immediately via the auth endpoints.
 from datetime import date, time, timedelta
 from decimal import Decimal
 
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+from apps.certificates.models import Certificate
+from apps.certificates.serials import generate_unique_serial
 from apps.courses.models import (
     Category,
     Cohort,
@@ -52,6 +55,7 @@ from apps.curriculum.models import (
     TestAttempt,
 )
 from apps.enrollments.models import CourseCompletion, Enrollment, LessonCompletion
+from apps.enrollments.services.certificate_service import CertificateService
 from apps.notifications.models import Notification, NotificationPreference
 from apps.reviews.models import Review
 from apps.schedule.models import CohortSchedule, ScheduleSlot
@@ -620,10 +624,21 @@ class Command(BaseCommand):
 
     # Taxonomy
 
+    # Translations for the fixed set of demo categories below (apps.courses.migrations
+    # .0051_translate_categories backfills the same values for already-seeded databases).
+    CATEGORY_TRANSLATIONS = {
+        "Design": {"name_uk": "Дизайн", "name_fr": "Design", "name_es": "Diseño", "name_de": "Design"},
+        "Marketing": {"name_uk": "Маркетинг", "name_fr": "Marketing", "name_es": "Marketing", "name_de": "Marketing"},
+        "Languages": {"name_uk": "Мови", "name_fr": "Langues", "name_es": "Idiomas", "name_de": "Sprachen"},
+        "IT": {"name_uk": "ІТ", "name_fr": "Informatique", "name_es": "TI", "name_de": "IT"},
+        "Business": {"name_uk": "Бізнес", "name_fr": "Affaires", "name_es": "Negocios", "name_de": "Wirtschaft"},
+    }
+
     def _category(self, name, featured_order=None):
+        translations = self.CATEGORY_TRANSLATIONS.get(name, {})
         cat, created = Category.objects.get_or_create(
             slug=slugify(name),
-            defaults={"name": name, "featured_order": featured_order})
+            defaults={"name_en": name, "featured_order": featured_order, **translations})
         if not created and cat.featured_order != featured_order:
             cat.featured_order = featured_order
             cat.save(update_fields=["featured_order"])
@@ -927,12 +942,55 @@ class Command(BaseCommand):
                 "progress_percent": 100,
                 "started_at": timezone.now() - timedelta(days=started_days_ago),
                 "final_score": final_score,
-                "certificate_url": f"/certificates/{course.slug}-{student_profile.user_id}.pdf",
             },
         )
         self._backdate(completion, "completed_at",
                        timezone.now() - timedelta(days=completed_days_ago))
+        self._render_certificate_files(completion, course)
+        self._certificate(completion)
         return completion
+
+    def _render_certificate_files(self, completion, course):
+        """Render the real PDF, the way a live completion does. A placeholder
+        certificate_url string is not enough: the dashboard and the admin
+        download endpoint both serve certificate_file, so a completion without
+        one carries a certificate nothing can open."""
+        if completion.certificate_file:
+            return
+        pdf_bytes, thumbnail_bytes = CertificateService.render_certificate_assets(
+            course=course,
+            student_name=completion.student_profile.user.get_full_name(),
+            course_title=completion.title,
+            teacher_name=completion.teacher_name,
+            completed_at=completion.completed_at,
+        )
+        completion.certificate_file.save(
+            f"certificate-{completion.id}.pdf", ContentFile(pdf_bytes), save=False)
+        completion.certificate_thumbnail.save(
+            f"certificate-{completion.id}.jpg", ContentFile(thumbnail_bytes), save=False)
+        completion.certificate_url = completion.certificate_file.url
+        completion.save(update_fields=["certificate_file", "certificate_thumbnail",
+                                       "certificate_url"])
+
+    def _certificate(self, completion):
+        """Registry row for the admin Certificates panel. Keyed on the
+        completion so re-running the seeder does not mint a second serial."""
+        certificate, created = Certificate.objects.get_or_create(
+            completion=completion,
+            defaults={
+                "serial": generate_unique_serial(completion.completed_at.year),
+                "student_profile": completion.student_profile,
+                "course": completion.course,
+                "student_name": completion.student_profile.user.get_full_name(),
+                "course_title": completion.title,
+                "final_score": completion.final_score,
+                "issue_reason": Certificate.IssueReasonChoices.COMPLETION,
+                "issued_at": completion.completed_at,
+            },
+        )
+        if created:
+            self._backdate(certificate, "created_at", completion.completed_at)
+        return certificate
 
     # Notifications
 
@@ -965,3 +1023,7 @@ class Command(BaseCommand):
     # Backdate an auto_now / auto_now_add timestamp without re-triggering it.
     def _backdate(self, instance, field, when):
         instance.__class__.objects.filter(pk=instance.pk).update(**{field: when})
+        # Keep the in-memory copy in step, so callers that read the field back
+        # (the certificate serial year, the rendered PDF date) see the backdate
+        # rather than the auto_now_add value from a moment ago.
+        setattr(instance, field, when)

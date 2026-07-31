@@ -46,21 +46,29 @@ class BlogCategoryListCreateView(ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         category = BlogCategoryService.create_category(serializer.validated_data)
-        return Response(BlogCategorySerializer(category).data, status=status.HTTP_201_CREATED)
+        return Response(
+            BlogCategoryCreateUpdateSerializer(category).data, status=status.HTTP_201_CREATED
+        )
 
 
 @extend_schema(tags=["Blog"])
 class BlogCategoryDetailView(APIView):
-    """PATCH/DELETE /blog/categories/{slug}/ — administrator-only edit/remove of a category block."""
+    """GET/PATCH/DELETE /blog/categories/{slug}/ — administrator-only.
+    GET returns every locale field (not just the resolved one) so the admin
+    edit form can populate all of them, unlike the public list endpoint."""
 
     permission_classes = [IsAdmin]
+
+    def get(self, request, slug):
+        category = get_object_or_404(BlogCategory.objects, slug=slug)
+        return Response(BlogCategoryCreateUpdateSerializer(category).data)
 
     def patch(self, request, slug):
         category = get_object_or_404(BlogCategory.objects, slug=slug)
         serializer = BlogCategoryCreateUpdateSerializer(category, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         category = BlogCategoryService.update_category(category, serializer.validated_data)
-        return Response(BlogCategorySerializer(category).data)
+        return Response(BlogCategoryCreateUpdateSerializer(category).data)
 
     def delete(self, request, slug):
         category = get_object_or_404(BlogCategory.objects, slug=slug)

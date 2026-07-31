@@ -17,7 +17,7 @@ def make_teacher(email="teacher@example.com", first_name="", last_name=""):
 
 
 def make_category(name="Development", slug="development", **overrides):
-    return Category.objects.create(name=name, slug=slug, **overrides)
+    return Category.objects.create(name_en=name, slug=slug, **overrides)
 
 
 COURSE_DEFAULTS = dict(
@@ -42,7 +42,15 @@ def make_course(teacher_profile, *, title="Course", slug="course", **overrides):
         and "published_at" not in fields
     ):
         fields["published_at"] = timezone.now()
-    return Course.all_objects.create(teacher_profile=teacher_profile, **fields)
+    course = Course.all_objects.create(teacher_profile=teacher_profile, **fields)
+    if course.status == Course.StatusChoices.PUBLISHED:
+        # The public catalog hides courses with no delivery format (see
+        # CourseViewSet.get_queryset), so a plain published course still
+        # needs one to behave like a real course in list/filter/search tests.
+        CourseDeliveryFormat.objects.get_or_create(
+            course=course, format_type=course.delivery_type,
+        )
+    return course
 
 
 def make_pricing_plan(

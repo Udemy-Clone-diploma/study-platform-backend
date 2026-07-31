@@ -9,8 +9,8 @@ from apps.courses.models import Category, Tag
 
 class CategorySoftDeleteTests(TestCase):
     def test_active_manager_hides_soft_deleted(self):
-        live = Category.objects.create(name="Live", slug="live")
-        dead = Category.objects.create(name="Dead", slug="dead", is_deleted=True)
+        live = Category.objects.create(name_en="Live", slug="live")
+        dead = Category.objects.create(name_en="Dead", slug="dead", is_deleted=True)
 
         slugs = list(Category.objects.values_list("slug", flat=True))
 
@@ -18,13 +18,13 @@ class CategorySoftDeleteTests(TestCase):
         self.assertNotIn(dead.slug, slugs)
 
     def test_all_objects_includes_soft_deleted(self):
-        Category.objects.create(name="Live", slug="live")
-        Category.objects.create(name="Dead", slug="dead", is_deleted=True)
+        Category.objects.create(name_en="Live", slug="live")
+        Category.objects.create(name_en="Dead", slug="dead", is_deleted=True)
 
         self.assertEqual(Category.all_objects.count(), 2)
 
     def test_admin_delete_flips_is_deleted_instead_of_dropping_row(self):
-        category = Category.objects.create(name="To Soft Delete", slug="to-soft-delete")
+        category = Category.objects.create(name_en="To Soft Delete", slug="to-soft-delete")
         model_admin = django_admin.site._registry[Category]
         self.assertIsInstance(model_admin, SoftDeleteAdminMixin)
 
@@ -36,8 +36,8 @@ class CategorySoftDeleteTests(TestCase):
         self.assertTrue(Category.all_objects.filter(pk=category.pk).exists())
 
     def test_admin_delete_queryset_marks_all_as_deleted(self):
-        Category.objects.create(name="A", slug="cat-a")
-        Category.objects.create(name="B", slug="cat-b")
+        Category.objects.create(name_en="A", slug="cat-a")
+        Category.objects.create(name_en="B", slug="cat-b")
         model_admin = django_admin.site._registry[Category]
         request = RequestFactory().post("/admin/courses/category/")
 
@@ -76,9 +76,8 @@ class FeaturedCategoriesHidesDeletedTests(APITestCase):
     """The featured (top-N) categories endpoint must skip soft-deleted ones."""
 
     def test_deleted_category_not_in_featured(self):
-        live = Category.objects.create(name="Live", slug="live", featured_order=1)
-        Category.objects.create(
-            name="Dead", slug="dead", featured_order=2, is_deleted=True
+        live = Category.objects.create(name_en="Live", slug="live", featured_order=1)
+        Category.objects.create(name_en="Dead", slug="dead", featured_order=2, is_deleted=True
         )
 
         response = self.client.get(reverse("categories-featured"))

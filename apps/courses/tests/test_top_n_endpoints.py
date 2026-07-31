@@ -13,7 +13,7 @@ class TopNEndpointsAreNotPaginatedTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         _, cls.teacher_profile = make_teacher()
-        Category.objects.create(name="A", slug="a")
+        Category.objects.create(name_en="A", slug="a")
 
     def test_new_courses_endpoint_returns_list(self):
         response = self.client.get(reverse("new-courses"))
@@ -54,8 +54,7 @@ class TopNLimitParamTests(APITestCase):
                 status=Course.StatusChoices.PUBLISHED,
             )
         for i in range(15):
-            Category.objects.create(
-                name=f"Cat {i:02d}", slug=f"cat-{i:02d}", featured_order=i + 1
+            Category.objects.create(name_en=f"Cat {i:02d}", slug=f"cat-{i:02d}", featured_order=i + 1
             )
 
     def test_new_courses_default_limit(self):

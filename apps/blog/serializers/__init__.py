@@ -1,3 +1,4 @@
+from .ArticleModerationSnapshotSerializer import ArticleModerationSnapshotSerializer
 from .ArticleSerializer import (
     ArticleAuthorSerializer,
     ArticleCreateUpdateSerializer,
@@ -17,6 +18,7 @@ __all__ = [
     "ArticleListSerializer",
     "PublicArticleDetailSerializer",
     "PublicArticleListSerializer",
+    "ArticleModerationSnapshotSerializer",
     "BlogCategoryCreateUpdateSerializer",
     "BlogCategorySerializer",
 ]

@@ -1,6 +1,7 @@
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Exists, F, OuterRef
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -13,7 +14,7 @@ from apps.courses.cache import (
     public_course_list_cache_key,
 )
 from apps.courses.filters import CourseFilter
-from apps.courses.models import Course
+from apps.courses.models import Course, CourseDeliveryFormat
 from apps.courses.permissions import IsCourseOwnerOrAdmin
 from apps.courses.serializers import (
     CourseCreateUpdateSerializer,
@@ -75,6 +76,11 @@ class CourseViewSet(
                 )
             else:
                 queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
+                # A course with no delivery format has no way to enroll or be
+                # priced, so it should not surface in the public catalog.
+                queryset = queryset.filter(
+                    Exists(CourseDeliveryFormat.objects.filter(course=OuterRef("pk")))
+                )
         elif self.action == "public_detail":
             queryset = queryset.filter(
                 status=Course.StatusChoices.PUBLISHED,
@@ -97,6 +103,20 @@ class CourseViewSet(
                 CourseService.delivery_formats_prefetch(),
                 CourseService.cohorts_prefetch(),
             )
+        return queryset
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        # DjangoFilterBackend's OrderingFilter does a plain order_by("-min_price"),
+        # which on Postgres defaults to NULLS FIRST for descending order -- courses
+        # with no pricing plan (min_price is NULL) would sort as if they were the
+        # most expensive. Force NULLS LAST in both directions so unpriced courses
+        # always sort to the end instead.
+        ordering_param = self.request.query_params.get("ordering", "")
+        if ordering_param in ("min_price", "-min_price"):
+            descending = ordering_param.startswith("-")
+            order_expr = F("min_price").desc(nulls_last=True) if descending else F("min_price").asc(nulls_last=True)
+            queryset = queryset.order_by(order_expr)
         return queryset
 
     def _is_admin_request(self) -> bool:
