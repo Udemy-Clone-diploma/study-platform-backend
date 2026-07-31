@@ -243,7 +243,7 @@ class PublicCourseResponseCacheTests(APITestCase):
         self.assertIsNone(first.data["results"][0]["price"])
 
         with self.captureOnCommitCallbacks(execute=True):
-            delivery_format = CourseDeliveryFormat.objects.create(
+            delivery_format = CourseDeliveryFormat.objects.get(
                 course=self.course,
                 format_type=CourseDeliveryFormat.FormatType.SELF_PACED,
             )

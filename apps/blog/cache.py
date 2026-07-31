@@ -7,6 +7,7 @@ from apps.common.cache import (
     bump_namespace_generation,
     namespace_generation,
 )
+from apps.common.i18n import resolve_locale
 
 PUBLIC_ARTICLE_LIST_CACHE_NAMESPACE = "public-article-list"
 PUBLIC_ARTICLE_DETAIL_CACHE_NAMESPACE = "public-article-detail"
@@ -30,6 +31,7 @@ def public_article_list_cache_key(request: Request) -> str:
         PUBLIC_ARTICLE_LIST_CACHE_NAMESPACE,
         _request_origin(request),
         _public_article_query(request),
+        resolve_locale(request),
     )
 
 
@@ -48,6 +50,7 @@ def public_article_detail_cache_key(
         _request_origin(request),
         article_id,
         slug,
+        resolve_locale(request),
         scope=(article_id,),
     )
 
@@ -56,6 +59,7 @@ def public_blog_categories_cache_key(request: Request) -> str:
     return build_versioned_cache_key(
         PUBLIC_BLOG_CATEGORY_CACHE_NAMESPACE,
         _request_origin(request),
+        resolve_locale(request),
     )
 
 

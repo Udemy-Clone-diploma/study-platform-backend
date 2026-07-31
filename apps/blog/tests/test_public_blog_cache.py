@@ -15,9 +15,13 @@ class PublicBlogCacheTests(APITestCase):
     def setUp(self):
         self.author, _ = make_teacher(email="blog-cache-author@example.com")
         self.category = BlogCategory.objects.create(
-            name="Caching",
+            name_en="Caching",
+            name_uk="Кешування",
             slug="caching",
-            description="Cache articles",
+            headline_en="Caching articles",
+            headline_uk="Статті про кешування",
+            description_en="Cache articles",
+            description_uk="Статті про кеш",
         )
         self.article = Article.objects.create(
             title="Public cached article",
@@ -110,3 +114,20 @@ class PublicBlogCacheTests(APITestCase):
             second = self.client.get(url)
 
         self.assertIn("caching", [item["slug"] for item in second.data])
+
+    def test_localized_category_responses_do_not_share_cache_entries(self):
+        url = reverse("blog-categories")
+
+        english = self.client.get(url, {"lang": "en"})
+        ukrainian = self.client.get(url, {"lang": "uk"})
+
+        self.assertEqual(english.status_code, status.HTTP_200_OK)
+        self.assertEqual(ukrainian.status_code, status.HTTP_200_OK)
+        english_category = next(
+            item for item in english.data if item["slug"] == self.category.slug
+        )
+        ukrainian_category = next(
+            item for item in ukrainian.data if item["slug"] == self.category.slug
+        )
+        self.assertEqual(english_category["name"], "Caching")
+        self.assertEqual(ukrainian_category["name"], "Кешування")
