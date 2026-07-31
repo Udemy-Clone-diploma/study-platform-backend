@@ -281,11 +281,72 @@ class EnrollmentService:
         enrollment.revoke()
 
     @staticmethod
-    def student_has_course_access(student_profile: StudentProfile, course: Course) -> bool:
-        return Enrollment.objects.with_active_access().filter(
-            student_profile=student_profile,
-            course=course,
-        ).exists()
+    def _has_overdue_installment(order_id: int | None) -> bool:
+        if order_id is None:
+            return False
+
+        from apps.payments.models import Order, PaymentInstallment
+
+        today = tz_now().date()
+        return (
+            PaymentInstallment.objects.filter(
+                order_id=order_id,
+                due_date__lt=today,
+                status__in=[
+                    PaymentInstallment.StatusChoices.PENDING,
+                    PaymentInstallment.StatusChoices.FAILED,
+                ],
+                order__payment_type=Order.PaymentTypeChoices.INSTALLMENTS,
+            )
+            .exclude(
+                order__status__in=[
+                    Order.StatusChoices.CANCELED,
+                    Order.StatusChoices.REFUNDED,
+                ],
+            )
+            .exists()
+        )
+
+    @classmethod
+    def _sync_overdue_status(cls, enrollment: Enrollment) -> Enrollment:
+        """Lazily suspend access the moment it's checked, if an installment
+        payment on this enrollment's order is overdue. There's no scheduler
+        involved -- the check runs exactly when a student tries to open the
+        course, so there's never a window where access is overdue but not yet
+        blocked (the trade-off a periodic job would have)."""
+        if enrollment.access_status != Enrollment.AccessStatusChoices.ACTIVE:
+            return enrollment
+        if not cls._has_overdue_installment(enrollment.order_id):
+            return enrollment
+
+        enrollment.suspend()
+
+        from apps.notifications.models import Notification
+        from apps.notifications.services import NotificationService
+
+        NotificationService.create(
+            recipient=enrollment.student_profile.user,
+            type=Notification.TypeChoices.PAYMENT_OVERDUE,
+            title="Course access suspended",
+            body=(
+                f"Access to '{enrollment.course.title}' is paused: an installment "
+                "payment is overdue. Pay the outstanding amount to restore access."
+            ),
+            link_url="/student-dashboard/payment?tab=plans",
+            payload={"course_slug": enrollment.course.slug, "order_id": enrollment.order_id},
+        )
+        return enrollment
+
+    @classmethod
+    def student_has_course_access(cls, student_profile: StudentProfile, course: Course) -> bool:
+        enrollment = Enrollment.objects.select_related(
+            "student_profile__user", "course",
+        ).filter(student_profile=student_profile, course=course).first()
+        if enrollment is None:
+            return False
+
+        enrollment = cls._sync_overdue_status(enrollment)
+        return enrollment.has_active_access
 
     @classmethod
     def is_enrolled(cls, user, course: Course) -> bool:
@@ -303,3 +364,26 @@ class EnrollmentService:
         except StudentProfile.DoesNotExist:
             return False
         return cls.student_has_course_access(student_profile, course)
+
+    @classmethod
+    def get_access_status(cls, user, course: Course) -> str | None:
+        """The raw `Enrollment.access_status` for this user/course, or None if
+        no enrollment row exists at all. Unlike `is_enrolled` (which is False
+        for any non-active status), this lets callers distinguish "never
+        enrolled" from "suspended for an overdue installment" etc."""
+        if not user or not user.is_authenticated:
+            return None
+        if user.role != User.RoleChoices.STUDENT:
+            return None
+        try:
+            student_profile = user.student_profile
+        except StudentProfile.DoesNotExist:
+            return None
+        enrollment = Enrollment.objects.select_related(
+            "student_profile__user", "course",
+        ).filter(student_profile=student_profile, course=course).first()
+        if enrollment is None:
+            return None
+
+        enrollment = cls._sync_overdue_status(enrollment)
+        return enrollment.access_status

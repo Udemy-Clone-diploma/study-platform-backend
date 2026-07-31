@@ -1,7 +1,22 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, IntegerField, Min, OuterRef, Prefetch, Q, Subquery
+from django.db.models import (
+    Case,
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    IntegerField,
+    Min,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.text import slugify
@@ -56,9 +71,29 @@ class CourseService:
             .order_by("price")
             .values("currency")[:1]
         )
-        return queryset.annotate(
-            min_price=Min("delivery_formats__pricing__price"),
+        queryset = queryset.annotate(
+            original_min_price=Min("delivery_formats__pricing__price"),
             min_currency=Subquery(cheapest_plan),
+        )
+        # original_min_price above is the raw catalog-cheapest plan price; discounts
+        # are a uniform course-level percent, so apply it here rather than per-plan.
+        # min_price (the discounted, actually-charged amount) is what price_min/
+        # price_max filtering and sorting operate on.
+        return queryset.annotate(
+            min_price=Case(
+                When(
+                    is_on_sale=True,
+                    discount_percent__isnull=False,
+                    then=ExpressionWrapper(
+                        F("original_min_price")
+                        * (Value(Decimal("100")) - F("discount_percent"))
+                        / Value(Decimal("100")),
+                        output_field=DecimalField(max_digits=10, decimal_places=2),
+                    ),
+                ),
+                default=F("original_min_price"),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
         )
 
     @staticmethod
@@ -462,6 +497,7 @@ class CourseService:
             with_certificate=course.with_certificate,
             certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            discount_percent=course.discount_percent,
             passing_score=course.passing_score,
             status=Course.StatusChoices.DRAFT,
             teacher_profile=teacher_profile,
@@ -560,6 +596,7 @@ class CourseService:
             with_certificate=course.with_certificate,
             certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            discount_percent=course.discount_percent,
             passing_score=course.passing_score,
             status=Course.StatusChoices.PENDING_EDIT,
             teacher_profile=course.teacher_profile,
@@ -774,25 +811,32 @@ class CourseService:
 
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
-        active_enrollments = Enrollment.objects.with_active_access().filter(
+        # with_visible_access (not with_active_access) so a suspended course --
+        # overdue installment -- stays listed instead of vanishing from "my
+        # courses"; enrollment_access_status lets the frontend show why.
+        visible_enrollments = Enrollment.objects.with_visible_access().filter(
             student_profile=student_profile,
         )
-        enrolled_at_subquery = active_enrollments.filter(
+        enrolled_at_subquery = visible_enrollments.filter(
             course_id=OuterRef("pk"),
         ).values("access_granted_at")[:1]
-        completed_subquery = active_enrollments.filter(
+        completed_subquery = visible_enrollments.filter(
             course_id=OuterRef("pk"),
         ).values("lessons_completed_count")[:1]
+        access_status_subquery = visible_enrollments.filter(
+            course_id=OuterRef("pk"),
+        ).values("access_status")[:1]
 
         queryset = (
             Course.objects.filter(
-                pk__in=active_enrollments.values_list("course_id", flat=True),
+                pk__in=visible_enrollments.values_list("course_id", flat=True),
             )
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
             .annotate(
                 enrolled_at=Subquery(enrolled_at_subquery),
                 enrollment_lessons_completed=Subquery(completed_subquery),
+                enrollment_access_status=Subquery(access_status_subquery),
             )
         )
         return cls.annotate_min_price(queryset)

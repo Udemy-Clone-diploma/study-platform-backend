@@ -16,6 +16,7 @@ class CartItemSerializer(serializers.ModelSerializer):
     currency = serializers.CharField(read_only=True, allow_null=True)
     unit_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    original_unit_price = serializers.SerializerMethodField()
     schedule_slots = serializers.SerializerMethodField()
     cohort = serializers.SerializerMethodField()
 
@@ -31,6 +32,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "installment_amount",
             "currency",
             "unit_price",
+            "original_unit_price",
             "subtotal",
             "schedule_slots",
             "cohort",
@@ -63,7 +65,13 @@ class CartItemSerializer(serializers.ModelSerializer):
         plan = obj.selected_pricing_plan
         if plan is None or plan.installment_amount is None:
             return None
-        return f"{plan.installment_amount:.2f}"
+        return f"{plan.final_installment_amount:.2f}"
+
+    def get_original_unit_price(self, obj: CartItem) -> str | None:
+        plan = obj.selected_pricing_plan
+        if plan is None or plan.final_price == plan.price:
+            return None
+        return f"{plan.price:.2f}"
 
     def get_schedule_slots(self, obj: CartItem) -> list[dict]:
         return [

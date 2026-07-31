@@ -26,7 +26,8 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     for field in [
         "title", "subtitle", "short_description", "full_description",
         "level", "language", "mode", "delivery_type", "course_type",
-        "with_certificate", "certificate_description", "is_on_sale", "passing_score",
+        "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
+        "passing_score",
     ]:
         if getattr(draft, field) != getattr(course, field):
             changed.append(field)
@@ -135,7 +136,8 @@ class PendingEditService:
         for field in [
             "title", "subtitle", "short_description", "full_description",
             "level", "language", "mode", "delivery_type", "course_type",
-            "with_certificate", "certificate_description", "is_on_sale", "passing_score",
+            "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
+        "passing_score",
         ]:
             setattr(course, field, getattr(draft, field))
         course.category = draft.category
