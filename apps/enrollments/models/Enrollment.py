@@ -12,6 +12,20 @@ class EnrollmentQuerySet(models.QuerySet):
             Q(access_until__isnull=True) | Q(access_until__gte=now)
         )
 
+    def with_visible_access(self):
+        """Active or suspended -- what the student's "my courses" dashboard should
+        still list. A suspended enrollment is a reversible pause (overdue
+        installment), not a departure, so the course must stay visible for the
+        student to see why and pay to restore it. Distinct from
+        `with_active_access()`, which content-gates lessons/homework/schedule and
+        must stay strict (suspended = no content access)."""
+        now = timezone.now()
+        return self.filter(
+            Q(access_status="active", access_until__isnull=True)
+            | Q(access_status="active", access_until__gte=now)
+            | Q(access_status="suspended")
+        )
+
     def exclude_completed(self):
         """Excludes enrollments the student has already finished (has a CourseCompletion).
 
@@ -45,6 +59,7 @@ class Enrollment(models.Model):
         PENDING = "pending", "Pending"
         EXPIRED = "expired", "Expired"
         REVOKED = "revoked", "Revoked"
+        SUSPENDED = "suspended", "Suspended (payment overdue)"
 
     id = models.BigAutoField(primary_key=True, db_column="id_enrollments")
 
@@ -135,6 +150,16 @@ class Enrollment(models.Model):
 
     def revoke(self) -> None:
         self.access_status = self.AccessStatusChoices.REVOKED
+        self.save(update_fields=["access_status"])
+
+    def suspend(self) -> None:
+        """Reversible pause for an overdue installment -- progress/data untouched.
+
+        Content access is cut immediately because `with_active_access()` filters
+        on `access_status="active"`. Paying any installment reactivates via the
+        generic not-active -> active branch in WebhookService._grant_enrollments.
+        """
+        self.access_status = self.AccessStatusChoices.SUSPENDED
         self.save(update_fields=["access_status"])
 
     def expire(self) -> None:

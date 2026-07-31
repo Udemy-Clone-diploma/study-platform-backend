@@ -15,6 +15,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
     "new_lesson": {"in_app": True, "email": False},
     "moderation_action": {"in_app": True, "email": False},
     "course_completed": {"in_app": True, "email": True},
+    "payment_overdue": {"in_app": True, "email": True},
 }
 
 
