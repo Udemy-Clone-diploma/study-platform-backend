@@ -1,7 +1,22 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, IntegerField, Min, OuterRef, Prefetch, Q, Subquery
+from django.db.models import (
+    Case,
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    IntegerField,
+    Min,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.text import slugify
@@ -56,9 +71,29 @@ class CourseService:
             .order_by("price")
             .values("currency")[:1]
         )
-        return queryset.annotate(
-            min_price=Min("delivery_formats__pricing__price"),
+        queryset = queryset.annotate(
+            original_min_price=Min("delivery_formats__pricing__price"),
             min_currency=Subquery(cheapest_plan),
+        )
+        # original_min_price above is the raw catalog-cheapest plan price; discounts
+        # are a uniform course-level percent, so apply it here rather than per-plan.
+        # min_price (the discounted, actually-charged amount) is what price_min/
+        # price_max filtering and sorting operate on.
+        return queryset.annotate(
+            min_price=Case(
+                When(
+                    is_on_sale=True,
+                    discount_percent__isnull=False,
+                    then=ExpressionWrapper(
+                        F("original_min_price")
+                        * (Value(Decimal("100")) - F("discount_percent"))
+                        / Value(Decimal("100")),
+                        output_field=DecimalField(max_digits=10, decimal_places=2),
+                    ),
+                ),
+                default=F("original_min_price"),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
         )
 
     @staticmethod
@@ -441,6 +476,7 @@ class CourseService:
             with_certificate=course.with_certificate,
             certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            discount_percent=course.discount_percent,
             passing_score=course.passing_score,
             status=Course.StatusChoices.DRAFT,
             teacher_profile=teacher_profile,
@@ -539,6 +575,7 @@ class CourseService:
             with_certificate=course.with_certificate,
             certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            discount_percent=course.discount_percent,
             passing_score=course.passing_score,
             status=Course.StatusChoices.PENDING_EDIT,
             teacher_profile=course.teacher_profile,

@@ -44,8 +44,8 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             "teacher_profile", "category_id",
             "level", "language", "mode", "delivery_type", "course_type",
             "duration_hours", "lessons_count",
-            "with_certificate", "certificate_description", "is_on_sale", "passing_score",
-            "status", "tag_ids",
+            "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
+            "passing_score", "status", "tag_ids",
         ]
         read_only_fields = ["lessons_count", "duration_hours"]
 
@@ -140,6 +140,16 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
                             "certificates -- it's printed on the certificate."
                         )
                     }
+                )
+
+        is_on_sale = attrs.get("is_on_sale", getattr(self.instance, "is_on_sale", False))
+        if is_on_sale:
+            discount_percent = attrs.get(
+                "discount_percent", getattr(self.instance, "discount_percent", None),
+            )
+            if not discount_percent:
+                raise serializers.ValidationError(
+                    {"discount_percent": "Required when is_on_sale is enabled."}
                 )
 
         return attrs

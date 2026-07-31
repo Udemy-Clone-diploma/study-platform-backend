@@ -291,7 +291,7 @@ class Command(BaseCommand):
             delivery_type=Course.DeliveryTypeChoices.SCHEDULED,
             status=Course.StatusChoices.PUBLISHED,
             language=Course.LanguageChoices.ENGLISH,
-            with_certificate=True, is_on_sale=True, duration_hours=60,
+            with_certificate=True, is_on_sale=True, discount_percent=20, duration_hours=60,
         )
         self._curriculum(django_course, modules=3, with_meeting=True)
         grp_django = self._format(
@@ -652,7 +652,7 @@ class Command(BaseCommand):
     def _course(self, *, slug, title, subtitle, short_description, bullets, teacher,
                 category, tags, course_type, level, mode, delivery_type, status,
                 duration_hours, language=Course.LanguageChoices.UKRAINIAN,
-                with_certificate=False, is_on_sale=False, moderator=None,
+                with_certificate=False, is_on_sale=False, discount_percent=None, moderator=None,
                 moderator_comment=""):
         published_at = timezone.now() if status == Course.StatusChoices.PUBLISHED else None
         course, _ = Course.all_objects.get_or_create(
@@ -667,6 +667,7 @@ class Command(BaseCommand):
                 "delivery_type": delivery_type, "status": status, "language": language,
                 "duration_hours": duration_hours,
                 "with_certificate": with_certificate, "is_on_sale": is_on_sale,
+                "discount_percent": discount_percent,
                 "moderator_comment": moderator_comment,
                 "published_at": published_at,
             },
