@@ -15,7 +15,13 @@ class BlogCategoryService:
         # Reverse-FK annotations bypass ActiveManager, so soft-deleted
         # articles must be excluded explicitly.
         return queryset.annotate(
-            articles_count=Count("articles", filter=Q(articles__is_deleted=False)),
+            articles_count=Count(
+                "articles",
+                filter=Q(
+                    articles__is_deleted=False,
+                    articles__status=Article.StatusChoices.PUBLISHED,
+                ),
+            ),
         )
 
     @classmethod

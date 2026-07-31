@@ -150,7 +150,7 @@ class FeaturedCategoriesUrlTests(APITestCase):
 
     def test_old_url_no_longer_returns_featured_list(self):
         response = self.client.get("/api/v1/courses/categories/")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_new_url_works(self):
         response = self.client.get(reverse("categories-featured"))

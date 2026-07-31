@@ -451,11 +451,51 @@ class ChatWebSocketTests(TransactionTestCase):
             recipient_event = await self._receive_type(recipient, "message.created")
             self.assertEqual(sender_event["message"]["text"], "Live message")
             self.assertEqual(recipient_event["message"]["text"], "Live message")
+            self.assertNotIn("email", sender_event["message"]["sender"])
+            self.assertNotIn("email", recipient_event["message"]["sender"])
             self.assertTrue(await outsider.receive_nothing(timeout=0.2))
 
             await sender.disconnect()
             await recipient.disconnect()
             await outsider.disconnect()
+
+        async_to_sync(scenario)()
+
+    def test_websocket_typing_does_not_fall_back_to_email(self):
+        student_headers = self._headers_for(self.student)
+        teacher_headers = self._headers_for(self.teacher)
+
+        async def scenario():
+            student = WebsocketCommunicator(
+                application,
+                "/ws/chat/",
+                headers=student_headers,
+            )
+            teacher = WebsocketCommunicator(
+                application,
+                "/ws/chat/",
+                headers=teacher_headers,
+            )
+
+            self.assertTrue((await student.connect())[0])
+            await self._receive_type(student, "presence.snapshot")
+            self.assertTrue((await teacher.connect())[0])
+            await self._receive_type(teacher, "presence.snapshot")
+            await self._receive_type(student, "presence")
+
+            await student.send_json_to(
+                {
+                    "type": "typing.start",
+                    "payload": {"chat_id": self.chat.id},
+                }
+            )
+
+            event = await self._receive_type(teacher, "typing")
+            self.assertEqual(event["user"]["name"], "User")
+            self.assertNotIn(self.student.email, str(event))
+
+            await student.disconnect()
+            await teacher.disconnect()
 
         async_to_sync(scenario)()
 

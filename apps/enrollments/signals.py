@@ -3,6 +3,7 @@ from datetime import date
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
+from apps.chat.services import ChatService
 from apps.courses.models import Course, CourseDeliveryFormat
 from apps.enrollments.models import CourseCompletion, Enrollment, LessonCompletion
 
@@ -46,6 +47,29 @@ def update_students_count_on_save(sender, instance, **kwargs):
     previous_course_id = getattr(instance, "_previous_course_id", None)
     if previous_course_id != instance.course_id:
         _recompute_students_count(previous_course_id)
+
+
+@receiver(post_save, sender=Enrollment)
+def sync_enrollment_chats(sender, instance: Enrollment, **kwargs):
+    enrollment = (
+        Enrollment.all_objects.select_related(
+            "student_profile__user",
+            "course__teacher_profile__user",
+            "delivery_format",
+        )
+        .filter(pk=instance.pk)
+        .first()
+    )
+    if enrollment is None:
+        return
+
+    student = enrollment.student_profile.user
+    teacher = enrollment.course.teacher_profile.user
+    if student.pk != teacher.pk:
+        ChatService.create_direct_chat(teacher, student)
+
+    if enrollment.delivery_format_id:
+        ChatService.ensure_delivery_format_chat(enrollment.delivery_format)
 
 
 @receiver(post_delete, sender=Enrollment)

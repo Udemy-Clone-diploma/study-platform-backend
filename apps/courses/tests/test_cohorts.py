@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.courses.models import Cohort, Course
+from apps.enrollments.tests._factories import make_student
 
 from ._factories import make_cohort, make_course, make_teacher
 
@@ -18,12 +19,29 @@ class CohortReadTests(APITestCase):
         make_cohort(self.published, duration_months=3)
         make_cohort(self.published, duration_months=6)
 
-    def test_anonymous_can_list_cohorts(self):
+    def test_anonymous_cannot_list_management_cohorts(self):
+        response = self.client.get(
+            reverse("cohorts-list", args=[self.published.slug])
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_course_owner_can_list_management_cohorts(self):
+        self.client.force_authenticate(user=self.teacher_profile.user)
         response = self.client.get(
             reverse("cohorts-list", args=[self.published.slug])
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
+
+    def test_student_cannot_list_management_cohorts(self):
+        student, _ = make_student(email="cohort_student@example.com")
+        self.client.force_authenticate(user=student)
+
+        response = self.client.get(
+            reverse("cohorts-list", args=[self.published.slug])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class CohortWriteTests(APITestCase):

@@ -27,10 +27,10 @@ from apps.courses.models import (
 )
 from apps.courses.models import CourseDeliveryFormat
 from apps.courses.serializers import (
-    CategorySerializer,
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
-    CourseListSerializer,
+    PublicCategorySerializer,
+    PublicCourseListSerializer,
 )
 from apps.courses.services.category_service import CategoryService
 from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
@@ -111,6 +111,18 @@ class CourseService:
         return Prefetch("delivery_formats", queryset=queryset)
 
     @staticmethod
+    def public_delivery_formats_prefetch() -> Prefetch:
+        queryset = CourseDeliveryFormat.objects.select_related("pricing").annotate(
+            annotated_enrolled_count=Count(
+                "enrollments",
+                filter=Q(
+                    enrollments__access_status=Enrollment.AccessStatusChoices.ACTIVE,
+                ),
+            ),
+        )
+        return Prefetch("delivery_formats", queryset=queryset)
+
+    @staticmethod
     def cohorts_prefetch() -> Prefetch:
         """Prefetch for Course.cohorts with members' enrollment/student/user chain
         select_related in one join, instead of three queries per cohort member
@@ -123,6 +135,15 @@ class CourseService:
             "cohorts",
             queryset=Cohort.objects.prefetch_related(
                 Prefetch("members", queryset=members_queryset),
+            ),
+        )
+
+    @staticmethod
+    def public_cohorts_prefetch() -> Prefetch:
+        return Prefetch(
+            "cohorts",
+            queryset=Cohort.objects.annotate(
+                annotated_members_count=Count("members"),
             ),
         )
 
@@ -782,10 +803,17 @@ class CourseService:
         limit: int = DEFAULT_NEW_COURSES_LIMIT,
         context: dict | None = None,
     ) -> list[dict]:
-        courses = cls.annotate_min_price(
+        queryset = (
             Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
-        ).order_by("-published_at")[:limit]
-        return CourseListSerializer(courses, many=True, context=context or {}).data
+            .select_related("teacher_profile__user", "category")
+            .prefetch_related("tags")
+        )
+        courses = cls.annotate_min_price(queryset).order_by("-published_at")[:limit]
+        return PublicCourseListSerializer(
+            courses,
+            many=True,
+            context=context or {},
+        ).data
 
     @classmethod
     def get_popular_courses(
@@ -797,17 +825,25 @@ class CourseService:
         # students_count, so a course that was hot last year doesn't crowd
         # out something gaining traction this month. rating_avg is the
         # tiebreaker for cold-start courses with zero recent enrollments.
-        queryset = Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
+        queryset = (
+            Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
+            .select_related("teacher_profile__user", "category")
+            .prefetch_related("tags")
+        )
         queryset = cls.annotate_min_price(queryset)
         queryset = cls.annotate_recent_enrollments(queryset)
         courses = queryset.order_by(
             "-students_enrolled_last_30_days", "-rating_avg",
         )[:limit]
-        return CourseListSerializer(courses, many=True, context=context or {}).data
+        return PublicCourseListSerializer(
+            courses,
+            many=True,
+            context=context or {},
+        ).data
 
     @staticmethod
     def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:
-        categories = CategoryService.annotate_courses_count(
+        categories = CategoryService.annotate_public_courses_count(
             Category.objects.filter(featured_order__isnull=False)
         ).order_by("featured_order", "name")[:limit]
-        return CategorySerializer(categories, many=True).data
+        return PublicCategorySerializer(categories, many=True).data

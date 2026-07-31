@@ -16,6 +16,18 @@ class CategoryService:
             courses_count=Count("courses", filter=Q(courses__is_deleted=False))
         )
 
+    @staticmethod
+    def annotate_public_courses_count(queryset: QuerySet) -> QuerySet:
+        return queryset.annotate(
+            courses_count=Count(
+                "courses",
+                filter=Q(
+                    courses__is_deleted=False,
+                    courses__status="published",
+                ),
+            )
+        )
+
     @classmethod
     def create_category(cls, validated_data: dict) -> Category:
         if not validated_data.get("slug"):

@@ -8,7 +8,7 @@ from apps.chat import events
 from apps.chat.models import ChatParticipant, ChatRoom, Message
 from apps.chat.serializers import MessageCreateSerializer, MessageUpdateSerializer
 from apps.chat.services import ChatService
-from apps.chat.views.chat_views import get_chat_for_user, message_queryset_for_user
+from apps.chat.views.utils import get_chat_for_user, message_queryset_for_user
 from apps.users.models import User
 
 
@@ -63,7 +63,7 @@ def _active_chat_peer_ids(user) -> list[int]:
 
 @database_sync_to_async
 def _user_name(user) -> str:
-    return user.get_full_name() or user.email
+    return user.get_full_name() or "User"
 
 
 @database_sync_to_async

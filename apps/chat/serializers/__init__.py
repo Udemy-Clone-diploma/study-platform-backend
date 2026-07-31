@@ -18,6 +18,10 @@ from .chat_serializers import (
     ParticipantRoleUpdateSerializer,
     ReadStatusSerializer,
 )
+from .chat_user_serializers import (
+    ModerationChatUserSerializer,
+    PublicChatUserSerializer,
+)
 
 __all__ = [
     "ChatBlockSerializer",
@@ -35,7 +39,9 @@ __all__ = [
     "MessageReportCreateSerializer",
     "MessageReportSerializer",
     "MessageUpdateSerializer",
+    "ModerationChatUserSerializer",
     "ParticipantAddSerializer",
     "ParticipantRoleUpdateSerializer",
+    "PublicChatUserSerializer",
     "ReadStatusSerializer",
 ]

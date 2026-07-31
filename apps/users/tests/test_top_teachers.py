@@ -1,10 +1,13 @@
 from decimal import Decimal
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.users.models import TeacherProfile
+from apps.users.services.user_service import UserService
 
 from ._factories import make_user
 
@@ -17,6 +20,9 @@ def _make_teacher(email, *, rating="0.00", first_name="", last_name="", **user_o
 
 class TopTeachersEndpointTests(APITestCase):
     """GET /users/top-teachers/ returns a raw list ordered by rating, capped by ?limit."""
+
+    def setUp(self):
+        cache.clear()
 
     def test_returns_raw_list_not_paginated(self):
         response = self.client.get(reverse("top-teachers"))
@@ -96,3 +102,40 @@ class TopTeachersEndpointTests(APITestCase):
         for key in ("id", "name", "avatar", "specialization", "experience", "rating"):
             self.assertIn(key, teacher)
         self.assertEqual(teacher["name"], "Sha Pe")
+
+    def test_reuses_cached_response(self):
+        _make_teacher(
+            "cached@example.com",
+            rating="4.20",
+            first_name="Cached",
+            last_name="Teacher",
+        )
+        url = reverse("top-teachers")
+        self.client.get(url)
+
+        with patch.object(
+            UserService,
+            "get_top_teachers",
+            side_effect=AssertionError("top teachers should come from cache"),
+        ):
+            response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["name"], "Cached Teacher")
+
+    def test_teacher_change_invalidates_cached_response(self):
+        user, _ = _make_teacher(
+            "changed@example.com",
+            rating="4.20",
+            first_name="Before",
+            last_name="Teacher",
+        )
+        url = reverse("top-teachers")
+        self.client.get(url)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            user.first_name = "After"
+            user.save(update_fields=["first_name"])
+
+        response = self.client.get(url)
+        self.assertEqual(response.data[0]["name"], "After Teacher")

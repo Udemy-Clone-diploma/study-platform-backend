@@ -1,6 +1,6 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.courses.exceptions import DuplicateDeliveryFormatError
@@ -8,22 +8,25 @@ from apps.courses.models import CourseDeliveryFormat
 from apps.courses.serializers import CourseDeliveryFormatSerializer, CourseDeliveryFormatWriteSerializer
 from apps.courses.services import DeliveryFormatService
 
-from ._course_scoped import ensure_can_modify_course, get_course_for_request
+from ._course_scoped import (
+    ensure_can_modify_course,
+    ensure_can_view_course_management,
+    get_course_for_request,
+)
 
 
 @extend_schema(tags=["DeliveryFormats"])
 class DeliveryFormatListCreateView(generics.ListCreateAPIView):
 
     def get_permissions(self):
-        if self.request.method == "POST":
-            return [IsAuthenticated()]
-        return [AllowAny()]
+        return [IsAuthenticated()]
 
     def get_serializer_class(self):
         return CourseDeliveryFormatWriteSerializer if self.request.method == "POST" else CourseDeliveryFormatSerializer
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
+        ensure_can_view_course_management(self.request.user, course)
         return CourseDeliveryFormat.objects.filter(course=course).select_related("pricing")
 
     def create(self, request, *args, **kwargs):
@@ -49,8 +52,6 @@ class DeliveryFormatDetailView(generics.RetrieveUpdateDestroyAPIView):
     http_method_names = ["get", "patch", "delete"]
 
     def get_permissions(self):
-        if self.request.method == "GET":
-            return [AllowAny()]
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
@@ -58,6 +59,7 @@ class DeliveryFormatDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
+        ensure_can_view_course_management(self.request.user, course)
         return CourseDeliveryFormat.objects.filter(course=course).select_related("pricing")
 
     def partial_update(self, request, *args, **kwargs):

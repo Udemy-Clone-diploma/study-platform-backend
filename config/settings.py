@@ -280,6 +280,91 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "noreply@localhost"
 
 REDIS_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 
+# Django application cache. Keep it on a separate Redis database so clearing
+# cached API data cannot remove Celery broker data or Channels state.
+CACHE_URL = config(
+    "CACHE_URL",
+    default=f"{REDIS_URL.rsplit('/', 1)[0]}/1",
+)
+CACHE_DEFAULT_TIMEOUT = config(
+    "CACHE_DEFAULT_TIMEOUT",
+    default=300,
+    cast=int,
+)
+CACHE_TTL_JITTER_SECONDS = config(
+    "CACHE_TTL_JITTER_SECONDS",
+    default=60,
+    cast=int,
+)
+CACHE_STAMPEDE_LOCK_TIMEOUT = config(
+    "CACHE_STAMPEDE_LOCK_TIMEOUT",
+    default=10,
+    cast=int,
+)
+CACHE_STAMPEDE_WAIT_TIMEOUT = config(
+    "CACHE_STAMPEDE_WAIT_TIMEOUT",
+    default=2,
+    cast=float,
+)
+CACHE_STAMPEDE_POLL_INTERVAL = config(
+    "CACHE_STAMPEDE_POLL_INTERVAL",
+    default=0.05,
+    cast=float,
+)
+PUBLIC_COURSE_LIST_CACHE_TIMEOUT = config(
+    "PUBLIC_COURSE_LIST_CACHE_TIMEOUT",
+    default=CACHE_DEFAULT_TIMEOUT,
+    cast=int,
+)
+PUBLIC_COURSE_DETAIL_CACHE_TIMEOUT = config(
+    "PUBLIC_COURSE_DETAIL_CACHE_TIMEOUT",
+    default=600,
+    cast=int,
+)
+PUBLIC_CATEGORY_CACHE_TIMEOUT = config(
+    "PUBLIC_CATEGORY_CACHE_TIMEOUT",
+    default=600,
+    cast=int,
+)
+PUBLIC_USER_PROFILE_CACHE_TIMEOUT = config(
+    "PUBLIC_USER_PROFILE_CACHE_TIMEOUT",
+    default=600,
+    cast=int,
+)
+PUBLIC_LESSON_CACHE_TIMEOUT = config(
+    "PUBLIC_LESSON_CACHE_TIMEOUT",
+    default=600,
+    cast=int,
+)
+COURSE_PROGRESS_CACHE_TIMEOUT = config(
+    "COURSE_PROGRESS_CACHE_TIMEOUT",
+    default=60,
+    cast=int,
+)
+CACHE_KEY_PREFIX = config("CACHE_KEY_PREFIX", default="study_platform")
+CACHE_REDIS_SOCKET_TIMEOUT = config(
+    "CACHE_REDIS_SOCKET_TIMEOUT",
+    default=2,
+    cast=float,
+)
+CACHE_REDIS_SOCKET_CONNECT_TIMEOUT = config(
+    "CACHE_REDIS_SOCKET_CONNECT_TIMEOUT",
+    default=2,
+    cast=float,
+)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": CACHE_URL,
+        "TIMEOUT": CACHE_DEFAULT_TIMEOUT,
+        "KEY_PREFIX": CACHE_KEY_PREFIX,
+        "OPTIONS": {
+            "socket_timeout": CACHE_REDIS_SOCKET_TIMEOUT,
+            "socket_connect_timeout": CACHE_REDIS_SOCKET_CONNECT_TIMEOUT,
+        },
+    },
+}
+
 # Celery: notification emails are dispatched to a worker via this broker.
 # Use redis://redis:6379/0 inside the devcontainer compose (see .env.example).
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default=REDIS_URL)

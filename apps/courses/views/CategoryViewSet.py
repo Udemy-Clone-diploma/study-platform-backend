@@ -1,15 +1,19 @@
+from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from apps.common.cache import cache_get_or_set, jittered_cache_timeout
 from apps.common.serializers import MessageSerializer
+from apps.courses.cache import public_category_list_cache_key
 from apps.courses.exceptions import CategoryInUseError
 from apps.courses.filters import CategoryFilter
 from apps.courses.models import Category
-from apps.courses.serializers import CategorySerializer
+from apps.courses.serializers import CategorySerializer, PublicCategorySerializer
 from apps.courses.services import CategoryService
+from apps.users.models import User
 from apps.users.permissions import IsAdmin
 
 
@@ -29,12 +33,52 @@ class CategoryViewSet(
     ordering = ["name"]
 
     def get_queryset(self):
-        return CategoryService.annotate_courses_count(Category.objects.all())
+        queryset = Category.objects.all()
+        if self.action == "list" and not self._is_admin_request():
+            return CategoryService.annotate_public_courses_count(queryset)
+        return CategoryService.annotate_courses_count(queryset)
 
     def get_permissions(self):
         if self.action == "list":
             return [AllowAny()]
         return [IsAdmin()]
+
+    def get_serializer_class(self):
+        if self.action == "list" and not self._is_admin_request():
+            return PublicCategorySerializer
+        return CategorySerializer
+
+    def _is_admin_request(self) -> bool:
+        user = self.request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and user.role == User.RoleChoices.ADMINISTRATOR
+        )
+
+    def list(self, request, *args, **kwargs):
+        if self._is_admin_request():
+            return super().list(request, *args, **kwargs)
+
+        key = public_category_list_cache_key(request)
+
+        def build_payload():
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data).data
+            return self.get_serializer(queryset, many=True).data
+
+        data = cache_get_or_set(
+            key,
+            build_payload,
+            timeout=jittered_cache_timeout(
+                settings.PUBLIC_CATEGORY_CACHE_TIMEOUT,
+                settings.CACHE_TTL_JITTER_SECONDS,
+            ),
+        )
+        return Response(data)
 
     def _category_response(self, category, status_code=status.HTTP_200_OK):
         category.courses_count = category.courses.count()

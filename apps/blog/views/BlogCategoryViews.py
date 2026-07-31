@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -6,10 +7,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.blog.cache import public_blog_categories_cache_key
 from apps.blog.exceptions import BlogCategoryInUseError
 from apps.blog.models import BlogCategory
 from apps.blog.serializers import BlogCategoryCreateUpdateSerializer, BlogCategorySerializer
 from apps.blog.services.blog_category_service import BlogCategoryService
+from apps.common.cache import cache_get_or_set, jittered_cache_timeout
 from apps.users.permissions import IsAdmin
 
 
@@ -27,6 +30,17 @@ class BlogCategoryListCreateView(ListCreateAPIView):
 
     def get_permissions(self):
         return [IsAdmin()] if self.request.method == "POST" else [AllowAny()]
+
+    def list(self, request, *args, **kwargs):
+        data = cache_get_or_set(
+            public_blog_categories_cache_key(request),
+            lambda: self.get_serializer(self.get_queryset(), many=True).data,
+            timeout=jittered_cache_timeout(
+                settings.CACHE_DEFAULT_TIMEOUT,
+                settings.CACHE_TTL_JITTER_SECONDS,
+            ),
+        )
+        return Response(data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

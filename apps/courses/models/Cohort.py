@@ -18,6 +18,13 @@ class Cohort(models.Model):
         blank=True,
         related_name="cohorts",
     )
+    group_chat = models.OneToOneField(
+        "chat.ChatRoom",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cohort_group",
+    )
     name = models.CharField(max_length=100, null=True, blank=True)
     duration_months = models.PositiveSmallIntegerField(default=0)
     hours_per_week = models.PositiveSmallIntegerField(default=0)
