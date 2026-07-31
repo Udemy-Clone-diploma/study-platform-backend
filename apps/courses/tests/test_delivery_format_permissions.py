@@ -39,7 +39,7 @@ class DeliveryFormatReadPermissionTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["count"], 2)
 
     def test_student_cannot_list_management_delivery_formats(self):
         student, _ = make_student(email="delivery-format-student@example.com")

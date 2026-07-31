@@ -78,7 +78,7 @@ class CourseChatAutomationTests(APITestCase):
         self.assertEqual(ChatRoom.objects.filter(direct_key=direct_key).count(), 1)
 
     def test_self_paced_and_scheduled_formats_have_shared_chats(self):
-        self_paced = CourseDeliveryFormat.objects.create(
+        self_paced = CourseDeliveryFormat.objects.get(
             course=self.course,
             format_type=CourseDeliveryFormat.FormatType.SELF_PACED,
         )
