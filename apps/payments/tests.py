@@ -2,7 +2,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import stripe
-from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -755,6 +754,10 @@ class PaymentCheckoutTests(APITestCase):
 
 
 class OverdueInstallmentTests(APITestCase):
+    """Access is suspended lazily, the moment it's checked (course page /
+    lesson open -- both go through EnrollmentService.student_has_course_access /
+    get_access_status), not by any scheduled job."""
+
     def setUp(self):
         _, self.teacher_profile = make_teacher(email="overdue_teacher@example.com")
         self.course = make_course(
@@ -805,22 +808,22 @@ class OverdueInstallmentTests(APITestCase):
             access_status=Enrollment.AccessStatusChoices.ACTIVE,
         )
 
-    def test_command_suspends_access_and_notifies_on_overdue_installment(self):
-        call_command("check_overdue_installments")
+    def test_access_check_suspends_and_notifies_on_overdue_installment(self):
+        has_access = EnrollmentService.student_has_course_access(
+            self.student_profile, self.course,
+        )
 
+        self.assertFalse(has_access)
         self.enrollment.refresh_from_db()
         self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.SUSPENDED)
-        self.assertFalse(
-            EnrollmentService.student_has_course_access(self.student_profile, self.course)
-        )
         notification = Notification.objects.get(
             recipient=self.student_user, type=Notification.TypeChoices.PAYMENT_OVERDUE,
         )
         self.assertIn(self.course.title, notification.body)
 
-    def test_command_is_idempotent_for_already_suspended_enrollment(self):
-        call_command("check_overdue_installments")
-        call_command("check_overdue_installments")
+    def test_access_check_is_idempotent_for_already_suspended_enrollment(self):
+        EnrollmentService.student_has_course_access(self.student_profile, self.course)
+        EnrollmentService.student_has_course_access(self.student_profile, self.course)
 
         self.assertEqual(
             Notification.objects.filter(
@@ -830,20 +833,28 @@ class OverdueInstallmentTests(APITestCase):
             1,
         )
 
-    def test_command_ignores_future_and_paid_installments(self):
+    def test_access_check_ignores_future_and_paid_installments(self):
         self.overdue_installment.due_date = timezone.localdate() + timezone.timedelta(days=3)
         self.overdue_installment.save(update_fields=["due_date"])
 
-        call_command("check_overdue_installments")
+        has_access = EnrollmentService.student_has_course_access(
+            self.student_profile, self.course,
+        )
 
+        self.assertTrue(has_access)
         self.enrollment.refresh_from_db()
         self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.ACTIVE)
         self.assertFalse(
             Notification.objects.filter(type=Notification.TypeChoices.PAYMENT_OVERDUE).exists()
         )
 
+    def test_get_access_status_also_triggers_the_lazy_suspend(self):
+        status_value = EnrollmentService.get_access_status(self.student_user, self.course)
+
+        self.assertEqual(status_value, Enrollment.AccessStatusChoices.SUSPENDED)
+
     def test_paying_overdue_installment_restores_suspended_access(self):
-        call_command("check_overdue_installments")
+        EnrollmentService.student_has_course_access(self.student_profile, self.course)
         self.enrollment.refresh_from_db()
         self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.SUSPENDED)
 
