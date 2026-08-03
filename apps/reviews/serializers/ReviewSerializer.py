@@ -8,6 +8,7 @@ class ReviewStudentSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     name = serializers.CharField(source="get_full_name")
     avatar = serializers.SerializerMethodField()
+    role = serializers.CharField(source="get_role_display")
 
     def get_avatar(self, obj) -> str | None:
         return absolute_media_url(obj.avatar, self.context.get("request"))
