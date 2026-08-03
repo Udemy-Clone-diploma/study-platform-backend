@@ -46,6 +46,30 @@ class ChatApiTests(APITestCase):
         self.assertEqual(ChatRoom.objects.filter(type=ChatRoom.TypeChoices.DIRECT).count(), 1)
         self.assertEqual(ChatParticipant.objects.filter(chat_id=first.data["id"]).count(), 2)
 
+    def test_moderator_can_create_chat_and_send_message(self):
+        moderator = make_user(
+            role="moderator",
+            email="chat_writer_moderator@example.com",
+        )
+        self.client.force_authenticate(moderator)
+
+        created = self.client.post(
+            reverse("chats-direct"),
+            {"user_id": self.student.id},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        message = self.client.post(
+            reverse("chat-messages", args=[created.data["id"]]),
+            {"text": "Moderator can participate in chats."},
+            format="json",
+        )
+
+        self.assertEqual(message.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(message.data["sender"]["id"], moderator.pk)
+        self.assertEqual(message.data["text"], "Moderator can participate in chats.")
+
     def test_create_group_chat_and_list_only_user_chats(self):
         self.client.force_authenticate(self.student)
 

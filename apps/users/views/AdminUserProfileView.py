@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from apps.users.models import User
 from apps.users.permissions import IsAdminOrModeratorOrTeacher
+from apps.users.serializers import PublicUserSerializer
 from apps.users.services.admin_profile_service import AdminProfileService
 
 
@@ -22,4 +23,13 @@ class AdminUserProfileView(APIView):
             ),
             pk=user_id,
         )
+
+        if (
+            request.user.role == User.RoleChoices.MODERATOR
+            and user.role == User.RoleChoices.ADMINISTRATOR
+        ):
+            return Response(
+                PublicUserSerializer(user, context={"request": request}).data
+            )
+
         return Response(AdminProfileService.build(user, request))

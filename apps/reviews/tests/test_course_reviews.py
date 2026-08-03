@@ -59,6 +59,7 @@ class CourseReviewsReadTests(APITestCase):
             second = self.client.get(url)
 
         self.assertEqual(second.data["results"][0]["text"], "Cached review")
+        self.assertEqual(second.data["results"][0]["student"]["role"], "Student")
 
     def test_review_change_invalidates_course_cache(self):
         student, _ = make_student(email="reviews_changed_student@example.com")

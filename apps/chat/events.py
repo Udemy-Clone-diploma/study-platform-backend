@@ -1,4 +1,5 @@
 import logging
+from celery import shared_task
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -18,6 +19,7 @@ def user_group_name(user_id: int) -> str:
     return f"user_{user_id}"
 
 
+@shared_task
 def _send(group: str, payload: dict):
     channel_layer = get_channel_layer()
     if channel_layer is None:

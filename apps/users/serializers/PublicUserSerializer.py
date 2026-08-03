@@ -65,10 +65,10 @@ class PublicUserSerializer(serializers.ModelSerializer):
     def get_email(self, obj: User) -> str:
         request = self.context.get("request")
         viewer = getattr(request, "user", None)
-        if obj.role == User.RoleChoices.ADMINISTRATOR and getattr(viewer, "role", None) in {
-            User.RoleChoices.MODERATOR,
-            User.RoleChoices.ADMINISTRATOR,
-        }:
+        if (
+            obj.role == User.RoleChoices.ADMINISTRATOR
+            and getattr(viewer, "role", None) == User.RoleChoices.ADMINISTRATOR
+        ):
             return obj.email
         return ""
 
@@ -92,10 +92,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
         viewer_role = getattr(getattr(request, "user", None), "role", None)
         if instance.role == User.RoleChoices.MODERATOR or (
             instance.role == User.RoleChoices.ADMINISTRATOR
-            and viewer_role not in {
-                User.RoleChoices.MODERATOR,
-                User.RoleChoices.ADMINISTRATOR,
-            }
+            and viewer_role != User.RoleChoices.ADMINISTRATOR
         ):
             for field in ("instagram", "linkedin", "facebook", "behance"):
                 data[field] = ""

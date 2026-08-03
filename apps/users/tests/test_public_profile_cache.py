@@ -139,7 +139,7 @@ class PublicUserProfileCacheTests(APITestCase):
 
         self.client.force_authenticate(moderator_viewer)
         moderator_response = self.client.get(url)
-        self.assertEqual(moderator_response.data["email"], admin_target.email)
+        self.assertEqual(moderator_response.data["email"], "")
 
         moderator_viewer.role = "student"
         moderator_viewer.save(update_fields=["role"])
