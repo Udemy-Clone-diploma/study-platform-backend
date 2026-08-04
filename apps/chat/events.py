@@ -63,7 +63,7 @@ def broadcast_chat_updated(chat_id: int):
         .order_by("id")
     )
     for participant in participants:
-        _send(
+        _send.delay(
             user_group_name(participant.user_id),
             {
                 "type": "chat.updated",
@@ -77,13 +77,13 @@ def broadcast_chat_deleted(chat_id: int, user_ids: list[int]):
         "type": "chat.deleted",
         "chat_id": chat_id,
     }
-    _send(chat_group_name(chat_id), payload)
+    _send.delay(chat_group_name(chat_id), payload)
     for user_id in user_ids:
-        _send(user_group_name(user_id), payload)
+        _send.delay(user_group_name(user_id), payload)
 
 
 def broadcast_message_created(message: Message):
-    _send(
+    _send.delay(
         chat_group_name(message.chat_id),
         {
             "type": "message.created",
@@ -94,7 +94,7 @@ def broadcast_message_created(message: Message):
 
 
 def broadcast_message_updated(message: Message):
-    _send(
+    _send.delay(
         chat_group_name(message.chat_id),
         {
             "type": "message.updated",
@@ -105,7 +105,7 @@ def broadcast_message_updated(message: Message):
 
 
 def broadcast_message_deleted(message: Message):
-    _send(
+    _send.delay(
         chat_group_name(message.chat_id),
         {
             "type": "message.deleted",
@@ -116,7 +116,7 @@ def broadcast_message_deleted(message: Message):
 
 
 def broadcast_read(chat_id: int, user_id: int, message_id: int | None):
-    _send(
+    _send.delay(
         chat_group_name(chat_id),
         {
             "type": "message.read",
@@ -137,8 +137,8 @@ def broadcast_participant_added(chat: ChatRoom, participant: ChatParticipant):
             "role": participant.role,
         },
     }
-    _send(chat_group_name(chat.pk), payload)
-    _send(user_group_name(participant.user_id), payload)
+    _send.delay(chat_group_name(chat.pk), payload)
+    _send.delay(user_group_name(participant.user_id), payload)
     broadcast_chat_updated(chat.pk)
 
 
@@ -148,6 +148,6 @@ def broadcast_participant_removed(chat: ChatRoom, participant: ChatParticipant):
         "chat_id": chat.pk,
         "user_id": participant.user_id,
     }
-    _send(chat_group_name(chat.pk), payload)
-    _send(user_group_name(participant.user_id), payload)
+    _send.delay(chat_group_name(chat.pk), payload)
+    _send.delay(user_group_name(participant.user_id), payload)
     broadcast_chat_updated(chat.pk)
