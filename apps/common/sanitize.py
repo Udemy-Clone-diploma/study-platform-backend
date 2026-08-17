@@ -12,6 +12,9 @@ accepts authored HTML. When you add a new rich-text field, sanitize it here too.
 
 import nh3
 
+# Keep in sync with the frontend allowlist in `src/shared/lib/sanitizeCourseHtml.ts`.
+# The table tags are what the Tiptap editor emits; dropping them here would
+# silently delete every table an author inserted.
 ALLOWED_TAGS = {
     "p", "br", "span", "div",
     "strong", "b", "em", "i", "u", "s", "mark",
@@ -19,6 +22,7 @@ ALLOWED_TAGS = {
     "h1", "h2", "h3", "h4", "h5", "h6",
     "blockquote", "pre", "code", "hr",
     "a", "img",
+    "table", "thead", "tbody", "tr", "th", "td",
 }
 
 ALLOWED_ATTRIBUTES = {
@@ -28,6 +32,8 @@ ALLOWED_ATTRIBUTES = {
     "div": {"class"},
     "code": {"class"},
     "pre": {"class"},
+    "th": {"colspan", "rowspan"},
+    "td": {"colspan", "rowspan"},
 }
 
 
