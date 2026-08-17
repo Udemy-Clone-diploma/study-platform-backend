@@ -13,6 +13,7 @@ from apps.users.exceptions import (
     AccountForbiddenError,
     AuthenticationError,
     EmailNotVerifiedError,
+    GoogleAuthError,
     InvalidTokenError,
     ProfileNotAvailableError,
 )
@@ -21,6 +22,7 @@ from apps.users.models import User
 from apps.users.serializers import (
     ChangePasswordSerializer,
     EmailRequestSerializer,
+    GoogleLoginSerializer,
     LoginSerializer,
     ModeratorProfileSerializer,
     PasswordResetConfirmSerializer,
@@ -68,6 +70,28 @@ class LoginView(APIView):
         except AuthenticationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except (EmailNotVerifiedError, AccountForbiddenError) as e:
+            return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(tokens, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Auth"])
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        request=GoogleLoginSerializer,
+        responses={200: TokenPairSerializer, 401: MessageSerializer, 403: MessageSerializer},
+    )
+    def post(self, request):
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            tokens = AuthService.google_login(serializer.validated_data["id_token"])
+        except GoogleAuthError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        except AccountForbiddenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
         return Response(tokens, status=status.HTTP_200_OK)

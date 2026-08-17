@@ -251,6 +251,8 @@ EMAIL_VERIFICATION_TIMEOUT = int(timedelta(days=2).total_seconds())
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 
+GOOGLE_OAUTH_CLIENT_ID = config("GOOGLE_OAUTH_CLIENT_ID", default="")
+
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 

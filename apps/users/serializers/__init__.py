@@ -5,6 +5,7 @@ from .AdminUserCreateSerializer import AdminUserCreateSerializer
 from .AdminUserUpdateSerializer import AdminUserUpdateSerializer
 from .ChangePasswordSerializer import ChangePasswordSerializer
 from .EmailRequestSerializer import EmailRequestSerializer
+from .GoogleLoginSerializer import GoogleLoginSerializer
 from .LoginSerializer import LoginSerializer
 from .ModeratorProfileSerializer import ModeratorProfileSerializer
 from .PasswordResetConfirmSerializer import PasswordResetConfirmSerializer
@@ -42,6 +43,7 @@ __all__ = [
     "AdminUserUpdateSerializer",
     "ChangePasswordSerializer",
     "EmailRequestSerializer",
+    "GoogleLoginSerializer",
     "LoginSerializer",
     "ModeratorProfileSerializer",
     "PasswordResetConfirmSerializer",
