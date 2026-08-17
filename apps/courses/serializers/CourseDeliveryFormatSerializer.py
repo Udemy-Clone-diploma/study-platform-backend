@@ -78,3 +78,22 @@ class CourseDeliveryFormatWriteSerializer(serializers.ModelSerializer):
             "max_students",
             "pricing",
         ]
+
+    def validate(self, attrs):
+        format_type = attrs.get(
+            "format_type",
+            getattr(self.instance, "format_type", None),
+        )
+        if (
+            self.instance is None
+            and format_type == CourseDeliveryFormat.FormatType.GROUP
+            and attrs.get("enrollment_deadline") is None
+        ):
+            raise serializers.ValidationError(
+                {
+                    "enrollment_deadline": (
+                        "A deadline date is required when creating a group format."
+                    )
+                }
+            )
+        return attrs

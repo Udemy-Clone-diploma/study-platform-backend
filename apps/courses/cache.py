@@ -10,6 +10,7 @@ from apps.common.i18n import resolve_locale
 
 PUBLIC_COURSES_CACHE_NAMESPACE = "public-courses"
 PUBLIC_CATEGORIES_CACHE_NAMESPACE = "public-categories"
+PUBLIC_COURSE_DETAIL_PAYLOAD_VERSION = "v2"
 
 
 def _request_origin(request: Request) -> str:
@@ -38,6 +39,7 @@ def public_course_detail_cache_key(request: Request, slug: str) -> str:
     return build_versioned_cache_key(
         PUBLIC_COURSES_CACHE_NAMESPACE,
         "detail",
+        PUBLIC_COURSE_DETAIL_PAYLOAD_VERSION,
         _request_origin(request),
         slug,
         resolve_locale(request),

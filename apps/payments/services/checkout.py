@@ -5,7 +5,8 @@ from django.utils import timezone
 
 from apps.cart.models import CartItem
 from apps.cart.services import CartService
-from apps.courses.models import Course
+from apps.courses.models import Course, CourseDeliveryFormat
+from apps.courses.services import DeliveryFormatService
 from apps.enrollments.services import EnrollmentService
 from apps.payments.models import (
     Order,
@@ -69,6 +70,36 @@ class CheckoutService(PaymentBaseService):
                 raise PaymentError(f"Course '{item.course.title}' is not available for purchase.")
             if EnrollmentService.student_has_course_access(student_profile, item.course):
                 raise PaymentError(f"Student already has access to '{item.course.title}'.")
+
+            delivery_format = item.selected_pricing_plan.delivery_format
+            if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP:
+                if not DeliveryFormatService.accepts_enrollment_on(
+                    delivery_format,
+                    timezone.localdate(),
+                ):
+                    raise PaymentError(
+                        f"Enrollment for group course '{item.course.title}' has closed."
+                    )
+                if item.cohort is not None and not item.cohort.is_enrollment_open:
+                    raise PaymentError(
+                        f"The selected group for '{item.course.title}' is closed."
+                    )
+                if (
+                    item.cohort is not None
+                    and item.cohort.enrollment_deadline is not None
+                    and item.cohort.enrollment_deadline < timezone.localdate()
+                ):
+                    raise PaymentError(
+                        f"Enrollment for the selected group in '{item.course.title}' has closed."
+                    )
+                if (
+                    item.cohort is not None
+                    and item.cohort.group_size is not None
+                    and item.cohort.members.count() >= item.cohort.group_size
+                ):
+                    raise PaymentError(
+                        f"The selected group for '{item.course.title}' is full."
+                    )
 
         return currencies.pop()
 
