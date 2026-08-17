@@ -1,4 +1,4 @@
-from .auth import ChangePasswordView, LoginView, LogoutView, MeView, ModeratorProfileView, RegisterView, StudentProfileView, TeacherProfileView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView, TeacherInvitationConfirmView, TeacherInvitationValidateView, TeacherInvitationResendView
+from .auth import ChangePasswordView, GoogleLoginView, LoginView, LogoutView, MeView, ModeratorProfileView, RegisterView, StudentProfileView, TeacherProfileView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView, TeacherInvitationConfirmView, TeacherInvitationValidateView, TeacherInvitationResendView
 from .AdminNoteView import AdminNoteView
 from .TopTeachersView import TopTeachersView
 from .PublicUserProfileView import PublicUserProfileView
@@ -26,6 +26,7 @@ __all__ = [
     "UserSearchView",
     "RegisterView",
     "LoginView",
+    "GoogleLoginView",
     "TokenRefreshView",
     "MeView",
     "TeacherProfileView",

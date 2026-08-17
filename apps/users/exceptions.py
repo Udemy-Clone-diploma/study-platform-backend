@@ -14,6 +14,10 @@ class AccountForbiddenError(UsersError):
     """The account is deleted or blocked."""
 
 
+class GoogleAuthError(UsersError):
+    """The Google ID token is missing, invalid, expired, or unverified."""
+
+
 class InvalidTokenError(UsersError):
     """A signed token (verification or password reset) is invalid or expired."""
 

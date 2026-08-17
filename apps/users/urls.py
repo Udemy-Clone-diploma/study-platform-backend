@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from apps.users.views import (
     AdminNoteView,
     ChangePasswordView,
+    GoogleLoginView,
     LoginView,
     MeView,
     ModeratorProfileView,
@@ -118,6 +119,7 @@ urlpatterns = [
         name="teacher-application-check-email"),
     path("auth/register/", RegisterView.as_view(), name="auth-register"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/google/", GoogleLoginView.as_view(), name="auth-google"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
