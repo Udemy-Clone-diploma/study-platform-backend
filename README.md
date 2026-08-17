@@ -4,7 +4,7 @@ REST API для навчальної платформи, побудований 
 
 ## Технології
 
-- [Python 3.11+](https://www.python.org/)
+- [Python 3.13](https://www.python.org/)
 - [Django 6](https://www.djangoproject.com/)
 - [Django REST Framework](https://www.django-rest-framework.org/)
 - [python-decouple](https://github.com/HBNetwork/python-decouple) — конфігурація через `.env`
@@ -13,7 +13,7 @@ REST API для навчальної платформи, побудований 
 
 ## Вимоги
 
-- Python 3.11+
+- Python 3.13
 - pip
 
 ## Встановлення
