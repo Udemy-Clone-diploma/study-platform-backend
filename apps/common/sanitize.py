@@ -1,10 +1,10 @@
 """HTML sanitization for teacher-authored rich text.
 
-Fields like ``Course.full_description`` and ``Lesson.body_html`` accept HTML
-(typically from a Tiptap editor on the frontend) and are rendered back to other
-users, so storing them raw is a stored-XSS vector. We strip them to a safe
-allowlist on write with nh3 (the Rust ``ammonia`` binding; ``bleach`` is
-deprecated).
+Fields like ``Course.full_description``, ``LessonItem.body_html`` and
+``Article.body_html`` accept HTML (typically from a Tiptap editor on the
+frontend) and are rendered back to other users, so storing them raw is a
+stored-XSS vector. We strip them to a safe allowlist on write with nh3 (the
+Rust ``ammonia`` binding; ``bleach`` is deprecated).
 
 Apply ``sanitize_html`` in the ``validate_<field>`` of any serializer that
 accepts authored HTML. When you add a new rich-text field, sanitize it here too.

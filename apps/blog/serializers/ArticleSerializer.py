@@ -3,6 +3,7 @@ from rest_framework import serializers
 from apps.blog.models import Article, BlogCategory
 from apps.blog.serializers.BlogCategorySerializer import BlogCategorySerializer
 from apps.common.files import absolute_media_url
+from apps.common.sanitize import sanitize_html
 
 
 class ArticleAuthorSerializer(serializers.Serializer):
@@ -67,3 +68,6 @@ class ArticleCreateUpdateSerializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError("Title is required.")
         return value
+
+    def validate_body_html(self, value):
+        return sanitize_html(value)
