@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
@@ -7,6 +8,18 @@ from apps.courses.models import Course, CourseDeliveryFormat, PricingPlan
 
 
 class DeliveryFormatService:
+    @staticmethod
+    def accepts_enrollment_on(
+        delivery_format: CourseDeliveryFormat,
+        enrollment_date: date,
+    ) -> bool:
+        if delivery_format.format_type != CourseDeliveryFormat.FormatType.GROUP:
+            return True
+        return (
+            delivery_format.enrollment_deadline is None
+            or delivery_format.enrollment_deadline >= enrollment_date
+        )
+
     @staticmethod
     @transaction.atomic
     def create_for_course(course: Course, validated_data: dict) -> CourseDeliveryFormat:
