@@ -12,6 +12,12 @@ DATABASES = {
     }
 }
 
+# Django's default PBKDF2 hasher runs 1.2M iterations, roughly 330 ms per
+# password. Tests create users in nearly every setUp, which spent most of the
+# suite runtime on hashing. MD5 is acceptable because it never leaves the test
+# settings.
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 EMAIL_HOST_USER = "test@example.com"
 EMAIL_HOST_PASSWORD = "test-password"
