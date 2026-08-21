@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.common.sanitize import sanitize_html
 from apps.curriculum.models import LessonItem, Test
 
 
@@ -31,6 +32,9 @@ class LessonItemCreateUpdateSerializer(serializers.ModelSerializer):
             self.fields["test"].queryset = Test.objects.filter(
                 module__course_id=lesson.module.course_id
             )
+
+    def validate_body_html(self, value):
+        return sanitize_html(value)
 
     def validate(self, attrs):
         item_type = attrs.get("item_type") or getattr(self.instance, "item_type", None)
