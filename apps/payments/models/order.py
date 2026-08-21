@@ -88,7 +88,7 @@ class Order(models.Model):
 
     def sync_status_from_payments(self) -> None:
         # Aggregates in the DB instead of reusing `paid_amount`: this runs on
-        # the Stripe webhook path immediately after a payment row was written,
+        # the payment provider callback path path immediately after a payment row was written,
         # so it has to read committed state and never a `payments` prefetch
         # cache the calling instance might already be holding.
         paid_amount = (

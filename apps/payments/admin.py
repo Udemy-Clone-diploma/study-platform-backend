@@ -9,7 +9,10 @@ from apps.payments.models import (
     PaymentItem,
     Refund,
     WebhookEvent,
+    TeacherPayoutAccount,
 )
+
+admin.site.register(TeacherPayoutAccount)
 
 
 class OrderItemInline(admin.TabularInline):

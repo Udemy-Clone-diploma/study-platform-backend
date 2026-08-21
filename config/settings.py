@@ -255,6 +255,47 @@ GOOGLE_OAUTH_CLIENT_ID = config("GOOGLE_OAUTH_CLIENT_ID", default="")
 
 STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+STRIPE_CONNECT_WEBHOOK_SECRET = config("STRIPE_CONNECT_WEBHOOK_SECRET", default="")
+STRIPE_CONNECT_COUNTRY = config("STRIPE_CONNECT_COUNTRY", default="US")
+STRIPE_CONNECT_REFRESH_URL = config("STRIPE_CONNECT_REFRESH_URL", default="http://localhost:3000/teacher-dashboard/payments?stripe=refresh")
+STRIPE_CONNECT_RETURN_URL = config("STRIPE_CONNECT_RETURN_URL", default="http://localhost:3000/teacher-dashboard/payments?stripe=return")
+PLATFORM_COMMISSION_PERCENT = config("PLATFORM_COMMISSION_PERCENT", default="20.00")
+
+LIQPAY_PUBLIC_KEY = config("LIQPAY_PUBLIC_KEY", default="")
+LIQPAY_PRIVATE_KEY = config("LIQPAY_PRIVATE_KEY", default="")
+
+LIQPAY_PAYOUT_MODE = config(
+    "LIQPAY_PAYOUT_MODE",
+    default="simulated",
+)
+
+LIQPAY_SIMULATED_PAYOUT_OUTCOME = config(
+    "LIQPAY_SIMULATED_PAYOUT_OUTCOME",
+    default="success",
+)
+
+LIQPAY_API_VERSION = config(
+    "LIQPAY_API_VERSION", default=7, cast=int,)
+
+LIQPAY_API_URL = config(
+    "LIQPAY_API_URL",
+    default="https://www.liqpay.ua/api/request",
+)
+
+LIQPAY_HTTP_TIMEOUT = config(
+    "LIQPAY_HTTP_TIMEOUT",
+    default=10,
+    cast=int,
+)
+LIQPAY_CHECKOUT_URL = config("LIQPAY_CHECKOUT_URL", default="https://www.liqpay.ua/api/3/checkout",)
+
+LIQPAY_PAYOUT_SERVER_URL = config(
+    "LIQPAY_PAYOUT_SERVER_URL",
+    default="",
+)
+LIQPAY_SERVER_URL = config("LIQPAY_SERVER_URL",default="",)
+
+LIQPAY_RESULT_URL = config("LIQPAY_RESULT_URL",default=f"{FRONTEND_URL}/student-dashboard/payment?tab=history&liqpay=return",)
 
 INVOICE_COMPANY_NAME = config("INVOICE_COMPANY_NAME", default="Nexo4You")
 INVOICE_COMPANY_EMAIL = config("INVOICE_COMPANY_EMAIL", default="")

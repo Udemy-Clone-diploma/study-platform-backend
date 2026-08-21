@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-
+from .payment import Payment
 
 class Refund(models.Model):
     class StatusChoices(models.TextChoices):
@@ -22,6 +22,25 @@ class Refund(models.Model):
         choices=StatusChoices.choices,
         default=StatusChoices.PENDING,
     )
+    provider = models.CharField(
+    max_length=20,
+    choices=Payment.MethodChoices.choices,
+    default=Payment.MethodChoices.STRIPE,
+    )
+    provider_reference = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
+    provider_status = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+    )
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+    )
     stripe_refund_id = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
@@ -36,6 +55,16 @@ class Refund(models.Model):
     class Meta:
         db_table = "refunds"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["payment", "status"],
+                name="refund_payment_status_idx",
+            ),
+            models.Index(
+                fields=["provider", "provider_reference"],
+                name="refund_provider_ref_idx",
+            ),
+        ]
 
     def __str__(self):
         return f"Refund {self.id} - Payment {self.payment_id} - {self.amount}"

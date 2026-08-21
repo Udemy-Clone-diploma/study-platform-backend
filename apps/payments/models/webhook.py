@@ -5,7 +5,7 @@ from django.utils import timezone
 class WebhookEvent(models.Model):
     class ProviderChoices(models.TextChoices):
         STRIPE = "stripe", "Stripe"
-
+        LIQPAY = "liqpay", "LiqPay"
     class StatusChoices(models.TextChoices):
         PENDING = "pending", "Pending"
         PROCESSED = "processed", "Processed"
@@ -13,7 +13,7 @@ class WebhookEvent(models.Model):
         IGNORED = "ignored", "Ignored"
 
     provider = models.CharField(max_length=20, choices=ProviderChoices.choices)
-    event_id = models.CharField(max_length=255, unique=True)
+    event_id = models.CharField(max_length=255)
     event_type = models.CharField(max_length=100)
     status = models.CharField(
         max_length=20,
@@ -28,6 +28,18 @@ class WebhookEvent(models.Model):
     class Meta:
         db_table = "webhook_events"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "event_id"],
+                name="unique_webhook_event_per_provider",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["provider", "status"],
+                name="webhook_provider_status_idx",
+            ),
+        ]
 
     def __str__(self):
         return f"WebhookEvent {self.provider} - {self.event_type} - {self.status}"
