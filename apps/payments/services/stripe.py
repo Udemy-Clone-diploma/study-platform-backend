@@ -45,6 +45,12 @@ class StripeService(PaymentBaseService):
     ):
         stripe = cls._load_stripe()
         metadata = cls._stripe_payment_metadata(payment, user)
+        payout = payment.teacher.payout_account
+        payment_intent_data = {
+            "metadata": metadata,
+            "application_fee_amount": cls._to_minor_units(payment.platform_fee_amount),
+            "transfer_data": {"destination": payout.provider_account_id},
+        }
         return stripe.checkout.Session.create(
             mode="payment",
             line_items=line_items,
@@ -53,13 +59,15 @@ class StripeService(PaymentBaseService):
             customer_email=user.email,
             client_reference_id=str(payment.id),
             metadata=metadata,
-            payment_intent_data={"metadata": metadata},
+            payment_intent_data=payment_intent_data,
+            idempotency_key=f"checkout-payment-{payment.id}",
         )
 
     @classmethod
     def _create_stripe_payment_intent(cls, *, payment: Payment, user: User):
         stripe = cls._load_stripe()
         metadata = cls._stripe_payment_metadata(payment, user)
+        payout = payment.teacher.payout_account
         return stripe.PaymentIntent.create(
             amount=cls._to_minor_units(payment.amount),
             currency=payment.currency.lower(),
@@ -67,10 +75,13 @@ class StripeService(PaymentBaseService):
             metadata=metadata,
             payment_method_types=["card"],
             receipt_email=user.email,
+            application_fee_amount=cls._to_minor_units(payment.platform_fee_amount),
+            transfer_data={"destination": payout.provider_account_id},
+            idempotency_key=f"payment-intent-{payment.id}",
         )
 
     @classmethod
-    def _create_stripe_refund(cls, *, payment: Payment, amount, reason: str):
+    def _create_stripe_refund(cls, *, payment: Payment, amount, reason: str, idempotency_key: str | None = None):
         stripe = cls._load_stripe()
         return stripe.Refund.create(
             payment_intent=payment.stripe_payment_intent_id,
@@ -78,6 +89,9 @@ class StripeService(PaymentBaseService):
             # Stripe's own `reason` accepts only its three fixed codes, so the
             # administrator's free text rides along as metadata instead.
             metadata={"payment_id": str(payment.id), "reason": reason},
+            reverse_transfer=True,
+            refund_application_fee=True,
+            idempotency_key=idempotency_key or f"refund-payment-{payment.id}-{cls._to_minor_units(amount)}",
         )
 
     @classmethod
@@ -114,4 +128,10 @@ class StripeService(PaymentBaseService):
         webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
         if not webhook_secret:
             raise ImproperlyConfigured("STRIPE_WEBHOOK_SECRET is not configured.")
-        return stripe.Webhook.construct_event(payload, signature, webhook_secret)
+        try:
+            return stripe.Webhook.construct_event(payload, signature, webhook_secret)
+        except stripe.error.SignatureVerificationError:
+            connect_secret = getattr(settings, "STRIPE_CONNECT_WEBHOOK_SECRET", "")
+            if not connect_secret:
+                raise
+            return stripe.Webhook.construct_event(payload, signature, connect_secret)
