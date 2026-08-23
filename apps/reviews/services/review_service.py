@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from apps.courses.models import Course
 from apps.enrollments.exceptions import ActiveEnrollmentRequiredError
+from apps.enrollments.models import CourseCompletion
 from apps.enrollments.services import ProgressService
 from apps.reviews.constants import DEFAULT_TOP_REVIEWS_LIMIT, REVIEW_MODERATION_REPORT_THRESHOLD
 from apps.reviews.exceptions import (
@@ -18,7 +19,7 @@ from apps.reviews.exceptions import (
 )
 from apps.reviews.models import Review, ReviewReport
 from apps.reviews.serializers import TopReviewSerializer
-from apps.users.models import User
+from apps.users.models import StudentProfile, User
 
 
 class ReviewService:
@@ -37,6 +38,17 @@ class ReviewService:
         )
         return TopReviewSerializer(reviews, many=True, context=context or {}).data
 
+    @staticmethod
+    def _student_profile(user: User) -> StudentProfile | None:
+        if not user or not user.is_authenticated:
+            return None
+        if user.role != User.RoleChoices.STUDENT:
+            return None
+        try:
+            return user.student_profile
+        except StudentProfile.DoesNotExist:
+            return None
+
     @classmethod
     @transaction.atomic
     def create_review(
@@ -47,13 +59,26 @@ class ReviewService:
         rating: int,
         text: str,
     ) -> Review:
-        try:
-            enrollment = ProgressService.get_active_enrollment(user, course)
-        except ActiveEnrollmentRequiredError as exc:
-            raise NotEnrolledError from exc
+        student_profile = cls._student_profile(user)
+        if student_profile is None:
+            raise NotEnrolledError
 
-        if not ProgressService.is_eligible_to_review(enrollment, course):
-            raise ReviewEligibilityNotMetError
+        # A finished course is always reviewable, even if content access has since
+        # expired, been suspended (overdue installment), or revoked -- finishing the
+        # course is what earns the right to review it, not holding onto access
+        # afterward. Only students who *haven't* finished need currently-active
+        # access and the lesson-progress threshold below.
+        completed = CourseCompletion.objects.filter(
+            student_profile=student_profile, course=course,
+        ).exists()
+
+        if not completed:
+            try:
+                enrollment = ProgressService.get_active_enrollment(user, course)
+            except ActiveEnrollmentRequiredError as exc:
+                raise NotEnrolledError from exc
+            if not ProgressService.is_eligible_to_review(enrollment, course):
+                raise ReviewEligibilityNotMetError
 
         try:
             return Review.objects.create(
@@ -61,6 +86,16 @@ class ReviewService:
             )
         except IntegrityError as exc:
             raise ReviewAlreadyExistsError from exc
+
+    @staticmethod
+    def update_review(review: Review, *, rating: int, text: str) -> Review:
+        """A student may always edit their own review -- no re-check of enrollment
+        or eligibility, since leaving the review in the first place already
+        proved they'd earned the right to."""
+        review.rating = rating
+        review.text = text
+        review.save(update_fields=["rating", "text"])
+        return review
 
     @classmethod
     @transaction.atomic

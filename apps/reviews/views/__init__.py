@@ -1,4 +1,5 @@
 from .CourseReviewsView import CourseReviewsView
+from .MyCourseReviewView import MyCourseReviewView
 from .ReviewModerationView import (
     ReviewApproveView,
     ReviewAssignModeratorView,
@@ -11,6 +12,7 @@ from .TopReviewsView import TopReviewsView
 
 __all__ = [
     "CourseReviewsView",
+    "MyCourseReviewView",
     "TopReviewsView",
     "ReviewReportView",
     "ReviewsUnassignedModerationView",
