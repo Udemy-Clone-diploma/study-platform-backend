@@ -42,7 +42,6 @@ class CourseDeliveryFormat(models.Model):
     access_duration_days = models.PositiveIntegerField(null=True, blank=True)
 
     start_date = models.DateField(null=True, blank=True)
-    enrollment_deadline = models.DateField(null=True, blank=True)
     unlock_mode = models.CharField(
         max_length=20, choices=UnlockMode.choices,
         null=True, blank=True,

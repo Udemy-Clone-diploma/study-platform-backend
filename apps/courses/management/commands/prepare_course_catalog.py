@@ -682,7 +682,6 @@ class Command(BaseCommand):
         ):
             return {
                 "start_date": today + timedelta(days=30),
-                "enrollment_deadline": today + timedelta(days=23),
                 "unlock_mode": CourseDeliveryFormat.UnlockMode.SEQUENTIAL,
             }
         return {"max_students": 20}

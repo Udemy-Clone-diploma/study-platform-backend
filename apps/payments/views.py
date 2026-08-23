@@ -61,11 +61,7 @@ from apps.users.permissions import IsAdmin, IsStudent, IsTeacher
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_TEACHER_FINANCE_CURRENCIES = {
-    "UAH",
-    "USD",
-    "EUR",
-}
+TEACHER_FINANCE_CURRENCY = "USD"
 
 
 def _teacher_finance_currency(
@@ -84,7 +80,7 @@ def _teacher_finance_currency(
     if (
         currency
         and currency
-        not in SUPPORTED_TEACHER_FINANCE_CURRENCIES
+        != TEACHER_FINANCE_CURRENCY
     ):
         raise ValidationError(
             {
@@ -196,7 +192,7 @@ class TeacherFinanceBalanceView(APIView):
     def get(self, request):
         currency = _teacher_finance_currency(
             request,
-            default="UAH",
+            default=TEACHER_FINANCE_CURRENCY,
         )
 
         balance = PaymentService.balance(
@@ -231,16 +227,12 @@ class StaffTeacherBalanceView(APIView):
         currency = str(
             request.query_params.get(
                 "currency",
-                "UAH",
+                TEACHER_FINANCE_CURRENCY,
             )
-            or "UAH"
+            or TEACHER_FINANCE_CURRENCY
         ).strip().upper()
 
-        if currency not in {
-            "UAH",
-            "USD",
-            "EUR",
-        }:
+        if currency != TEACHER_FINANCE_CURRENCY:
             raise ValidationError(
                 {
                     "currency": (
@@ -254,11 +246,27 @@ class StaffTeacherBalanceView(APIView):
             currency=currency,
         )
 
-        return Response(
-            TeacherBalanceSerializer(
-                result
-            ).data
+        balance_data = TeacherBalanceSerializer(result).data
+        destinations = (
+            TeacherPayoutDestination.objects
+            .filter(
+                teacher=teacher,
+                provider="liqpay",
+                is_active=True,
+            )
+            .order_by("-is_default", "-created_at")
         )
+        balance_data["teacher"] = {
+            "id": teacher.pk,
+            "name": teacher.user.get_full_name() or teacher.user.email,
+            "email": teacher.user.email,
+        }
+        balance_data["destinations"] = TeacherPayoutDestinationSerializer(
+            destinations,
+            many=True,
+        ).data
+
+        return Response(balance_data)
 
 @extend_schema(tags=["Staff finance"])
 class StaffTeacherPayoutViewSet(
@@ -305,9 +313,9 @@ class StaffTeacherPayoutViewSet(
             .query_params
             .get(
                 "currency",
-                "",
+                TEACHER_FINANCE_CURRENCY,
             )
-            or ""
+            or TEACHER_FINANCE_CURRENCY
         ).strip().upper()
 
         payout_status = str(
@@ -326,11 +334,7 @@ class StaffTeacherPayoutViewSet(
             )
 
         if currency:
-            if currency not in {
-                "UAH",
-                "USD",
-                "EUR",
-            }:
+            if currency != TEACHER_FINANCE_CURRENCY:
                 raise ValidationError(
                     {
                         "currency": (
@@ -604,7 +608,8 @@ class TeacherFinanceLedgerView(ListAPIView):
 
     def get_queryset(self):
         currency = _teacher_finance_currency(
-            self.request
+            self.request,
+            default=TEACHER_FINANCE_CURRENCY,
         )
 
         queryset = (
@@ -647,7 +652,8 @@ class TeacherFinancePayoutHistoryView(
 
     def get_queryset(self):
         currency = _teacher_finance_currency(
-            self.request
+            self.request,
+            default=TEACHER_FINANCE_CURRENCY,
         )
 
         queryset = (

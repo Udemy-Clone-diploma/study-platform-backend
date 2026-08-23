@@ -7,7 +7,6 @@ from django.utils import timezone
 from apps.cart.models import CartItem
 from apps.cart.services import CartService
 from apps.courses.models import Course, CourseDeliveryFormat
-from apps.courses.services import DeliveryFormatService
 from apps.enrollments.services import EnrollmentService
 from apps.payments.models import (
     Order,
@@ -90,13 +89,6 @@ class CheckoutService(PaymentBaseService):
 
             delivery_format = item.selected_pricing_plan.delivery_format
             if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP:
-                if not DeliveryFormatService.accepts_enrollment_on(
-                    delivery_format,
-                    timezone.localdate(),
-                ):
-                    raise PaymentError(
-                        f"Enrollment for group course '{item.course.title}' has closed."
-                    )
                 if item.cohort is not None and not item.cohort.is_enrollment_open:
                     raise PaymentError(
                         f"The selected group for '{item.course.title}' is closed."

@@ -2,10 +2,10 @@ from http.cookies import SimpleCookie
 
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
+from django.http.cookie import parse_cookie
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 from apps.users.authentication import CustomJWTAuthentication
-
 
 @database_sync_to_async
 def _get_user_for_token(raw_token: str):
@@ -28,10 +28,8 @@ def _token_from_scope(scope) -> str | None:
     if not cookie_header:
         return None
 
-    cookies = SimpleCookie()
-    cookies.load(cookie_header)
-    morsel = cookies.get("access_token")
-    return morsel.value if morsel else None
+    cookies = parse_cookie(cookie_header)
+    return cookies.get("access_token")
 
 
 class JWTAuthMiddleware:

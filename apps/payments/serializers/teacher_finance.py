@@ -183,11 +183,9 @@ class StaffPayoutCreateSerializer(
     )
 
     currency = serializers.ChoiceField(
-        choices=[
-            "UAH",
-            "USD",
-            "EUR",
-        ]
+        choices=["USD"],
+        default="USD",
+        required=False,
     )
 
     idempotency_key = serializers.CharField(
@@ -220,6 +218,17 @@ class StaffTeacherPayoutSerializer(
         read_only=True,
     )
 
+    teacher_name = serializers.CharField(
+        source="teacher.user.get_full_name",
+        read_only=True,
+    )
+
+    destination_id = serializers.IntegerField(
+        read_only=True,
+    )
+
+    destination_display = serializers.SerializerMethodField()
+
     created_by_id = serializers.IntegerField(
         read_only=True
     )
@@ -238,9 +247,24 @@ class StaffTeacherPayoutSerializer(
             + [
                 "teacher_id",
                 "teacher_email",
+                "teacher_name",
+                "destination_id",
+                "destination_display",
                 "created_by_id",
                 "created_by_email",
             ]
         )
 
         read_only_fields = fields
+
+    def get_destination_display(self, obj: TeacherPayout) -> str:
+        snapshot = obj.destination_snapshot or {}
+        destination_type = str(snapshot.get("destination_type", ""))
+        if destination_type == "bank_account":
+            value = str(snapshot.get("receiver_account", "")).strip()
+            if len(value) <= 8:
+                return "*" * len(value)
+            return value[:4] + ("*" * (len(value) - 8)) + value[-4:]
+        if destination_type == "card_token":
+            return "Card token configured"
+        return ""
