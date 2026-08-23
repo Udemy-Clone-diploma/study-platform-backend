@@ -54,7 +54,10 @@ class ReviewAssignModeratorView(APIView):
         try:
             ReviewService.assign_moderator_self(review, _moderator_profile(request.user))
         except ReviewAlreadyAssignedError:
-            return Response({"detail": "This review already has a moderator assigned."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "This review already has a moderator assigned."},
+                status=status.HTTP_409_CONFLICT,
+            )
         except ReviewsError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response({"detail": "Moderator assigned."})
@@ -71,7 +74,10 @@ class ReviewApproveView(APIView):
         try:
             ReviewService.approve_reported_review(review, _moderator_profile(request.user))
         except ReviewNotAssignedToModeratorError:
-            return Response({"detail": "Assign yourself to this review before moderating it."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Assign yourself to this review before moderating it."},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -86,5 +92,8 @@ class ReviewRejectView(APIView):
         try:
             ReviewService.reject_reported_review(review, _moderator_profile(request.user))
         except ReviewNotAssignedToModeratorError:
-            return Response({"detail": "Assign yourself to this review before moderating it."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Assign yourself to this review before moderating it."},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)

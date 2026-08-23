@@ -35,9 +35,7 @@ def remember_previous_course(sender, instance, **kwargs):
         instance._previous_course_id = None
         return
     instance._previous_course_id = (
-        sender.objects.filter(pk=instance.pk)
-        .values_list("course_id", flat=True)
-        .first()
+        sender.objects.filter(pk=instance.pk).values_list("course_id", flat=True).first()
     )
 
 
@@ -115,7 +113,9 @@ def course_completion_created(sender, instance: CourseCompletion, created: bool,
         today = date.today()
         for slot in ScheduleSlot.objects.filter(booked_by=enrollment):
             Session.objects.filter(
-                slot=slot, date__gte=today, status=Session.Status.SCHEDULED,
+                slot=slot,
+                date__gte=today,
+                status=Session.Status.SCHEDULED,
             ).update(status=Session.Status.CANCELLED)
             slot.booked_by = None
             slot.save(update_fields=["booked_by"])

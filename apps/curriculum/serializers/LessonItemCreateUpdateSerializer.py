@@ -41,7 +41,9 @@ class LessonItemCreateUpdateSerializer(serializers.ModelSerializer):
         if item_type == LessonItem.ItemType.TEST:
             has_test = attrs.get("test") or (self.instance and self.instance.test_id)
             if not has_test:
-                raise serializers.ValidationError({"test": "A test must be provided for a TEST item."})
+                raise serializers.ValidationError(
+                    {"test": "A test must be provided for a TEST item."}
+                )
         return attrs
 
     def save(self, **kwargs):

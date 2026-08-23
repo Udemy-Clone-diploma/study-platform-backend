@@ -48,9 +48,7 @@ class CourseFilterTests(APITestCase):
         self.assertNotIn("django-course", slugs)
 
     def test_filter_by_nonexistent_slug_returns_empty_list(self):
-        response = self.client.get(
-            reverse("courses-list"), {"category": "nonexistent-category"}
-        )
+        response = self.client.get(reverse("courses-list"), {"category": "nonexistent-category"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 0)
@@ -88,9 +86,7 @@ class CourseFilterTests(APITestCase):
         self.assertEqual(len(response.data["results"]), 3)
 
     def test_filter_by_level(self):
-        Course.all_objects.filter(slug="django-course").update(
-            level=Course.LevelChoices.ADVANCED
-        )
+        Course.all_objects.filter(slug="django-course").update(level=Course.LevelChoices.ADVANCED)
 
         response = self.client.get(reverse("courses-list"), {"level": "advanced"})
 
@@ -107,9 +103,7 @@ class CourseFilterTests(APITestCase):
             price="50.00",
         )
 
-        response = self.client.get(
-            reverse("courses-list"), {"plan_kind": "individual"}
-        )
+        response = self.client.get(reverse("courses-list"), {"plan_kind": "individual"})
 
         slugs = [c["slug"] for c in response.data["results"]]
         self.assertEqual(slugs, ["figma-course"])
@@ -117,9 +111,7 @@ class CourseFilterTests(APITestCase):
     def test_filter_with_certificate_boolean(self):
         Course.all_objects.filter(slug="django-course").update(with_certificate=True)
 
-        response = self.client.get(
-            reverse("courses-list"), {"with_certificate": "true"}
-        )
+        response = self.client.get(reverse("courses-list"), {"with_certificate": "true"})
 
         slugs = [c["slug"] for c in response.data["results"]]
         self.assertEqual(slugs, ["django-course"])
@@ -144,9 +136,7 @@ class CourseFilterTests(APITestCase):
         response = self.client.get(reverse("courses-list"), {"ordering": "min_price"})
 
         slugs = [c["slug"] for c in response.data["results"]]
-        self.assertEqual(
-            slugs, ["figma-course", "django-course", "no-category-course"]
-        )
+        self.assertEqual(slugs, ["figma-course", "django-course", "no-category-course"])
 
     def test_default_ordering_is_published_at_desc(self):
         response = self.client.get(reverse("courses-list"))

@@ -135,7 +135,10 @@ class CourseReviewsWriteTests(APITestCase):
     def test_duplicate_review_returns_409(self):
         self._enroll(self.student_profile)
         Review.objects.create(
-            course=self.course, student=self.student_user, rating=4, text="ok",
+            course=self.course,
+            student=self.student_user,
+            rating=4,
+            text="ok",
         )
         self.client.force_authenticate(user=self.student_user)
         response = self.client.post(
@@ -149,14 +152,21 @@ class CourseReviewsWriteTests(APITestCase):
         self._enroll(self.student_profile)
         other_user, other_profile = make_student(email="rw_other@example.com")
         self._other_enrollment = Enrollment.objects.create(
-            student_profile=other_profile, course=self.course,
+            student_profile=other_profile,
+            course=self.course,
         )
 
         Review.objects.create(
-            course=self.course, student=self.student_user, rating=5, text="",
+            course=self.course,
+            student=self.student_user,
+            rating=5,
+            text="",
         )
         Review.objects.create(
-            course=self.course, student=other_user, rating=3, text="",
+            course=self.course,
+            student=other_user,
+            rating=3,
+            text="",
         )
 
         self.course.refresh_from_db()
@@ -166,7 +176,10 @@ class CourseReviewsWriteTests(APITestCase):
     def test_review_delete_recomputes_rating(self):
         self._enroll(self.student_profile)
         review = Review.objects.create(
-            course=self.course, student=self.student_user, rating=5, text="",
+            course=self.course,
+            student=self.student_user,
+            rating=5,
+            text="",
         )
 
         self.course.refresh_from_db()

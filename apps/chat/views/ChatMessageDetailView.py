@@ -33,9 +33,7 @@ class ChatMessageDetailView(APIView):
             serializer.validated_data["text"],
         )
         events.broadcast_message_updated(message)
-        return Response(
-            ChatMessageSerializer(message, context={"request": request}).data
-        )
+        return Response(ChatMessageSerializer(message, context={"request": request}).data)
 
     def delete(self, request, message_id: int):
         message = self.get_message(request, message_id)

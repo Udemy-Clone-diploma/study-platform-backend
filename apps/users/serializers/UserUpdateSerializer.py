@@ -6,7 +6,17 @@ from apps.users.models import User
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "avatar", "language", "instagram", "linkedin", "facebook", "behance"]
+        fields = [
+            "first_name",
+            "last_name",
+            "email",
+            "avatar",
+            "language",
+            "instagram",
+            "linkedin",
+            "facebook",
+            "behance",
+        ]
 
     def validate_email(self, value):
         if User.all_objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():  # type: ignore

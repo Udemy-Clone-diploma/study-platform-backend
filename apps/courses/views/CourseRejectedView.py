@@ -49,10 +49,15 @@ class CourseCopyToDraftView(APIView):
     def post(self, request, slug):
         course = get_course_for_request(self, slug)
         if course.status != "rejected":
-            return Response({"detail": "Only rejected courses can be copied to draft."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Only rejected courses can be copied to draft."},
+                status=status.HTTP_409_CONFLICT,
+            )
         teacher_profile = getattr(request.user, "teacher_profile", None)
         if teacher_profile is None:
-            return Response({"detail": "Teacher profile not found."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "Teacher profile not found."}, status=status.HTTP_403_FORBIDDEN
+            )
         new_course = CourseService.copy_to_draft(course, teacher_profile)
         return Response(
             CourseService.serialize_course_detail(new_course, context={"request": request}),

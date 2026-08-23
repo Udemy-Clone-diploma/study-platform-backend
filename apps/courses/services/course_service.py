@@ -140,7 +140,8 @@ class CourseService:
                 filter=Q(enrollments__access_status=Enrollment.AccessStatusChoices.ACTIVE),
             ),
             annotated_completed_count=Coalesce(
-                Subquery(completed_subquery, output_field=IntegerField()), 0,
+                Subquery(completed_subquery, output_field=IntegerField()),
+                0,
             ),
         )
         return Prefetch("delivery_formats", queryset=queryset)
@@ -164,7 +165,8 @@ class CourseService:
         (CohortMemberSerializer reads enrollment.student_profile.user.* and
         enrollment.course for the is_completed check)."""
         members_queryset = CohortMember.objects.select_related(
-            "enrollment__student_profile__user", "enrollment__course",
+            "enrollment__student_profile__user",
+            "enrollment__course",
         )
         return Prefetch(
             "cohorts",
@@ -204,9 +206,7 @@ class CourseService:
         course: Course,
         context: dict | None = None,
     ) -> dict:
-        annotated = cls.annotate_min_price(
-            Course.all_objects.filter(pk=course.pk)
-        ).first()
+        annotated = cls.annotate_min_price(Course.all_objects.filter(pk=course.pk)).first()
         return CourseDetailSerializer(annotated or course, context=context or {}).data
 
     @classmethod
@@ -278,9 +278,7 @@ class CourseService:
             return validated_data
 
         title_changed = "title" in validated_data and validated_data["title"] != course.title
-        can_regenerate_slug = (
-            course.status == Course.StatusChoices.DRAFT and title_changed
-        )
+        can_regenerate_slug = course.status == Course.StatusChoices.DRAFT and title_changed
 
         if can_regenerate_slug:
             validated_data["slug"] = cls._build_unique_slug(title, course)
@@ -367,7 +365,9 @@ class CourseService:
         course.moderator_comment = ""
         if not course.published_at:
             course.published_at = timezone.now()
-        course.save(update_fields=["status", "moderator_profile", "moderator_comment", "published_at"])
+        course.save(
+            update_fields=["status", "moderator_profile", "moderator_comment", "published_at"]
+        )
         ModerationReview.objects.filter(course=course).delete()
         ApprovedCourseRecord.objects.create(
             course=course,
@@ -426,8 +426,14 @@ class CourseService:
             Course.StatusChoices.NEEDS_REVISION,
             Course.StatusChoices.REJECTED,
         ):
-            raise CoursesError("Only courses in 'review', 'needs_revision', or 'rejected' status can be moderated.")
-        course.status = Course.StatusChoices.REJECTED if final_action == "rejected" else Course.StatusChoices.NEEDS_REVISION
+            raise CoursesError(
+                "Only courses in 'review', 'needs_revision', or 'rejected' status can be moderated."
+            )
+        course.status = (
+            Course.StatusChoices.REJECTED
+            if final_action == "rejected"
+            else Course.StatusChoices.NEEDS_REVISION
+        )
         if final_action == "rejected":
             course.moderator_profile = None
         course.moderator_comment = final_comment
@@ -580,7 +586,7 @@ class CourseService:
     @classmethod
     @transaction.atomic
     def clone_for_pending_edit(cls, course: Course) -> Course:
-        """Deep-copy a published/hidden course into a hidden PENDING_EDIT shadow draft. """
+        """Deep-copy a published/hidden course into a hidden PENDING_EDIT shadow draft."""
         draft = Course.all_objects.create(
             title=course.title,
             slug=cls._build_unique_slug(course.title),
@@ -798,13 +804,14 @@ class CourseService:
             pending_edit.save(update_fields=["moderator_profile"])
             return course
 
-        raise CoursesError("Only courses in 'review' or published courses with pending edits can be assigned.")
+        raise CoursesError(
+            "Only courses in 'review' or published courses with pending edits can be assigned."
+        )
 
     @classmethod
     def get_teacher_courses_queryset(cls, teacher_profile):
         return cls.annotate_min_price(
-            teacher_profile.courses
-            .exclude(status=Course.StatusChoices.PENDING_EDIT)
+            teacher_profile.courses.exclude(status=Course.StatusChoices.PENDING_EDIT)
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
         )
@@ -877,7 +884,8 @@ class CourseService:
         queryset = cls.annotate_min_price(queryset)
         queryset = cls.annotate_recent_enrollments(queryset)
         courses = queryset.order_by(
-            "-students_enrolled_last_30_days", "-rating_avg",
+            "-students_enrolled_last_30_days",
+            "-rating_avg",
         )[:limit]
         return PublicCourseListSerializer(
             courses,

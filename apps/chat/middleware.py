@@ -1,4 +1,3 @@
-
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from django.http.cookie import parse_cookie
@@ -43,4 +42,3 @@ class JWTAuthMiddleware:
         token = _token_from_scope(scope)
         scope["user"] = await _get_user_for_token(token) if token else AnonymousUser()
         return await self.inner(scope, receive, send)
-

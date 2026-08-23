@@ -126,9 +126,7 @@ class PublicCourseApiContractTests(APITestCase):
         )
 
         delivery_format = response.data["delivery_formats"][0]
-        self.assertTrue(
-            {"chat_id", "completed_count"}.isdisjoint(delivery_format)
-        )
+        self.assertTrue({"chat_id", "completed_count"}.isdisjoint(delivery_format))
         cohort = response.data["cohorts"][0]
         self.assertEqual(cohort["members_count"], 1)
         self.assertTrue({"chat_id", "members"}.isdisjoint(cohort))

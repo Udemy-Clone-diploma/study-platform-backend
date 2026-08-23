@@ -19,7 +19,9 @@ class TopTeachersView(APIView):
 
     @extend_schema(
         tags=["Users"],
-        parameters=[OpenApiParameter("limit", int, description="Max number of teachers to return.")],
+        parameters=[
+            OpenApiParameter("limit", int, description="Max number of teachers to return.")
+        ],
         responses={200: TopTeacherSerializer(many=True), 400: {"type": "object"}},
     )
     def get(self, request):

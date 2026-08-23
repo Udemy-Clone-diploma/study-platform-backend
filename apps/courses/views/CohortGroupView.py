@@ -64,7 +64,10 @@ class CohortMemberListCreateView(generics.GenericAPIView):
             )
 
         member = CohortMember.objects.create(cohort=cohort, enrollment=enrollment)
-        return Response(CohortMemberSerializer(member, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        return Response(
+            CohortMemberSerializer(member, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @extend_schema(tags=["Cohort Members"])
@@ -101,14 +104,19 @@ class CourseEnrolledStudentsView(generics.GenericAPIView):
         if format_id:
             qs = qs.filter(delivery_format_id=format_id)
         completed_student_profile_ids = set(
-            CourseCompletion.objects.filter(course=course).values_list("student_profile_id", flat=True)
+            CourseCompletion.objects.filter(course=course).values_list(
+                "student_profile_id", flat=True
+            )
         )
         status_param = request.query_params.get("status")
         if status_param == "completed":
             qs = qs.filter(student_profile_id__in=completed_student_profile_ids)
         elif status_param == "active":
             qs = qs.exclude(student_profile_id__in=completed_student_profile_ids)
-        context = {"request": request, "completed_student_profile_ids": completed_student_profile_ids}
+        context = {
+            "request": request,
+            "completed_student_profile_ids": completed_student_profile_ids,
+        }
         return Response(EnrolledStudentSerializer(qs, many=True, context=context).data)
 
 
@@ -124,9 +132,7 @@ class TeacherStudentDashboardView(APIView):
 
         enrollment_queryset = Enrollment.objects.filter(
             student_profile__user_id=student_id
-        ).select_related(
-            "student_profile__user", "course", "course__teacher_profile__user"
-        )
+        ).select_related("student_profile__user", "course", "course__teacher_profile__user")
         if request.user.role == "teacher":
             enrollment_queryset = enrollment_queryset.filter(
                 course__teacher_profile__user=request.user
@@ -151,13 +157,17 @@ class TeacherStudentDashboardView(APIView):
         user = student.user
         enrollment_ids = [item.id for item in enrollments]
         course_ids = [item.course_id for item in enrollments]
-        submissions = HomeworkSubmission.objects.filter(enrollment_id__in=enrollment_ids).select_related(
-            "assignment__course"
-        ).order_by("-submitted_at")
+        submissions = (
+            HomeworkSubmission.objects.filter(enrollment_id__in=enrollment_ids)
+            .select_related("assignment__course")
+            .order_by("-submitted_at")
+        )
         attempts = TestAttempt.objects.filter(
             student_profile=student, test__module__course_id__in=course_ids
         )
-        absences = Attendance.objects.filter(enrollment_id__in=enrollment_ids, is_present=False).count()
+        absences = Attendance.objects.filter(
+            enrollment_id__in=enrollment_ids, is_present=False
+        ).count()
 
         today = timezone.localdate()
         week_points = []
@@ -169,7 +179,12 @@ class TeacherStudentDashboardView(APIView):
                 reviewed_at__date__lt=week_end,
                 score__isnull=False,
             ).aggregate(value=Avg("score"))["value"]
-            week_points.append({"label": f"Week {6 - offset}", "value": round(float(average), 1) if average is not None else 0})
+            week_points.append(
+                {
+                    "label": f"Week {6 - offset}",
+                    "value": round(float(average), 1) if average is not None else 0,
+                }
+            )
 
         activities = [
             {
@@ -189,35 +204,44 @@ class TeacherStudentDashboardView(APIView):
         for enrollment in all_enrollments:
             total = enrollment.course.lessons_count
             progress = round(enrollment.lessons_completed_count / total * 100) if total else 0
-            courses.append({
-                "slug": enrollment.course.slug,
-                "title": enrollment.course.title,
-                "teacher": enrollment.course.teacher_profile.user.get_full_name(),
-                "image": absolute_media_url(enrollment.course.image, request),
-                "progress": progress,
-            })
+            courses.append(
+                {
+                    "slug": enrollment.course.slug,
+                    "title": enrollment.course.title,
+                    "teacher": enrollment.course.teacher_profile.user.get_full_name(),
+                    "image": absolute_media_url(enrollment.course.image, request),
+                    "progress": progress,
+                }
+            )
 
         reviewed_scores = [point["value"] for point in week_points if point["value"] > 0]
-        return Response({
-            "profile": {
-                "id": user.id,
-                "name": user.get_full_name() or user.email,
-                "email": user.email,
-                "avatar": absolute_media_url(user.avatar, request),
-                "socials": {key: getattr(user, key) for key in ("instagram", "linkedin", "facebook", "behance")},
-            },
-            "metrics": {
-                "homeworks_done": submissions.count(),
-                "tests_done": attempts.values("test_id").distinct().count(),
-                "absences": absences,
-            },
-            "activities": activities,
-            "growth": {
-                "average": round(sum(reviewed_scores) / len(reviewed_scores), 1) if reviewed_scores else 0,
-                "points": week_points,
-            },
-            "courses": courses,
-        })
+        return Response(
+            {
+                "profile": {
+                    "id": user.id,
+                    "name": user.get_full_name() or user.email,
+                    "email": user.email,
+                    "avatar": absolute_media_url(user.avatar, request),
+                    "socials": {
+                        key: getattr(user, key)
+                        for key in ("instagram", "linkedin", "facebook", "behance")
+                    },
+                },
+                "metrics": {
+                    "homeworks_done": submissions.count(),
+                    "tests_done": attempts.values("test_id").distinct().count(),
+                    "absences": absences,
+                },
+                "activities": activities,
+                "growth": {
+                    "average": round(sum(reviewed_scores) / len(reviewed_scores), 1)
+                    if reviewed_scores
+                    else 0,
+                    "points": week_points,
+                },
+                "courses": courses,
+            }
+        )
 
 
 @extend_schema(tags=["Cohort Members"])

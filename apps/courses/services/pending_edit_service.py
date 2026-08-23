@@ -24,9 +24,19 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
         return []
     changed = []
     for field in [
-        "title", "subtitle", "short_description", "full_description",
-        "level", "language", "mode", "delivery_type", "course_type",
-        "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
+        "title",
+        "subtitle",
+        "short_description",
+        "full_description",
+        "level",
+        "language",
+        "mode",
+        "delivery_type",
+        "course_type",
+        "with_certificate",
+        "certificate_description",
+        "is_on_sale",
+        "discount_percent",
         "passing_score",
     ]:
         if getattr(draft, field) != getattr(course, field):
@@ -63,9 +73,11 @@ def _merge_row(model, live_parent_lookup: dict, source_id, **kwargs):
 
 
 def _merge_document(live_lesson, draft_doc) -> LessonDocument:
-    """LessonDocument has no is_deleted field """
+    """LessonDocument has no is_deleted field"""
     if draft_doc.source_document_id:
-        doc = LessonDocument.objects.filter(id=draft_doc.source_document_id, lesson=live_lesson).first()
+        doc = LessonDocument.objects.filter(
+            id=draft_doc.source_document_id, lesson=live_lesson
+        ).first()
         if doc:
             duplicate_file_field(draft_doc.file, doc.file)
             doc.original_name = draft_doc.original_name
@@ -81,7 +93,6 @@ def _merge_document(live_lesson, draft_doc) -> LessonDocument:
 
 
 class PendingEditService:
-
     @classmethod
     def get_or_create(cls, course) -> CoursePendingEdit:
         try:
@@ -134,10 +145,20 @@ class PendingEditService:
         changed = compute_pending_edit_changed_fields(pending_edit)
 
         for field in [
-            "title", "subtitle", "short_description", "full_description",
-            "level", "language", "mode", "delivery_type", "course_type",
-            "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
-        "passing_score",
+            "title",
+            "subtitle",
+            "short_description",
+            "full_description",
+            "level",
+            "language",
+            "mode",
+            "delivery_type",
+            "course_type",
+            "with_certificate",
+            "certificate_description",
+            "is_on_sale",
+            "discount_percent",
+            "passing_score",
         ]:
             setattr(course, field, getattr(draft, field))
         course.category = draft.category
@@ -248,8 +269,12 @@ class PendingEditService:
 
         for idx, draft_mod in enumerate(draft_course.modules.order_by("order"), 1):
             live_mod = _merge_row(
-                Module, {"course": live_course}, draft_mod.source_module_id,
-                title=draft_mod.title, description=draft_mod.description, order=idx,
+                Module,
+                {"course": live_course},
+                draft_mod.source_module_id,
+                title=draft_mod.title,
+                description=draft_mod.description,
+                order=idx,
             )
 
             # Tests before lessons: LessonItem.test needs the live test's id, resolved
@@ -258,30 +283,47 @@ class PendingEditService:
             test_map: dict[int, Test] = {}
             for t_idx, draft_test in enumerate(draft_mod.tests.order_by("order"), 1):
                 live_test = _merge_row(
-                    Test, {"module": live_mod}, draft_test.source_test_id,
-                    title=draft_test.title, description=draft_test.description,
-                    passing_score=draft_test.passing_score, duration_minutes=draft_test.duration_minutes,
-                    allow_retakes=draft_test.allow_retakes, max_attempts=draft_test.max_attempts,
+                    Test,
+                    {"module": live_mod},
+                    draft_test.source_test_id,
+                    title=draft_test.title,
+                    description=draft_test.description,
+                    passing_score=draft_test.passing_score,
+                    duration_minutes=draft_test.duration_minutes,
+                    allow_retakes=draft_test.allow_retakes,
+                    max_attempts=draft_test.max_attempts,
                     order=t_idx,
                 )
                 test_map[draft_test.id] = live_test
 
-                Question.all_objects.filter(test=live_test, is_deleted=False).update(is_deleted=True)
+                Question.all_objects.filter(test=live_test, is_deleted=False).update(
+                    is_deleted=True
+                )
                 for q_idx, draft_q in enumerate(draft_test.questions.order_by("order"), 1):
                     _merge_row(
-                        Question, {"test": live_test}, draft_q.source_question_id,
-                        question_type=draft_q.question_type, text=draft_q.text,
-                        options=draft_q.options, correct_indices=draft_q.correct_indices,
-                        correct_bool=draft_q.correct_bool, sample_answer=draft_q.sample_answer,
-                        accepted_answers=draft_q.accepted_answers, order=q_idx,
+                        Question,
+                        {"test": live_test},
+                        draft_q.source_question_id,
+                        question_type=draft_q.question_type,
+                        text=draft_q.text,
+                        options=draft_q.options,
+                        correct_indices=draft_q.correct_indices,
+                        correct_bool=draft_q.correct_bool,
+                        sample_answer=draft_q.sample_answer,
+                        accepted_answers=draft_q.accepted_answers,
+                        order=q_idx,
                     )
 
             Lesson.all_objects.filter(module=live_mod, is_deleted=False).update(is_deleted=True)
             for l_idx, draft_lesson in enumerate(draft_mod.lessons.order_by("order"), 1):
                 live_lesson = _merge_row(
-                    Lesson, {"module": live_mod}, draft_lesson.source_lesson_id,
-                    title=draft_lesson.title, duration_minutes=draft_lesson.duration_minutes,
-                    min_score=draft_lesson.min_score, is_preview=draft_lesson.is_preview,
+                    Lesson,
+                    {"module": live_mod},
+                    draft_lesson.source_lesson_id,
+                    title=draft_lesson.title,
+                    duration_minutes=draft_lesson.duration_minutes,
+                    min_score=draft_lesson.min_score,
+                    is_preview=draft_lesson.is_preview,
                     meeting_url=draft_lesson.meeting_url,
                     unlock_after_days=draft_lesson.unlock_after_days,
                     requires_previous=draft_lesson.requires_previous,
@@ -290,18 +332,23 @@ class PendingEditService:
                     order=l_idx,
                 )
 
-                LessonItem.all_objects.filter(lesson=live_lesson, is_deleted=False).update(is_deleted=True)
+                LessonItem.all_objects.filter(lesson=live_lesson, is_deleted=False).update(
+                    is_deleted=True
+                )
                 for i_idx, draft_item in enumerate(draft_lesson.items.order_by("order"), 1):
                     live_item = _merge_row(
-                        LessonItem, {"lesson": live_lesson}, draft_item.source_lesson_item_id,
-                        item_type=draft_item.item_type, order=i_idx,
+                        LessonItem,
+                        {"lesson": live_lesson},
+                        draft_item.source_lesson_item_id,
+                        item_type=draft_item.item_type,
+                        order=i_idx,
                         body_html=draft_item.body_html,
                         video_url=draft_item.video_url,
                         original_video_name=draft_item.original_video_name,
                         duration_minutes=draft_item.duration_minutes,
                         test=test_map.get(draft_item.test_id),
                     )
-                    
+
                     if draft_item.video:
                         duplicate_file_field(draft_item.video, live_item.video)
                         live_item.video_hash = draft_item.video_hash
@@ -314,4 +361,6 @@ class PendingEditService:
                     _merge_document(live_lesson, draft_doc).id
                     for draft_doc in draft_lesson.documents.all()
                 }
-                LessonDocument.objects.filter(lesson=live_lesson).exclude(id__in=matched_doc_ids).delete()
+                LessonDocument.objects.filter(lesson=live_lesson).exclude(
+                    id__in=matched_doc_ids
+                ).delete()

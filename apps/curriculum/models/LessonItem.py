@@ -88,7 +88,9 @@ class LessonItem(models.Model):
         # Skip recompute when the caller already supplied video_hash explicitly
         # (cloning/merging copies it straight from the source item, since a
         # byte-identical duplicate always has the same hash).
-        recompute = update_fields is None or ("video" in update_fields and "video_hash" not in update_fields)
+        recompute = update_fields is None or (
+            "video" in update_fields and "video_hash" not in update_fields
+        )
         if recompute:
             self.video_hash = file_content_hash(self.video) or ""
             if update_fields is not None:

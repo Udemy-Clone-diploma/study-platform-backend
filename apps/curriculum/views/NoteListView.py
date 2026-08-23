@@ -30,7 +30,9 @@ class NoteListView(generics.ListAPIView):
             ).values_list("course_id", flat=True)
         )
         serializer = self.get_serializer(
-            target, many=True, context={**self.get_serializer_context(), "completed_course_ids": completed_course_ids},
+            target,
+            many=True,
+            context={**self.get_serializer_context(), "completed_course_ids": completed_course_ids},
         )
         if page is not None:
             return self.get_paginated_response(serializer.data)

@@ -21,11 +21,13 @@ class LessonDetailView(APIView):
     @extend_schema(responses=LessonSerializer)
     def get(self, request, slug: str, lesson_id: int):
         course = Course.objects.filter(
-            slug=slug, status=Course.StatusChoices.PUBLISHED,
+            slug=slug,
+            status=Course.StatusChoices.PUBLISHED,
         ).first()
         if course is None:
             return Response(
-                {"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Course not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         lesson = (
@@ -35,7 +37,8 @@ class LessonDetailView(APIView):
         )
         if lesson is None:
             return Response(
-                {"detail": "Lesson not found."}, status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Lesson not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         # Teachers / staff see the full test (answers included); enrolled students get

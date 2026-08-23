@@ -138,9 +138,7 @@ def homework_submission_remember_status(sender, instance: HomeworkSubmission, **
         instance._previous_status = None
         return
     instance._previous_status = (
-        HomeworkSubmission.objects.filter(pk=instance.pk)
-        .values_list("status", flat=True)
-        .first()
+        HomeworkSubmission.objects.filter(pk=instance.pk).values_list("status", flat=True).first()
     )
 
 

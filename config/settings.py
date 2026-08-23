@@ -158,7 +158,10 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "TAGS": [
-        {"name": "Auth", "description": "Registration, login, logout, token refresh, email verification, password reset, and current-user endpoints."},
+        {
+            "name": "Auth",
+            "description": "Registration, login, logout, token refresh, email verification, password reset, and current-user endpoints.",
+        },
         {"name": "Users", "description": "Admin user management and top teachers listing."},
         {"name": "User moderation", "description": "User report queues and moderation decisions."},
         {"name": "Courses", "description": "Course CRUD, new courses, and popular courses."},
@@ -196,9 +199,7 @@ if DEBUG:
     DEFAULT_STORAGE_BACKEND = "django.core.files.storage.FileSystemStorage"
 else:
     if not AWS_STORAGE_BUCKET_NAME:
-        raise ImproperlyConfigured(
-            "AWS_STORAGE_BUCKET_NAME must be set when DEBUG=False."
-        )
+        raise ImproperlyConfigured("AWS_STORAGE_BUCKET_NAME must be set when DEBUG=False.")
     AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
     AWS_DEFAULT_ACL = None
     AWS_S3_OBJECT_PARAMETERS = {
@@ -225,8 +226,14 @@ STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 STRIPE_CONNECT_WEBHOOK_SECRET = config("STRIPE_CONNECT_WEBHOOK_SECRET", default="")
 STRIPE_CONNECT_COUNTRY = config("STRIPE_CONNECT_COUNTRY", default="US")
-STRIPE_CONNECT_REFRESH_URL = config("STRIPE_CONNECT_REFRESH_URL", default="http://localhost:3000/teacher-dashboard/payments?stripe=refresh")
-STRIPE_CONNECT_RETURN_URL = config("STRIPE_CONNECT_RETURN_URL", default="http://localhost:3000/teacher-dashboard/payments?stripe=return")
+STRIPE_CONNECT_REFRESH_URL = config(
+    "STRIPE_CONNECT_REFRESH_URL",
+    default="http://localhost:3000/teacher-dashboard/payments?stripe=refresh",
+)
+STRIPE_CONNECT_RETURN_URL = config(
+    "STRIPE_CONNECT_RETURN_URL",
+    default="http://localhost:3000/teacher-dashboard/payments?stripe=return",
+)
 PLATFORM_COMMISSION_PERCENT = config("PLATFORM_COMMISSION_PERCENT", default="20.00")
 
 LIQPAY_PUBLIC_KEY = config("LIQPAY_PUBLIC_KEY", default="")
@@ -243,7 +250,10 @@ LIQPAY_SIMULATED_PAYOUT_OUTCOME = config(
 )
 
 LIQPAY_API_VERSION = config(
-    "LIQPAY_API_VERSION", default=7, cast=int,)
+    "LIQPAY_API_VERSION",
+    default=7,
+    cast=int,
+)
 
 LIQPAY_API_URL = config(
     "LIQPAY_API_URL",
@@ -255,15 +265,24 @@ LIQPAY_HTTP_TIMEOUT = config(
     default=10,
     cast=int,
 )
-LIQPAY_CHECKOUT_URL = config("LIQPAY_CHECKOUT_URL", default="https://www.liqpay.ua/api/3/checkout",)
+LIQPAY_CHECKOUT_URL = config(
+    "LIQPAY_CHECKOUT_URL",
+    default="https://www.liqpay.ua/api/3/checkout",
+)
 
 LIQPAY_PAYOUT_SERVER_URL = config(
     "LIQPAY_PAYOUT_SERVER_URL",
     default="",
 )
-LIQPAY_SERVER_URL = config("LIQPAY_SERVER_URL",default="",)
+LIQPAY_SERVER_URL = config(
+    "LIQPAY_SERVER_URL",
+    default="",
+)
 
-LIQPAY_RESULT_URL = config("LIQPAY_RESULT_URL",default=f"{FRONTEND_URL}/student-dashboard/payment?tab=history&liqpay=return",)
+LIQPAY_RESULT_URL = config(
+    "LIQPAY_RESULT_URL",
+    default=f"{FRONTEND_URL}/student-dashboard/payment?tab=history&liqpay=return",
+)
 
 INVOICE_COMPANY_NAME = config("INVOICE_COMPANY_NAME", default="Nexo4You")
 INVOICE_COMPANY_EMAIL = config("INVOICE_COMPANY_EMAIL", default="")
@@ -280,7 +299,8 @@ CORS_ALLOW_CREDENTIALS = True
 EMAIL_BACKEND = config(
     "EMAIL_BACKEND",
     default=(
-        "django.core.mail.backends.console.EmailBackend" if DEBUG
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
         else "django.core.mail.backends.smtp.EmailBackend"
     ),
 )
@@ -418,8 +438,7 @@ CHAT_ATTACHMENT_MAX_BYTES = config(
 CHAT_ATTACHMENT_ALLOWED_TYPES = config(
     "CHAT_ATTACHMENT_ALLOWED_TYPES",
     default=(
-        "image/jpeg,image/png,image/webp,image/gif,"
-        "application/pdf,text/plain,application/zip"
+        "image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,application/zip"
     ),
     cast=lambda v: [item.strip() for item in v.split(",") if item.strip()],
 )

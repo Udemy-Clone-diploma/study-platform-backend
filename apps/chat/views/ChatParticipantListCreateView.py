@@ -35,9 +35,7 @@ class ChatParticipantListCreateView(APIView):
     def post(self, request, chat_id: int):
         chat = get_chat_for_user(request.user, chat_id)
         if not ChatService.can_manage_participants(request.user, chat):
-            raise PermissionDenied(
-                "Only group owners and admins can add participants."
-            )
+            raise PermissionDenied("Only group owners and admins can add participants.")
         serializer = ParticipantAddSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         participants = ChatService.add_participants(

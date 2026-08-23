@@ -61,7 +61,9 @@ def _teacher_assignment(view, slug: str, assignment_id: int) -> HomeworkAssignme
     return assignment
 
 
-def _best_test_attempt(assignment: HomeworkAssignment, enrollment: Enrollment) -> TestAttempt | None:
+def _best_test_attempt(
+    assignment: HomeworkAssignment, enrollment: Enrollment
+) -> TestAttempt | None:
     if assignment.test_id is None:
         return None
     return (
@@ -111,8 +113,13 @@ class HomeworkAssignmentListCreateView(generics.ListCreateAPIView):
         queryset = (
             HomeworkAssignment.objects.filter(course=self._get_course())
             .select_related(
-                "course", "module", "lesson", "test", "test__module",
-                "source_assignment", "created_by",
+                "course",
+                "module",
+                "lesson",
+                "test",
+                "test__module",
+                "source_assignment",
+                "created_by",
             )
             .prefetch_related(
                 "attachments",
@@ -420,14 +427,16 @@ class StudentHomeworkSubmissionView(APIView):
             assignment=assignment,
             enrollment=enrollment,
         ).first()
-        if existing_submission and existing_submission.status == HomeworkSubmission.StatusChoices.RETRIEVED:
+        if (
+            existing_submission
+            and existing_submission.status == HomeworkSubmission.StatusChoices.RETRIEVED
+        ):
             return Response(
                 {"detail": "This homework review is currently retrieved by the teacher."},
                 status=status.HTTP_409_CONFLICT,
             )
         has_attachments = (
-            existing_submission is not None
-            and existing_submission.attachments.exists()
+            existing_submission is not None and existing_submission.attachments.exists()
         )
         if not content and not has_attachments and best_attempt is None:
             return Response(
@@ -478,9 +487,16 @@ class StudentHomeworkSubmissionAttachmentView(APIView):
             submission.feedback = ""
             submission.reviewed_at = None
             submission.submitted_at = timezone.now()
-            submission.save(update_fields=[
-                "status", "score", "feedback", "reviewed_at", "submitted_at", "updated_at",
-            ])
+            submission.save(
+                update_fields=[
+                    "status",
+                    "score",
+                    "feedback",
+                    "reviewed_at",
+                    "submitted_at",
+                    "updated_at",
+                ]
+            )
         uploaded_file = serializer.validated_data["file"]
         HomeworkSubmissionAttachment.objects.create(
             submission=submission,
@@ -572,7 +588,20 @@ def _bucket_scores(qs, period: str) -> tuple[list[dict], float]:
     today = timezone.now().date()
     if period == "yearly":
         buckets = [date(today.year, m, 1) for m in range(1, 13)]
-        labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        labels = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ]
         trunc = TruncMonth("reviewed_at")
     else:
         this_week = today - timedelta(days=today.weekday())
@@ -616,7 +645,9 @@ class HomeworkGrowthView(APIView):
             if course_slug:
                 enrollments = enrollments.filter(course__slug=course_slug)
             qs = HomeworkSubmission.objects.filter(
-                enrollment__in=enrollments, score__isnull=False, reviewed_at__isnull=False,
+                enrollment__in=enrollments,
+                score__isnull=False,
+                reviewed_at__isnull=False,
             )
         elif student_id and user.role in {
             User.RoleChoices.TEACHER,
@@ -649,8 +680,10 @@ class HomeworkGrowthView(APIView):
             return Response({"average": 0, "points": [], "courses": []})
 
         points, average = _bucket_scores(qs, period)
-        return Response({
-            "average": average,
-            "points": points,
-            "courses": [{"slug": c.slug, "title": c.title} for c in courses],
-        })
+        return Response(
+            {
+                "average": average,
+                "points": points,
+                "courses": [{"slug": c.slug, "title": c.title} for c in courses],
+            }
+        )

@@ -26,7 +26,11 @@ class BlogCategoryListCreateView(ListCreateAPIView):
         return BlogCategoryService.annotate_articles_count(BlogCategory.objects.all())
 
     def get_serializer_class(self):
-        return BlogCategoryCreateUpdateSerializer if self.request.method == "POST" else BlogCategorySerializer
+        return (
+            BlogCategoryCreateUpdateSerializer
+            if self.request.method == "POST"
+            else BlogCategorySerializer
+        )
 
     def get_permissions(self):
         return [IsAdmin()] if self.request.method == "POST" else [AllowAny()]

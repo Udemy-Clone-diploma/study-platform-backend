@@ -24,9 +24,13 @@ class MaterialsListView(ListAPIView):
         if user.role != User.RoleChoices.STUDENT:
             return Lesson.objects.none()
 
-        course_ids = Enrollment.objects.with_active_access().filter(
-            student_profile=user.student_profile,
-        ).values_list("course_id", flat=True)
+        course_ids = (
+            Enrollment.objects.with_active_access()
+            .filter(
+                student_profile=user.student_profile,
+            )
+            .values_list("course_id", flat=True)
+        )
 
         qs = (
             Lesson.objects.filter(module__course_id__in=course_ids, documents__isnull=False)

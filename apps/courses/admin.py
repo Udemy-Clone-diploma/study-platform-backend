@@ -67,7 +67,15 @@ class CohortInline(admin.TabularInline):
 
 @admin.register(Course)
 class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("title", "slug", "status", "lessons_count", "is_on_sale", "discount_percent", "is_deleted")
+    list_display = (
+        "title",
+        "slug",
+        "status",
+        "lessons_count",
+        "is_on_sale",
+        "discount_percent",
+        "is_deleted",
+    )
     list_filter = ("status", "is_deleted", "level", "language", "is_on_sale")
     search_fields = ("title", "slug")
     prepopulated_fields = {"slug": ("title",)}
@@ -99,18 +107,28 @@ class CoursePendingEditAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("course__title", "course__slug")
     readonly_fields = (
-        "course", "draft_course", "status", "submitted_at", "created_at", "updated_at",
+        "course",
+        "draft_course",
+        "status",
+        "submitted_at",
+        "created_at",
+        "updated_at",
     )
     fields = readonly_fields + ("moderator_profile", "moderator_comment")
     actions = ["approve_changes", "reject_changes"]
 
     @admin.display(description="Comment")
     def short_comment(self, obj):
-        return (obj.moderator_comment[:60] + "…") if len(obj.moderator_comment) > 60 else obj.moderator_comment
+        return (
+            (obj.moderator_comment[:60] + "…")
+            if len(obj.moderator_comment) > 60
+            else obj.moderator_comment
+        )
 
     @admin.action(description="Approve selected pending edits (apply to live course)")
     def approve_changes(self, request, queryset):
         from apps.courses.services.pending_edit_service import PendingEditService
+
         approved = 0
         for pe in queryset:
             try:
@@ -119,21 +137,33 @@ class CoursePendingEditAdmin(admin.ModelAdmin):
             except Exception as exc:
                 self.message_user(request, f"Error approving {pe.course}: {exc}", messages.ERROR)
         if approved:
-            self.message_user(request, f"{approved} pending edit(s) approved and applied.", messages.SUCCESS)
+            self.message_user(
+                request, f"{approved} pending edit(s) approved and applied.", messages.SUCCESS
+            )
 
     @admin.action(description="Reject selected pending edits (return for revision)")
     def reject_changes(self, request, queryset):
         from apps.courses.services.pending_edit_service import PendingEditService
+
         count = queryset.count()
         for pe in queryset:
-            PendingEditService.reject(pe, final_action="needs_revision", final_comment="Returned for revision by moderator.")
-        self.message_user(request, f"{count} pending edit(s) returned for revision.", messages.WARNING)
+            PendingEditService.reject(
+                pe,
+                final_action="needs_revision",
+                final_comment="Returned for revision by moderator.",
+            )
+        self.message_user(
+            request, f"{count} pending edit(s) returned for revision.", messages.WARNING
+        )
 
 
 @admin.register(Cohort)
 class CohortAdmin(admin.ModelAdmin):
     list_display = (
-        "course", "duration_months", "start_date", "group_size",
+        "course",
+        "duration_months",
+        "start_date",
+        "group_size",
     )
     list_filter = ("delivery_format__format_type",)
     search_fields = ("course__title", "course__slug")

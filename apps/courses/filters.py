@@ -60,17 +60,12 @@ class CourseFilter(django_filters.FilterSet):
         # public catalog stays published-only even with a handcrafted ?status=;
         # unknown values are dropped, pending_edit is internal-only.
         user = getattr(self.request, "user", None)
-        if (
-            user is None
-            or not user.is_authenticated
-            or user.role != User.RoleChoices.ADMINISTRATOR
-        ):
+        if user is None or not user.is_authenticated or user.role != User.RoleChoices.ADMINISTRATOR:
             return queryset
         statuses = [
             item
             for item in (part.strip() for part in value.split(","))
-            if item in Course.StatusChoices.values
-            and item != Course.StatusChoices.PENDING_EDIT
+            if item in Course.StatusChoices.values and item != Course.StatusChoices.PENDING_EDIT
         ]
         if not statuses:
             return queryset

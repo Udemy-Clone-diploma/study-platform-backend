@@ -119,7 +119,6 @@ class Course(models.Model):
 
     with_certificate = models.BooleanField(default=False)
 
-
     certificate_description = models.TextField(blank=True, default="")
 
     is_on_sale = models.BooleanField(default=False)
@@ -181,7 +180,9 @@ class Course(models.Model):
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        recompute = update_fields is None or ("image" in update_fields and "image_hash" not in update_fields)
+        recompute = update_fields is None or (
+            "image" in update_fields and "image_hash" not in update_fields
+        )
         if recompute:
             self.image_hash = file_content_hash(self.image) or ""
             if update_fields is not None:

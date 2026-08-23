@@ -6,6 +6,7 @@ class WebhookEvent(models.Model):
     class ProviderChoices(models.TextChoices):
         STRIPE = "stripe", "Stripe"
         LIQPAY = "liqpay", "LiqPay"
+
     class StatusChoices(models.TextChoices):
         PENDING = "pending", "Pending"
         PROCESSED = "processed", "Processed"

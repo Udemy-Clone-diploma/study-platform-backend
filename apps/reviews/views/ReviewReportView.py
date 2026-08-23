@@ -25,9 +25,16 @@ class ReviewReportView(APIView):
         serializer = _ReviewReportSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            ReviewService.report_review(request.user, review, reason=serializer.validated_data["reason"])
+            ReviewService.report_review(
+                request.user, review, reason=serializer.validated_data["reason"]
+            )
         except CannotReportOwnReviewError:
-            return Response({"detail": "You cannot report your own review."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "You cannot report your own review."}, status=status.HTTP_403_FORBIDDEN
+            )
         except AlreadyReportedError:
-            return Response({"detail": "You have already reported this review."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "You have already reported this review."},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(status=status.HTTP_201_CREATED)

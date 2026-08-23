@@ -4,7 +4,7 @@ from apps.users.models import ModeratorProfile, TeacherProfile
 
 
 class ApprovedCourseRecord(models.Model):
-    """Immutable snapshot created when a moderator approves a course. As history """
+    """Immutable snapshot created when a moderator approves a course. As history"""
 
     course = models.ForeignKey(
         "Course",

@@ -51,9 +51,7 @@ class ChatRoomViewSet(
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         chat = serializer.save()
-        response_status = (
-            status.HTTP_201_CREATED if serializer.created else status.HTTP_200_OK
-        )
+        response_status = status.HTTP_201_CREATED if serializer.created else status.HTTP_200_OK
         return Response(
             ChatRoomSerializer(chat, context=self.get_serializer_context()).data,
             status=response_status,
@@ -123,9 +121,7 @@ class ChatRoomViewSet(
         if chat.is_read_only:
             raise PermissionDenied("Official administration chats cannot be cleared.")
         ChatService.clear_history(chat, request.user)
-        return Response(
-            ChatRoomSerializer(chat, context=self.get_serializer_context()).data
-        )
+        return Response(ChatRoomSerializer(chat, context=self.get_serializer_context()).data)
 
     def destroy(self, request, *args, **kwargs):
         chat = self.get_object()

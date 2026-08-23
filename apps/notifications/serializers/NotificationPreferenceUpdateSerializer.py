@@ -25,23 +25,15 @@ class NotificationPreferenceUpdateSerializer(serializers.Serializer):
         cleaned = {}
         for ntype, channels in data.items():
             if ntype not in valid_types:
-                raise serializers.ValidationError(
-                    {ntype: "Unknown notification type."}
-                )
+                raise serializers.ValidationError({ntype: "Unknown notification type."})
             if not isinstance(channels, dict):
-                raise serializers.ValidationError(
-                    {ntype: "Expected an object of channel toggles."}
-                )
+                raise serializers.ValidationError({ntype: "Expected an object of channel toggles."})
             entry = {}
             for channel, value in channels.items():
                 if channel not in CHANNELS:
-                    raise serializers.ValidationError(
-                        {ntype: f"Unknown channel '{channel}'."}
-                    )
+                    raise serializers.ValidationError({ntype: f"Unknown channel '{channel}'."})
                 if not isinstance(value, bool):
-                    raise serializers.ValidationError(
-                        {ntype: f"'{channel}' must be a boolean."}
-                    )
+                    raise serializers.ValidationError({ntype: f"'{channel}' must be a boolean."})
                 entry[channel] = value
             if entry:
                 cleaned[ntype] = entry

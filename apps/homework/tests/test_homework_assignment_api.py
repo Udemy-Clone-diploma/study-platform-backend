@@ -271,14 +271,18 @@ class HomeworkAssignmentApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(publish_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(publish_response.data["status"], HomeworkAssignment.StatusChoices.PUBLISHED)
+        self.assertEqual(
+            publish_response.data["status"], HomeworkAssignment.StatusChoices.PUBLISHED
+        )
 
         self.client.force_authenticate(self.student)
         assigned_response = self.client.get(reverse("student-homework-list"))
         self.assertEqual(assigned_response.status_code, status.HTTP_200_OK)
         self.assertEqual([item["id"] for item in assigned_response.data], [assignment_id])
         self.assertEqual(assigned_response.data[0]["recipients"], [])
-        self.assertEqual(assigned_response.data[0]["attachments"][0]["original_name"], "requirements.pdf")
+        self.assertEqual(
+            assigned_response.data[0]["attachments"][0]["original_name"], "requirements.pdf"
+        )
 
         submission_attachment_response = self.client.post(
             reverse("student-homework-submission-attachment-list", args=[assignment_id]),
@@ -297,7 +301,9 @@ class HomeworkAssignmentApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(submission_response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(submission_response.data["attachments"][0]["original_name"], "solution.zip")
+        self.assertEqual(
+            submission_response.data["attachments"][0]["original_name"], "solution.zip"
+        )
 
         self.client.force_authenticate(self.other_student)
         other_assigned_response = self.client.get(reverse("student-homework-list"))
@@ -586,7 +592,9 @@ class HomeworkAssignmentApiTests(APITestCase):
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
 
         publish_response = self.client.post(
-            reverse("homework-assignment-publish", args=[self.course.slug, create_response.data["id"]]),
+            reverse(
+                "homework-assignment-publish", args=[self.course.slug, create_response.data["id"]]
+            ),
             {"cohort_ids": [cohort.id]},
             format="json",
         )

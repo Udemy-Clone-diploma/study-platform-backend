@@ -76,9 +76,7 @@ def test_attempt_progress_changed(sender, instance: TestAttempt, **kwargs):
         user_id,
         course_id,
     )
-    lesson_ids = tuple(
-        instance.test.lesson_items.values_list("lesson_id", flat=True).distinct()
-    )
+    lesson_ids = tuple(instance.test.lesson_items.values_list("lesson_id", flat=True).distinct())
     for lesson_id in lesson_ids:
         invalidate_cache_on_commit(
             invalidate_lesson_for_user,

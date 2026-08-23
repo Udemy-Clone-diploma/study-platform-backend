@@ -18,7 +18,20 @@ def _bucket_enrollment_counts(qs, period: str) -> tuple[list[dict], int]:
     today = timezone.now().date()
     if period == "yearly":
         buckets = [date(today.year, m, 1) for m in range(1, 13)]
-        labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        labels = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ]
         trunc = TruncMonth("access_granted_at")
     else:
         this_week = today - timedelta(days=today.weekday())
@@ -65,8 +78,10 @@ class EnrollmentGrowthView(APIView):
             enrollments = enrollments.filter(course__slug=course_slug)
 
         points, total = _bucket_enrollment_counts(enrollments, period)
-        return Response({
-            "total": total,
-            "points": points,
-            "courses": [{"slug": c.slug, "title": c.title} for c in courses],
-        })
+        return Response(
+            {
+                "total": total,
+                "points": points,
+                "courses": [{"slug": c.slug, "title": c.title} for c in courses],
+            }
+        )

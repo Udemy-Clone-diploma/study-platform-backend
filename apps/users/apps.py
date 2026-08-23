@@ -8,4 +8,5 @@ class UsersConfig(AppConfig):
         from drf_spectacular.contrib.rest_framework_simplejwt import SimpleJWTScheme
 
         from . import cache_signals  # noqa: F401
+
         SimpleJWTScheme.match_subclasses = True

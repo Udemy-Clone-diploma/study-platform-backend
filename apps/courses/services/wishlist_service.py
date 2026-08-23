@@ -8,9 +8,9 @@ class WishlistService:
     @staticmethod
     def get_wishlisted_courses(student_profile: StudentProfile):
         return CourseService.annotate_min_price(
-            student_profile.wishlisted_courses
-            .select_related("teacher_profile__user", "category")
-            .prefetch_related("tags")
+            student_profile.wishlisted_courses.select_related(
+                "teacher_profile__user", "category"
+            ).prefetch_related("tags")
         )
 
     @staticmethod

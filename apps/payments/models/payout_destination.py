@@ -96,7 +96,4 @@ class TeacherPayoutDestination(models.Model):
         ]
 
     def __str__(self):
-        return (
-            f"Teacher {self.teacher_id} "
-            f"{self.destination_type}"
-        )
+        return f"Teacher {self.teacher_id} {self.destination_type}"

@@ -58,14 +58,10 @@ class ModeratorChatUserActionView(APIView):
             "user_id": target.pk,
             "is_restricted": bool(restriction and restriction.is_active),
             "restriction_reason": (
-                restriction.reason
-                if restriction and restriction.is_active
-                else ""
+                restriction.reason if restriction and restriction.is_active else ""
             ),
             "restricted_at": (
-                restriction.restricted_at
-                if restriction and restriction.is_active
-                else None
+                restriction.restricted_at if restriction and restriction.is_active else None
             ),
             "active_warning_report_ids": [
                 report_id
@@ -91,9 +87,7 @@ class ModeratorChatUserActionView(APIView):
             User.RoleChoices.MODERATOR,
             User.RoleChoices.ADMINISTRATOR,
         }:
-            raise ValidationError(
-                "This user cannot receive chat moderation actions."
-            )
+            raise ValidationError("This user cannot receive chat moderation actions.")
 
         serializer = ChatModerationRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -107,16 +101,16 @@ class ModeratorChatUserActionView(APIView):
                 pk=report_id,
             )
             if report.message.sender_id != target.pk:
-                raise ValidationError(
-                    "The selected report does not belong to this user."
-                )
-        if action in {
-            ChatModerationAction.ActionChoices.WARNING,
-            ChatModerationAction.ActionChoices.RETRACT_WARNING,
-        } and report is None:
-            raise ValidationError(
-                "A report is required for warning actions."
-            )
+                raise ValidationError("The selected report does not belong to this user.")
+        if (
+            action
+            in {
+                ChatModerationAction.ActionChoices.WARNING,
+                ChatModerationAction.ActionChoices.RETRACT_WARNING,
+            }
+            and report is None
+        ):
+            raise ValidationError("A report is required for warning actions.")
 
         official_chat = None
         official_participant = None
@@ -124,15 +118,11 @@ class ModeratorChatUserActionView(APIView):
         official_message = None
         with transaction.atomic():
             restriction = (
-                ChatUserRestriction.objects.select_for_update()
-                .filter(user=target)
-                .first()
+                ChatUserRestriction.objects.select_for_update().filter(user=target).first()
             )
             if action == ChatModerationAction.ActionChoices.RESTRICT:
                 if restriction and restriction.is_active:
-                    raise ValidationError(
-                        "This user is already restricted from writing in chats."
-                    )
+                    raise ValidationError("This user is already restricted from writing in chats.")
                 if restriction:
                     restriction.is_active = True
                     restriction.restricted_by = request.user
@@ -155,23 +145,15 @@ class ModeratorChatUserActionView(APIView):
                         reason=note,
                     )
                 title = "Chat access restricted"
-                body = (
-                    note
-                    or "A moderator has restricted your ability to write in chats."
-                )
+                body = note or "A moderator has restricted your ability to write in chats."
             elif action == ChatModerationAction.ActionChoices.RESTORE:
                 if not restriction or not restriction.is_active:
-                    raise ValidationError(
-                        "This user's chat access is not restricted."
-                    )
+                    raise ValidationError("This user's chat access is not restricted.")
                 restriction.is_active = False
                 restriction.lifted_at = timezone.now()
                 restriction.save(update_fields=["is_active", "lifted_at"])
                 title = "Chat access restored"
-                body = (
-                    note
-                    or "A moderator has restored your ability to write in chats."
-                )
+                body = note or "A moderator has restored your ability to write in chats."
             elif action == ChatModerationAction.ActionChoices.WARNING:
                 latest_warning_action = (
                     ChatModerationAction.objects.filter(
@@ -187,17 +169,11 @@ class ModeratorChatUserActionView(APIView):
                 )
                 if (
                     latest_warning_action
-                    and latest_warning_action.action
-                    == ChatModerationAction.ActionChoices.WARNING
+                    and latest_warning_action.action == ChatModerationAction.ActionChoices.WARNING
                 ):
-                    raise ValidationError(
-                        "A warning is already active for this report."
-                    )
+                    raise ValidationError("A warning is already active for this report.")
                 title = "Moderator warning"
-                body = (
-                    note
-                    or "A moderator has issued a warning about your chat activity."
-                )
+                body = note or "A moderator has issued a warning about your chat activity."
             else:
                 latest_warning_action = (
                     ChatModerationAction.objects.filter(
@@ -213,17 +189,11 @@ class ModeratorChatUserActionView(APIView):
                 )
                 if (
                     not latest_warning_action
-                    or latest_warning_action.action
-                    != ChatModerationAction.ActionChoices.WARNING
+                    or latest_warning_action.action != ChatModerationAction.ActionChoices.WARNING
                 ):
-                    raise ValidationError(
-                        "There is no active warning for this report."
-                    )
+                    raise ValidationError("There is no active warning for this report.")
                 title = "Moderator warning retracted"
-                body = (
-                    note
-                    or "A moderator has retracted the warning about your chat activity."
-                )
+                body = note or "A moderator has retracted the warning about your chat activity."
 
             ChatModerationAction.objects.create(
                 target_user=target,
@@ -250,11 +220,7 @@ class ModeratorChatUserActionView(APIView):
                 link_url=f"/{target.role}-dashboard/chats",
             )
 
-        if (
-            official_participant_created
-            and official_chat
-            and official_participant
-        ):
+        if official_participant_created and official_chat and official_participant:
             events.broadcast_participant_added(
                 official_chat,
                 official_participant,

@@ -127,10 +127,14 @@ class Certificate(models.Model):
     # Populated only when this row rendered its own PDF (manual issue, re-issue).
     # Certificates issued for a completion read the file that completion stores.
     certificate_file = models.FileField(
-        upload_to=UUIDUploadTo("certificates"), null=True, blank=True,
+        upload_to=UUIDUploadTo("certificates"),
+        null=True,
+        blank=True,
     )
     certificate_thumbnail = models.ImageField(
-        upload_to=UUIDUploadTo("certificates/thumbnails"), null=True, blank=True,
+        upload_to=UUIDUploadTo("certificates/thumbnails"),
+        null=True,
+        blank=True,
     )
 
     is_deleted = models.BooleanField(default=False)

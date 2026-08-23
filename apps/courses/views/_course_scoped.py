@@ -5,12 +5,8 @@ from apps.users.models import User
 
 
 def get_course_for_request(view, slug: str) -> Course:
-    """Resolve a Course by slug and enforce read visibility   """
-    course = (
-        Course.all_objects.filter(slug=slug)
-        .select_related("teacher_profile__user")
-        .first()
-    )
+    """Resolve a Course by slug and enforce read visibility"""
+    course = Course.all_objects.filter(slug=slug).select_related("teacher_profile__user").first()
     if course is None or course.is_deleted:
         raise NotFound("Course not found.")
     if not _can_view_course(view.request.user, course):
@@ -38,10 +34,7 @@ def ensure_can_view_course_management(user, course: Course) -> None:
         User.RoleChoices.MODERATOR,
     ):
         return
-    if (
-        user.role == User.RoleChoices.TEACHER
-        and course.teacher_profile.user_id == user.id
-    ):
+    if user.role == User.RoleChoices.TEACHER and course.teacher_profile.user_id == user.id:
         return
     raise PermissionDenied(
         "Only the course owner, a moderator, or an admin can view this resource."

@@ -9,7 +9,14 @@ class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = [
-            "id", "question_type", "text", "options",
-            "correct_indices", "correct_bool", "sample_answer", "accepted_answers",
-            "order", "source_question_id",
+            "id",
+            "question_type",
+            "text",
+            "options",
+            "correct_indices",
+            "correct_bool",
+            "sample_answer",
+            "accepted_answers",
+            "order",
+            "source_question_id",
         ]

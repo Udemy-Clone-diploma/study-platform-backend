@@ -92,9 +92,7 @@ class CoursePendingEditSubmitView(APIView):
         except PendingEditLockedError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
-        return Response(
-            CoursePendingEditReadSerializer(updated, context={"request": request}).data
-        )
+        return Response(CoursePendingEditReadSerializer(updated, context={"request": request}).data)
 
 
 @extend_schema(tags=["Course Pending Edit"])
@@ -112,9 +110,7 @@ class CoursePendingEditWithdrawView(APIView):
         except PendingEditLockedError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
-        return Response(
-            CoursePendingEditReadSerializer(updated, context={"request": request}).data
-        )
+        return Response(CoursePendingEditReadSerializer(updated, context={"request": request}).data)
 
 
 @extend_schema(tags=["Course Pending Edit"])
@@ -152,6 +148,4 @@ class CoursePendingEditRejectView(APIView):
             final_action=request.data.get("final_action", ""),
             final_comment=request.data.get("final_comment", ""),
         )
-        return Response(
-            CoursePendingEditReadSerializer(updated, context={"request": request}).data
-        )
+        return Response(CoursePendingEditReadSerializer(updated, context={"request": request}).data)

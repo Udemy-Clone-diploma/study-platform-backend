@@ -37,10 +37,7 @@ COURSE_DEFAULTS = {
 def make_course(teacher_profile, *, title="Course", slug="course", **overrides):
     fields = {**COURSE_DEFAULTS, "title": title, "slug": slug}
     fields.update(overrides)
-    if (
-        fields.get("status") == Course.StatusChoices.PUBLISHED
-        and "published_at" not in fields
-    ):
+    if fields.get("status") == Course.StatusChoices.PUBLISHED and "published_at" not in fields:
         fields["published_at"] = timezone.now()
     course = Course.all_objects.create(teacher_profile=teacher_profile, **fields)
     if course.status == Course.StatusChoices.PUBLISHED:
@@ -48,7 +45,8 @@ def make_course(teacher_profile, *, title="Course", slug="course", **overrides):
         # CourseViewSet.get_queryset), so a plain published course still
         # needs one to behave like a real course in list/filter/search tests.
         CourseDeliveryFormat.objects.get_or_create(
-            course=course, format_type=course.delivery_type,
+            course=course,
+            format_type=course.delivery_type,
         )
     return course
 
@@ -62,7 +60,8 @@ def make_pricing_plan(
     **overrides,
 ):
     fmt, _ = CourseDeliveryFormat.objects.get_or_create(
-        course=course, format_type=format_type,
+        course=course,
+        format_type=format_type,
     )
     plan, _ = PricingPlan.objects.update_or_create(
         delivery_format=fmt,

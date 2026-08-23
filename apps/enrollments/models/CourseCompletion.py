@@ -31,11 +31,15 @@ class CourseCompletion(models.Model):
     final_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     certificate_url = models.TextField(null=True, blank=True)
     certificate_file = models.FileField(
-        upload_to=UUIDUploadTo("certificates"), null=True, blank=True,
+        upload_to=UUIDUploadTo("certificates"),
+        null=True,
+        blank=True,
     )
     # Small raster preview of certificate_file, for the "My certificates" grid.
     certificate_thumbnail = models.ImageField(
-        upload_to=UUIDUploadTo("certificates/thumbnails"), null=True, blank=True,
+        upload_to=UUIDUploadTo("certificates/thumbnails"),
+        null=True,
+        blank=True,
     )
     # Purchase snapshot, null/blank when the course was free (no Order).
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

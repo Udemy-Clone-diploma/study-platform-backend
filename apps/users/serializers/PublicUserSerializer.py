@@ -55,11 +55,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
     def get_is_self(self, obj: User) -> bool:
         request = self.context.get("request")
-        return bool(
-            request
-            and request.user.is_authenticated
-            and request.user.pk == obj.pk
-        )
+        return bool(request and request.user.is_authenticated and request.user.pk == obj.pk)
 
     def get_email(self, obj: User) -> str:
         request = self.context.get("request")

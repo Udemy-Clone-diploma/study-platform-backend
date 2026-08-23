@@ -11,7 +11,15 @@ from .RejectedCourseRecord import RejectedCourseRecord
 from .Tag import Tag
 
 __all__ = [
-    "ApprovedCourseRecord", "Category", "Cohort", "CohortMember",
-    "Course", "CourseDeliveryFormat", "CoursePendingEdit",
-    "ModerationReview", "PricingPlan", "RejectedCourseRecord", "Tag",
+    "ApprovedCourseRecord",
+    "Category",
+    "Cohort",
+    "CohortMember",
+    "Course",
+    "CourseDeliveryFormat",
+    "CoursePendingEdit",
+    "ModerationReview",
+    "PricingPlan",
+    "RejectedCourseRecord",
+    "Tag",
 ]

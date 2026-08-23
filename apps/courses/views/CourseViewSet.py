@@ -57,23 +57,18 @@ class CourseViewSet(
         # so the admin table's Archived tab needs all_objects to see those rows.
         is_admin_list = self.action == "list" and self._is_admin_request()
         manager = Course.all_objects if is_admin_list else Course.objects
-        queryset = (
-            manager.select_related(
-                "teacher_profile__user",
-                "moderator_profile",
-                "category",
-            )
-            .prefetch_related("tags")
-        )
+        queryset = manager.select_related(
+            "teacher_profile__user",
+            "moderator_profile",
+            "category",
+        ).prefetch_related("tags")
         queryset = CourseService.annotate_min_price(queryset)
         queryset = CourseService.annotate_recent_enrollments(queryset)
         if self.action == "list":
             if is_admin_list:
                 # PENDING_EDIT rows are internal shadow drafts; the admin table
                 # reads pending_edit_status off the live course row instead.
-                queryset = queryset.exclude(
-                    status=Course.StatusChoices.PENDING_EDIT
-                )
+                queryset = queryset.exclude(status=Course.StatusChoices.PENDING_EDIT)
             else:
                 queryset = queryset.filter(status=Course.StatusChoices.PUBLISHED)
                 # A course with no delivery format has no way to enroll or be
@@ -115,17 +110,17 @@ class CourseViewSet(
         ordering_param = self.request.query_params.get("ordering", "")
         if ordering_param in ("min_price", "-min_price"):
             descending = ordering_param.startswith("-")
-            order_expr = F("min_price").desc(nulls_last=True) if descending else F("min_price").asc(nulls_last=True)
+            order_expr = (
+                F("min_price").desc(nulls_last=True)
+                if descending
+                else F("min_price").asc(nulls_last=True)
+            )
             queryset = queryset.order_by(order_expr)
         return queryset
 
     def _is_admin_request(self) -> bool:
         user = self.request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and user.role == User.RoleChoices.ADMINISTRATOR
-        )
+        return bool(user and user.is_authenticated and user.role == User.RoleChoices.ADMINISTRATOR)
 
     def get_permissions(self):
         if self.action in {"list", "public_detail"}:
@@ -194,10 +189,14 @@ class CourseViewSet(
         from apps.enrollments.models import Enrollment
 
         try:
-            return Enrollment.objects.with_active_access().filter(
-                student_profile=user.student_profile,
-                course=course,
-            ).exists()
+            return (
+                Enrollment.objects.with_active_access()
+                .filter(
+                    student_profile=user.student_profile,
+                    course=course,
+                )
+                .exists()
+            )
         except Exception:
             return False
 

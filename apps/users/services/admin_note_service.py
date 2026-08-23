@@ -9,7 +9,8 @@ class AdminNoteService:
     @staticmethod
     def upsert_note(user: User, content: str, updated_by: User) -> AdminNote:
         note, _ = AdminNote.objects.update_or_create(
-            user=user, defaults={"content": content, "updated_by": updated_by},
+            user=user,
+            defaults={"content": content, "updated_by": updated_by},
         )
         return note
 

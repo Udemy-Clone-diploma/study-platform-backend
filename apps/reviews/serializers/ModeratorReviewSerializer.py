@@ -19,8 +19,16 @@ class ModeratorReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = [
-            "id", "student", "course", "rating", "text", "created_at",
-            "report_count", "reports", "moderation_status", "moderator_id",
+            "id",
+            "student",
+            "course",
+            "rating",
+            "text",
+            "created_at",
+            "report_count",
+            "reports",
+            "moderation_status",
+            "moderator_id",
         ]
 
     def get_moderator_id(self, obj) -> int | None:

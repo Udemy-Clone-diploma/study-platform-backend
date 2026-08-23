@@ -22,7 +22,8 @@ class ArticleModerationSnapshotListView(ListAPIView):
 
     def get_queryset(self):
         qs = ArticleModerationSnapshot.objects.select_related(
-            "article", "moderator_profile__user",
+            "article",
+            "moderator_profile__user",
         ).order_by("-created_at")
         decision = self.request.query_params.get("decision")
         if decision:

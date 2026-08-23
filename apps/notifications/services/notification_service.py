@@ -176,9 +176,7 @@ class NotificationService:
 
     @staticmethod
     def mark_all_read(user) -> int:
-        return Notification.objects.filter(recipient=user, is_read=False).update(
-            is_read=True
-        )
+        return Notification.objects.filter(recipient=user, is_read=False).update(is_read=True)
 
     @staticmethod
     def get_overrides(user) -> dict:

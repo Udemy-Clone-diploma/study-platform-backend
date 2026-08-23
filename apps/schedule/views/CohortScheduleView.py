@@ -43,7 +43,7 @@ class CohortScheduleListCreateView(APIView):
         return [AllowAny()]
 
     def get(self, request, slug, cohort_id):
-        cohort    = _get_cohort(self, slug, cohort_id)
+        cohort = _get_cohort(self, slug, cohort_id)
         schedules = CohortSchedule.objects.filter(cohort=cohort)
         return Response(CohortScheduleSerializer(schedules, many=True).data)
 
@@ -79,12 +79,12 @@ class CohortScheduleDetailView(APIView):
         return [IsAuthenticated()]
 
     def get(self, request, slug, cohort_id, schedule_id):
-        cohort   = _get_cohort(self, slug, cohort_id)
+        cohort = _get_cohort(self, slug, cohort_id)
         schedule = _get_cohort_schedule(cohort, schedule_id)
         return Response(CohortScheduleSerializer(schedule).data)
 
     def patch(self, request, slug, cohort_id, schedule_id):
-        cohort   = _get_cohort(self, slug, cohort_id)
+        cohort = _get_cohort(self, slug, cohort_id)
         ensure_can_modify_course(request.user, cohort.course)
         schedule = _get_cohort_schedule(cohort, schedule_id)
 
@@ -98,7 +98,9 @@ class CohortScheduleDetailView(APIView):
 
         members = [
             m.enrollment.student_profile.user
-            for m in CohortMember.objects.filter(cohort=cohort).select_related("enrollment__student_profile__user")
+            for m in CohortMember.objects.filter(cohort=cohort).select_related(
+                "enrollment__student_profile__user"
+            )
         ]
         if members:
             ScheduleNotificationService.notify_recurring_time_changed(
@@ -113,16 +115,20 @@ class CohortScheduleDetailView(APIView):
         return Response(CohortScheduleSerializer(schedule).data)
 
     def delete(self, request, slug, cohort_id, schedule_id):
-        cohort   = _get_cohort(self, slug, cohort_id)
+        cohort = _get_cohort(self, slug, cohort_id)
         ensure_can_modify_course(request.user, cohort.course)
         schedule = _get_cohort_schedule(cohort, schedule_id)
         members = [
             m.enrollment.student_profile.user
-            for m in CohortMember.objects.filter(cohort=cohort).select_related("enrollment__student_profile__user")
+            for m in CohortMember.objects.filter(cohort=cohort).select_related(
+                "enrollment__student_profile__user"
+            )
         ]
         schedule.delete()
         if members:
-            ScheduleNotificationService.notify_recurring_cancelled(members, cohort.course.title, actor=request.user)
+            ScheduleNotificationService.notify_recurring_cancelled(
+                members, cohort.course.title, actor=request.user
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -132,6 +138,7 @@ class CohortScheduleConflictView(APIView):
     GET – check for schedule conflicts at the given day+time (teacher / admin only).
     Returns categorised conflict info without blocking.
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, slug, cohort_id):
@@ -140,12 +147,12 @@ class CohortScheduleConflictView(APIView):
 
         try:
             day_of_week = int(request.query_params["day_of_week"])
-            start_str   = request.query_params["start_time"]
-            end_str     = request.query_params["end_time"]
+            start_str = request.query_params["start_time"]
+            end_str = request.query_params["end_time"]
             sh, sm = map(int, start_str.split(":"))
             eh, em = map(int, end_str.split(":"))
             start_t = time_type(sh, sm)
-            end_t   = time_type(eh, em)
+            end_t = time_type(eh, em)
         except (KeyError, ValueError, AttributeError):
             return Response(
                 {"detail": "day_of_week, start_time, end_time are required."},
@@ -153,10 +160,15 @@ class CohortScheduleConflictView(APIView):
             )
 
         schedule_id_param = request.query_params.get("schedule_id")
-        exclude_id = int(schedule_id_param) if schedule_id_param and schedule_id_param.isdigit() else None
+        exclude_id = (
+            int(schedule_id_param) if schedule_id_param and schedule_id_param.isdigit() else None
+        )
 
         conflicts = ScheduleService.get_schedule_conflicts(
-            cohort.course.teacher_profile, day_of_week, start_t, end_t,
+            cohort.course.teacher_profile,
+            day_of_week,
+            start_t,
+            end_t,
             exclude_cohort_schedule_id=exclude_id,
             cohort_start_date=cohort.start_date,
             cohort_duration_months=cohort.duration_months,

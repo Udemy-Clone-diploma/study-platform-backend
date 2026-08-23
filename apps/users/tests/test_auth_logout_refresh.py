@@ -19,9 +19,7 @@ class AuthLogoutTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
 
         self.client.force_authenticate(user=None)
-        refresh_response = self.client.post(
-            reverse("auth-refresh"), {"refresh": self.refresh}
-        )
+        refresh_response = self.client.post(reverse("auth-refresh"), {"refresh": self.refresh})
         self.assertEqual(refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_logout_unauthenticated_returns_401(self):

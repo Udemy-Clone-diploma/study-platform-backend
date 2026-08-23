@@ -21,7 +21,8 @@ class CourseProgressView(APIView):
     @extend_schema(responses=CourseProgressSerializer)
     def get(self, request, slug: str):
         course = Course.objects.filter(
-            slug=slug, status=Course.StatusChoices.PUBLISHED,
+            slug=slug,
+            status=Course.StatusChoices.PUBLISHED,
         ).first()
         if course is None:
             raise NotFound("Course not found.")

@@ -43,9 +43,7 @@ class MeEndpointTests(APITestCase):
     def test_patch_ignores_role_field(self):
         self.client.force_authenticate(user=self.user)
 
-        response = self.client.patch(
-            self.url, {"role": "administrator"}, format="json"
-        )
+        response = self.client.patch(self.url, {"role": "administrator"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
@@ -76,16 +74,12 @@ class MeProfileTeacherTests(APITestCase):
     def test_student_gets_403_on_teacher_endpoint(self):
         self.client.force_authenticate(user=self.student)
 
-        response = self.client.patch(
-            self.url, {"specialization": "Hack"}, format="json"
-        )
+        response = self.client.patch(self.url, {"specialization": "Hack"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_anonymous_gets_401(self):
-        response = self.client.patch(
-            self.url, {"specialization": "x"}, format="json"
-        )
+        response = self.client.patch(self.url, {"specialization": "x"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -98,9 +92,7 @@ class MeProfileStudentTests(APITestCase):
     def test_student_can_update_own_profile(self):
         self.client.force_authenticate(user=self.student)
 
-        response = self.client.patch(
-            self.url, {"education_level": "bachelor"}, format="json"
-        )
+        response = self.client.patch(self.url, {"education_level": "bachelor"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["profile"]["education_level"], "bachelor")
@@ -109,9 +101,7 @@ class MeProfileStudentTests(APITestCase):
     def test_teacher_gets_403_on_student_endpoint(self):
         self.client.force_authenticate(user=self.teacher)
 
-        response = self.client.patch(
-            self.url, {"education_level": "bachelor"}, format="json"
-        )
+        response = self.client.patch(self.url, {"education_level": "bachelor"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 

@@ -18,7 +18,9 @@ class TeacherApplicationSubmitView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "teacher_application"
 
-    @extend_schema(request=TeacherApplicationCreateSerializer, responses={201: TeacherApplicationSerializer})
+    @extend_schema(
+        request=TeacherApplicationCreateSerializer, responses={201: TeacherApplicationSerializer}
+    )
     def post(self, request):
         serializer = TeacherApplicationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

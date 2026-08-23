@@ -20,12 +20,15 @@ from ._course_scoped import (
 
 @extend_schema(tags=["DeliveryFormats"])
 class DeliveryFormatListCreateView(generics.ListCreateAPIView):
-
     def get_permissions(self):
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
-        return CourseDeliveryFormatWriteSerializer if self.request.method == "POST" else CourseDeliveryFormatSerializer
+        return (
+            CourseDeliveryFormatWriteSerializer
+            if self.request.method == "POST"
+            else CourseDeliveryFormatSerializer
+        )
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
@@ -58,7 +61,11 @@ class DeliveryFormatDetailView(generics.RetrieveUpdateDestroyAPIView):
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
-        return CourseDeliveryFormatWriteSerializer if self.request.method == "PATCH" else CourseDeliveryFormatSerializer
+        return (
+            CourseDeliveryFormatWriteSerializer
+            if self.request.method == "PATCH"
+            else CourseDeliveryFormatSerializer
+        )
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])

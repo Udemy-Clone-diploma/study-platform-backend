@@ -42,8 +42,16 @@ urlpatterns = [
         TeacherStripeFinanceView.as_view(),
         name="teacher-stripe-finance",
     ),
-    path("teacher/payouts/onboarding/", TeacherPayoutOnboardingView.as_view(), name="teacher-payout-onboarding"),
-    path("teacher/payouts/refresh/", TeacherPayoutRefreshView.as_view(), name="teacher-payout-refresh"),
+    path(
+        "teacher/payouts/onboarding/",
+        TeacherPayoutOnboardingView.as_view(),
+        name="teacher-payout-onboarding",
+    ),
+    path(
+        "teacher/payouts/refresh/",
+        TeacherPayoutRefreshView.as_view(),
+        name="teacher-payout-refresh",
+    ),
     # Must precede the router include: the router's detail route
     # (`orders/<pk>/`) would otherwise swallow `orders/teacher/` by treating
     # "teacher" as a pk.
@@ -76,8 +84,7 @@ urlpatterns = [
         name="teacher-finance-payouts",
     ),
     path(
-        "staff/finance/teachers/"
-        "<int:teacher_id>/balance/",
+        "staff/finance/teachers/<int:teacher_id>/balance/",
         StaffTeacherBalanceView.as_view(),
         name="staff-teacher-finance-balance",
     ),

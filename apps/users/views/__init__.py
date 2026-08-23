@@ -1,4 +1,23 @@
-from .auth import ChangePasswordView, GoogleLoginView, LoginView, LogoutView, MeView, ModeratorProfileView, RegisterView, StudentProfileView, TeacherProfileView, TokenRefreshView, VerifyEmailView, ResendVerificationEmailView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetValidateView, TeacherInvitationConfirmView, TeacherInvitationValidateView, TeacherInvitationResendView
+from .auth import (
+    ChangePasswordView,
+    GoogleLoginView,
+    LoginView,
+    LogoutView,
+    MeView,
+    ModeratorProfileView,
+    RegisterView,
+    StudentProfileView,
+    TeacherProfileView,
+    TokenRefreshView,
+    VerifyEmailView,
+    ResendVerificationEmailView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
+    PasswordResetValidateView,
+    TeacherInvitationConfirmView,
+    TeacherInvitationValidateView,
+    TeacherInvitationResendView,
+)
 from .AdminNoteView import AdminNoteView
 from .TopTeachersView import TopTeachersView
 from .PublicUserProfileView import PublicUserProfileView
@@ -16,7 +35,10 @@ from .ModeratorDashboardView import (
     ModeratorDashboardView,
 )
 from .users import UserViewSet, UserSearchView
-from .TeacherApplicationSubmitView import TeacherApplicationEmailCheckView, TeacherApplicationSubmitView
+from .TeacherApplicationSubmitView import (
+    TeacherApplicationEmailCheckView,
+    TeacherApplicationSubmitView,
+)
 from .TeacherApplicationModerationView import TeacherApplicationModerationViewSet
 
 __all__ = [

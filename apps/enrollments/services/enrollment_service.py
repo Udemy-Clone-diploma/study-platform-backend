@@ -64,13 +64,9 @@ class EnrollmentService:
         requested_profile: StudentProfile | None = None,
     ) -> StudentProfile:
         if request_user.role != User.RoleChoices.ADMINISTRATOR:
-            raise EnrollmentRoleError(
-                "Only administrators can create enrollments manually."
-            )
+            raise EnrollmentRoleError("Only administrators can create enrollments manually.")
         if requested_profile is None:
-            raise StudentProfileRequiredError(
-                "student_profile_id is required for administrators."
-            )
+            raise StudentProfileRequiredError("student_profile_id is required for administrators.")
         return requested_profile
 
     @staticmethod
@@ -78,9 +74,7 @@ class EnrollmentService:
         if request_user.role == User.RoleChoices.ADMINISTRATOR:
             return
         if course.status != Course.StatusChoices.PUBLISHED or course.is_deleted:
-            raise CourseNotEnrollableError(
-                "Only published courses are available for enrollment."
-            )
+            raise CourseNotEnrollableError("Only published courses are available for enrollment.")
 
     @classmethod
     @transaction.atomic
@@ -100,9 +94,7 @@ class EnrollmentService:
             student_profile=student_profile,
             course=course,
         ).exists():
-            raise DuplicateEnrollmentError(
-                "Student is already enrolled in this course."
-            )
+            raise DuplicateEnrollmentError("Student is already enrolled in this course.")
 
         enrollment_data = {
             "student_profile": student_profile,
@@ -169,7 +161,8 @@ class EnrollmentService:
             from apps.schedule.services import ScheduleService
 
             slots = ScheduleSlot.objects.select_for_update().filter(
-                pk__in=schedule_slot_ids, delivery_format__course=enrollment.course,
+                pk__in=schedule_slot_ids,
+                delivery_format__course=enrollment.course,
             )
             for slot in slots:
                 try:
@@ -200,7 +193,8 @@ class EnrollmentService:
             raise CourseNotEnrollableError("Only published courses are available for enrollment.")
 
         free_plans = PricingPlan.objects.filter(
-            delivery_format__course=course, price=Decimal("0.00"),
+            delivery_format__course=course,
+            price=Decimal("0.00"),
         ).select_related("delivery_format")
         if pricing_plan_id is not None:
             plan = free_plans.filter(id=pricing_plan_id).first()
@@ -209,16 +203,22 @@ class EnrollmentService:
         else:
             plan = free_plans.order_by("delivery_format_id").first()
         if plan is None:
-            raise FreeEnrollmentUnavailableError("This course is not available for free enrollment.")
+            raise FreeEnrollmentUnavailableError(
+                "This course is not available for free enrollment."
+            )
         delivery_format = plan.delivery_format
 
         if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP:
             if cohort_id is None:
                 raise FreeEnrollmentUnavailableError("Select a group to join before enrolling.")
-            cohort = Cohort.objects.select_for_update().filter(
-                id=cohort_id,
-                course=course,
-            ).first()
+            cohort = (
+                Cohort.objects.select_for_update()
+                .filter(
+                    id=cohort_id,
+                    course=course,
+                )
+                .first()
+            )
             if cohort is None or (
                 cohort.delivery_format_id is not None
                 and cohort.delivery_format_id != delivery_format.id
@@ -227,9 +227,7 @@ class EnrollmentService:
                     "The selected group does not belong to this format."
                 )
             if not cohort.is_enrollment_open:
-                raise FreeEnrollmentUnavailableError(
-                    "The selected group is closed for enrollment."
-                )
+                raise FreeEnrollmentUnavailableError("The selected group is closed for enrollment.")
             if (
                 cohort.enrollment_deadline is not None
                 and cohort.enrollment_deadline < timezone.localdate()
@@ -237,12 +235,12 @@ class EnrollmentService:
                 raise FreeEnrollmentUnavailableError(
                     "Enrollment for the selected group has closed."
                 )
-            if (
-                cohort.group_size is not None
-                and cohort.members.count() >= cohort.group_size
-            ):
+            if cohort.group_size is not None and cohort.members.count() >= cohort.group_size:
                 raise FreeEnrollmentUnavailableError("The selected group is full.")
-        if delivery_format.format_type == CourseDeliveryFormat.FormatType.INDIVIDUAL and not schedule_slot_ids:
+        if (
+            delivery_format.format_type == CourseDeliveryFormat.FormatType.INDIVIDUAL
+            and not schedule_slot_ids
+        ):
             raise FreeEnrollmentUnavailableError("Select your session times before enrolling.")
 
         student_profile = cls._student_profile_for_user(user)
@@ -270,7 +268,9 @@ class EnrollmentService:
                 update_fields=["access_status", "access_until", "order_id", "is_deleted"]
             )
 
-        cls.apply_delivery_setup(enrollment, cohort_id=cohort_id, schedule_slot_ids=schedule_slot_ids)
+        cls.apply_delivery_setup(
+            enrollment, cohort_id=cohort_id, schedule_slot_ids=schedule_slot_ids
+        )
 
         CartItem.objects.filter(
             cart__student_profile=student_profile,
@@ -283,9 +283,7 @@ class EnrollmentService:
     def update_enrollment(enrollment: Enrollment, validated_data: dict) -> Enrollment:
         access_until = validated_data.get("access_until", enrollment.access_until)
         if access_until is not None and access_until < enrollment.access_granted_at:
-            raise InvalidAccessWindowError(
-                "Access end date cannot be before access grant date."
-            )
+            raise InvalidAccessWindowError("Access end date cannot be before access grant date.")
 
         for field in ("order_id", "access_status", "access_until"):
             if field in validated_data:
@@ -358,9 +356,14 @@ class EnrollmentService:
 
     @classmethod
     def student_has_course_access(cls, student_profile: StudentProfile, course: Course) -> bool:
-        enrollment = Enrollment.objects.select_related(
-            "student_profile__user", "course",
-        ).filter(student_profile=student_profile, course=course).first()
+        enrollment = (
+            Enrollment.objects.select_related(
+                "student_profile__user",
+                "course",
+            )
+            .filter(student_profile=student_profile, course=course)
+            .first()
+        )
         if enrollment is None:
             return False
 
@@ -398,9 +401,14 @@ class EnrollmentService:
             student_profile = user.student_profile
         except StudentProfile.DoesNotExist:
             return None
-        enrollment = Enrollment.objects.select_related(
-            "student_profile__user", "course",
-        ).filter(student_profile=student_profile, course=course).first()
+        enrollment = (
+            Enrollment.objects.select_related(
+                "student_profile__user",
+                "course",
+            )
+            .filter(student_profile=student_profile, course=course)
+            .first()
+        )
         if enrollment is None:
             return None
 

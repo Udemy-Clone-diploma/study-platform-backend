@@ -25,9 +25,9 @@ class Refund(models.Model):
         default=StatusChoices.PENDING,
     )
     provider = models.CharField(
-    max_length=20,
-    choices=Payment.MethodChoices.choices,
-    default=Payment.MethodChoices.STRIPE,
+        max_length=20,
+        choices=Payment.MethodChoices.choices,
+        default=Payment.MethodChoices.STRIPE,
     )
     provider_reference = models.CharField(
         max_length=255,

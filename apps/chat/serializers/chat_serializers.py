@@ -77,8 +77,18 @@ class MessageReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = MessageReport
         fields = [
-            "id", "reason", "reason_label", "details", "message_text", "created_at",
-            "message", "message_created_at", "sender", "reporter", "chat", "attachments",
+            "id",
+            "reason",
+            "reason_label",
+            "details",
+            "message_text",
+            "created_at",
+            "message",
+            "message_created_at",
+            "sender",
+            "reporter",
+            "chat",
+            "attachments",
         ]
         read_only_fields = fields
 
@@ -395,9 +405,7 @@ class MessageAttachmentUploadSerializer(serializers.Serializer):
 
         if uploaded_file.size > max_bytes:
             max_mb = max_bytes // (1024 * 1024)
-            raise serializers.ValidationError(
-                f"A chat attachment cannot exceed {max_mb} MB."
-            )
+            raise serializers.ValidationError(f"A chat attachment cannot exceed {max_mb} MB.")
 
         content_type = getattr(uploaded_file, "content_type", "") or ""
         if allowed_types and content_type not in allowed_types:

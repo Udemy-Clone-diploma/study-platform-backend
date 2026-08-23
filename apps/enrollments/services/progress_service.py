@@ -62,12 +62,11 @@ class ProgressService:
         """The test a mandatory lesson requires passed before completion, if any."""
         if not lesson.is_mandatory:
             return None
-        item = (
-            LessonItem.objects.filter(
-                lesson=lesson, item_type=LessonItem.ItemType.TEST, test__isnull=False,
-            )
-            .first()
-        )
+        item = LessonItem.objects.filter(
+            lesson=lesson,
+            item_type=LessonItem.ItemType.TEST,
+            test__isnull=False,
+        ).first()
         return item.test_id if item else None
 
     @classmethod
@@ -76,17 +75,24 @@ class ProgressService:
         enrollment = cls.get_active_enrollment(user, course)
         lesson = cls._resolve_lesson(course, lesson_id)
         test_id = cls._mandatory_test_id(lesson)
-        if test_id is not None and not TestAttempt.objects.filter(
-            student_profile=enrollment.student_profile, test_id=test_id, passed=True,
-        ).exists():
+        if (
+            test_id is not None
+            and not TestAttempt.objects.filter(
+                student_profile=enrollment.student_profile,
+                test_id=test_id,
+                passed=True,
+            ).exists()
+        ):
             raise MandatoryTestNotPassedError
         try:
             completion = LessonCompletion.objects.create(
-                enrollment=enrollment, lesson=lesson,
+                enrollment=enrollment,
+                lesson=lesson,
             )
         except IntegrityError:
             completion = LessonCompletion.objects.get(
-                enrollment=enrollment, lesson=lesson,
+                enrollment=enrollment,
+                lesson=lesson,
             )
         enrollment.refresh_from_db(fields=["lessons_completed_count"])
         return {
@@ -101,7 +107,8 @@ class ProgressService:
         enrollment = cls.get_active_enrollment(user, course)
         lesson = cls._resolve_lesson(course, lesson_id)
         LessonCompletion.objects.filter(
-            enrollment=enrollment, lesson=lesson,
+            enrollment=enrollment,
+            lesson=lesson,
         ).delete()
         enrollment.refresh_from_db(fields=["lessons_completed_count"])
         return {
@@ -145,7 +152,7 @@ class ProgressService:
     @classmethod
     def get_test_stats(cls, user: User, course: Course) -> dict:
         """
-        Informational only: does NOT affect course completion """
+        Informational only: does NOT affect course completion"""
         enrollment = cls.get_active_enrollment(user, course)
         return cls._test_stats_for_enrollment(enrollment, course)
 
@@ -155,12 +162,14 @@ class ProgressService:
         scores = []
 
         tests = Test.objects.filter(
-            module__course=course, lesson_items__is_deleted=False,
+            module__course=course,
+            lesson_items__is_deleted=False,
         ).distinct()
         for test in tests:
             latest = (
                 TestAttempt.objects.filter(
-                    student_profile=enrollment.student_profile, test=test,
+                    student_profile=enrollment.student_profile,
+                    test=test,
                 )
                 .order_by("-attempt_number")
                 .first()
@@ -187,7 +196,7 @@ class ProgressService:
     def get_homework_stats(cls, user: User, course: Course) -> dict:
         """
         Informational only: does NOT affect course completion. Homework only
-        makes sense for a specific enrollment taught with a teacher  """
+        makes sense for a specific enrollment taught with a teacher"""
         enrollment = cls.get_active_enrollment(user, course)
         return cls._homework_stats_for_enrollment(enrollment)
 
@@ -197,7 +206,8 @@ class ProgressService:
 
         return (
             enrollment.delivery_format_id is not None
-            and enrollment.delivery_format.format_type in (
+            and enrollment.delivery_format.format_type
+            in (
                 CourseDeliveryFormat.FormatType.INDIVIDUAL,
                 CourseDeliveryFormat.FormatType.GROUP,
             )
@@ -213,7 +223,8 @@ class ProgressService:
 
         scores = list(
             HomeworkSubmission.objects.filter(
-                enrollment=enrollment, score__isnull=False,
+                enrollment=enrollment,
+                score__isnull=False,
             ).values_list("score", flat=True)
         )
         graded = len(scores)
@@ -236,12 +247,14 @@ class ProgressService:
     def _mandatory_lessons_done(enrollment: Enrollment, course: Course) -> bool:
         completed_lesson_ids = set(
             LessonCompletion.objects.filter(enrollment=enrollment).values_list(
-                "lesson_id", flat=True,
+                "lesson_id",
+                flat=True,
             )
         )
         mandatory_ids = set(
             Lesson.objects.filter(
-                module__course=course, is_mandatory=True,
+                module__course=course,
+                is_mandatory=True,
             ).values_list("id", flat=True)
         )
         return mandatory_ids.issubset(completed_lesson_ids)
@@ -250,7 +263,8 @@ class ProgressService:
     def get_completion_eligibility(cls, user: User, course: Course) -> dict:
         enrollment = cls.get_active_enrollment(user, course)
         is_completed = CourseCompletion.objects.filter(
-            student_profile=enrollment.student_profile, course=course,
+            student_profile=enrollment.student_profile,
+            course=course,
         ).exists()
         # Group/individual enrollments are finished by the teacher
         # (ProgressService.teacher_complete_course), never by the student.
@@ -271,7 +285,8 @@ class ProgressService:
     def complete_course(cls, user: User, course: Course) -> CourseCompletion:
         enrollment = cls.get_active_enrollment(user, course)
         if CourseCompletion.objects.filter(
-            student_profile=enrollment.student_profile, course=course,
+            student_profile=enrollment.student_profile,
+            course=course,
         ).exists():
             raise CourseAlreadyCompletedError
 
@@ -286,7 +301,9 @@ class ProgressService:
         if not eligible:
             raise CourseNotEligibleForCompletionError
 
-        return cls._create_completion(enrollment, course, cls._resolve_final_score(enrollment, course))
+        return cls._create_completion(
+            enrollment, course, cls._resolve_final_score(enrollment, course)
+        )
 
     @classmethod
     @transaction.atomic
@@ -295,14 +312,17 @@ class ProgressService:
         (group/individual) where the course may have zero curriculum lessons,
         so `complete_course`'s lesson-progress eligibility can never pass."""
         if CourseCompletion.objects.filter(
-            student_profile=enrollment.student_profile, course=course,
+            student_profile=enrollment.student_profile,
+            course=course,
         ).exists():
             raise CourseAlreadyCompletedError
 
         if not cls._teacher_completion_eligible(course, enrollment):
             raise CourseNotEligibleForCompletionError
 
-        return cls._create_completion(enrollment, course, cls._resolve_final_score(enrollment, course))
+        return cls._create_completion(
+            enrollment, course, cls._resolve_final_score(enrollment, course)
+        )
 
     @classmethod
     @transaction.atomic
@@ -311,7 +331,8 @@ class ProgressService:
         record (and any generated certificate files), so the student resumes
         as actively studying (re-included in schedule/notifications/deadlines)."""
         completion = CourseCompletion.objects.filter(
-            student_profile=enrollment.student_profile, course=course,
+            student_profile=enrollment.student_profile,
+            course=course,
         ).first()
         if completion is None:
             raise CourseCompletionNotFoundError
@@ -333,12 +354,14 @@ class ProgressService:
         from apps.homework.models import HomeworkAssignment, HomeworkSubmission
 
         has_assignments = HomeworkAssignment.objects.filter(
-            course=course, status=HomeworkAssignment.StatusChoices.PUBLISHED,
+            course=course,
+            status=HomeworkAssignment.StatusChoices.PUBLISHED,
         ).exists()
         if not has_assignments:
             return True
         return HomeworkSubmission.objects.filter(
-            enrollment=enrollment, status=HomeworkSubmission.StatusChoices.REVIEWED,
+            enrollment=enrollment,
+            status=HomeworkSubmission.StatusChoices.REVIEWED,
         ).exists()
 
     @classmethod
@@ -351,7 +374,10 @@ class ProgressService:
 
     @classmethod
     def _create_completion(
-        cls, enrollment: Enrollment, course: Course, final_score: Decimal | None,
+        cls,
+        enrollment: Enrollment,
+        course: Course,
+        final_score: Decimal | None,
     ) -> CourseCompletion:
         order_item = None
         if enrollment.order_id:
@@ -401,13 +427,19 @@ class ProgressService:
             return
 
         completion.certificate_file.save(
-            f"certificate-{completion.id}.pdf", ContentFile(pdf_bytes), save=False,
+            f"certificate-{completion.id}.pdf",
+            ContentFile(pdf_bytes),
+            save=False,
         )
         completion.certificate_thumbnail.save(
-            f"certificate-{completion.id}.jpg", ContentFile(thumbnail_bytes), save=False,
+            f"certificate-{completion.id}.jpg",
+            ContentFile(thumbnail_bytes),
+            save=False,
         )
         completion.certificate_url = completion.certificate_file.url
-        completion.save(update_fields=["certificate_file", "certificate_thumbnail", "certificate_url"])
+        completion.save(
+            update_fields=["certificate_file", "certificate_thumbnail", "certificate_url"]
+        )
 
         # Registry row, so the admin panel and the student dashboard never
         # disagree about which certificates exist.

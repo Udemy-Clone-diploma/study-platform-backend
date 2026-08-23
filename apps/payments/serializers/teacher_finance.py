@@ -40,18 +40,10 @@ class TeacherBalanceSerializer(serializers.Serializer):
     )
 
 
-class TeacherLedgerEntrySerializer(
-    serializers.ModelSerializer
-):
-    payment_id = serializers.IntegerField(
-        read_only=True
-    )
-    refund_id = serializers.IntegerField(
-        read_only=True
-    )
-    payout_id = serializers.IntegerField(
-        read_only=True
-    )
+class TeacherLedgerEntrySerializer(serializers.ModelSerializer):
+    payment_id = serializers.IntegerField(read_only=True)
+    refund_id = serializers.IntegerField(read_only=True)
+    payout_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = TeacherLedgerEntry
@@ -71,21 +63,11 @@ class TeacherLedgerEntrySerializer(
         read_only_fields = fields
 
 
-class TeacherPayoutSerializer(
-    serializers.ModelSerializer
-):
-    destination_type = (
-        serializers.SerializerMethodField()
-    )
-    failure_reason = (
-        serializers.SerializerMethodField()
-    )
-    request_uncertain = (
-        serializers.SerializerMethodField()
-    )
-    payout_mode = (
-        serializers.SerializerMethodField()
-    )
+class TeacherPayoutSerializer(serializers.ModelSerializer):
+    destination_type = serializers.SerializerMethodField()
+    failure_reason = serializers.SerializerMethodField()
+    request_uncertain = serializers.SerializerMethodField()
+    payout_mode = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherPayout
@@ -125,9 +107,7 @@ class TeacherPayoutSerializer(
             return destination_type
 
         if obj.destination_id:
-            return str(
-                obj.destination.destination_type
-            )
+            return str(obj.destination.destination_type)
 
         return ""
 
@@ -164,9 +144,8 @@ class TeacherPayoutSerializer(
             )
         )
 
-class StaffPayoutCreateSerializer(
-    serializers.Serializer
-):
+
+class StaffPayoutCreateSerializer(serializers.Serializer):
     teacher_id = serializers.IntegerField(
         min_value=1,
     )
@@ -199,19 +178,13 @@ class StaffPayoutCreateSerializer(
         value = str(value).strip()
 
         if not value:
-            raise serializers.ValidationError(
-                "Idempotency key is required."
-            )
+            raise serializers.ValidationError("Idempotency key is required.")
 
         return value
 
 
-class StaffTeacherPayoutSerializer(
-    TeacherPayoutSerializer
-):
-    teacher_id = serializers.IntegerField(
-        read_only=True
-    )
+class StaffTeacherPayoutSerializer(TeacherPayoutSerializer):
+    teacher_id = serializers.IntegerField(read_only=True)
 
     teacher_email = serializers.EmailField(
         source="teacher.user.email",
@@ -229,9 +202,7 @@ class StaffTeacherPayoutSerializer(
 
     destination_display = serializers.SerializerMethodField()
 
-    created_by_id = serializers.IntegerField(
-        read_only=True
-    )
+    created_by_id = serializers.IntegerField(read_only=True)
 
     created_by_email = serializers.EmailField(
         source="created_by.email",
@@ -239,21 +210,16 @@ class StaffTeacherPayoutSerializer(
         allow_null=True,
     )
 
-    class Meta(
-        TeacherPayoutSerializer.Meta
-    ):
-        fields = (
-            TeacherPayoutSerializer.Meta.fields
-            + [
-                "teacher_id",
-                "teacher_email",
-                "teacher_name",
-                "destination_id",
-                "destination_display",
-                "created_by_id",
-                "created_by_email",
-            ]
-        )
+    class Meta(TeacherPayoutSerializer.Meta):
+        fields = TeacherPayoutSerializer.Meta.fields + [
+            "teacher_id",
+            "teacher_email",
+            "teacher_name",
+            "destination_id",
+            "destination_display",
+            "created_by_id",
+            "created_by_email",
+        ]
 
         read_only_fields = fields
 

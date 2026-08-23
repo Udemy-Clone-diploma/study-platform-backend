@@ -48,28 +48,18 @@ from apps.users.models import User
 
 class TeacherFinanceTests(APITestCase):
     def setUp(self):
-        self.teacher_user, self.teacher_profile = make_teacher(
-            email="teacher-finance@example.com"
-        )
+        self.teacher_user, self.teacher_profile = make_teacher(email="teacher-finance@example.com")
 
-        self.payout_destination = (
-            TeacherPayoutDestination.objects.create(
-                teacher=self.teacher_profile,
-                provider="liqpay",
-                destination_type=(
-                    TeacherPayoutDestination
-                    .TypeChoices
-                    .BANK_ACCOUNT
-                ),
-                receiver_account=(
-                    "UA123456789012345678901234567"
-                ),
-                receiver_mfo="305299",
-                receiver_okpo="1234567890",
-                receiver_company="Test Teacher",
-                is_default=True,
-                is_active=True,
-            )
+        self.payout_destination = TeacherPayoutDestination.objects.create(
+            teacher=self.teacher_profile,
+            provider="liqpay",
+            destination_type=(TeacherPayoutDestination.TypeChoices.BANK_ACCOUNT),
+            receiver_account=("UA123456789012345678901234567"),
+            receiver_mfo="305299",
+            receiver_okpo="1234567890",
+            receiver_company="Test Teacher",
+            is_default=True,
+            is_active=True,
         )
 
         self.admin_user = User.objects.create_user(
@@ -78,12 +68,10 @@ class TeacherFinanceTests(APITestCase):
             role=User.RoleChoices.ADMINISTRATOR,
         )
 
-        self.moderator_user = (
-            User.objects.create_user(
-                email="finance-moderator@example.com",
-                password="pass12345",
-                role=User.RoleChoices.MODERATOR,
-            )
+        self.moderator_user = User.objects.create_user(
+            email="finance-moderator@example.com",
+            password="pass12345",
+            role=User.RoleChoices.MODERATOR,
         )
         self.student_user, self.student_profile = make_student(
             email="teacher-finance-student@example.com"
@@ -101,9 +89,7 @@ class TeacherFinanceTests(APITestCase):
             price="100.00",
         )
 
-        self.cart = Cart.objects.create(
-            student_profile=self.student_profile
-        )
+        self.cart = Cart.objects.create(student_profile=self.student_profile)
 
         CartItem.objects.create(
             cart=self.cart,
@@ -123,9 +109,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="UAH",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -141,11 +125,7 @@ class TeacherFinanceTests(APITestCase):
             Payment.StatusChoices.SUCCEEDED,
         )
 
-        entry = TeacherLedgerEntry.objects.get(
-            source_key=(
-                f"payment:{payment.id}:earning"
-            )
-        )
+        entry = TeacherLedgerEntry.objects.get(source_key=(f"payment:{payment.id}:earning"))
 
         self.assertEqual(
             entry.teacher,
@@ -184,11 +164,7 @@ class TeacherFinanceTests(APITestCase):
         )
 
         self.assertEqual(
-            TeacherLedgerEntry.objects.filter(
-                source_key=(
-                    f"payment:{payment.id}:earning"
-                )
-            ).count(),
+            TeacherLedgerEntry.objects.filter(source_key=(f"payment:{payment.id}:earning")).count(),
             1,
         )
 
@@ -204,9 +180,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="USD",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -215,26 +189,16 @@ class TeacherFinanceTests(APITestCase):
             record_attempt=False,
         )
 
-        self.client.force_authenticate(
-            user=self.admin_user
-        )
+        self.client.force_authenticate(user=self.admin_user)
 
         response = self.client.post(
-            reverse(
-                "staff-finance-payouts-list"
-            ),
+            reverse("staff-finance-payouts-list"),
             {
-                "teacher_id": (
-                    self.teacher_profile.id
-                ),
-                "destination_id": (
-                    self.payout_destination.id
-                ),
+                "teacher_id": (self.teacher_profile.id),
+                "destination_id": (self.payout_destination.id),
                 "amount": "50.00",
                 "currency": "USD",
-                "idempotency_key": (
-                    "admin-api-payout-1"
-                ),
+                "idempotency_key": ("admin-api-payout-1"),
             },
             format="json",
         )
@@ -244,11 +208,7 @@ class TeacherFinanceTests(APITestCase):
             status.HTTP_201_CREATED,
         )
 
-        payout = TeacherPayout.objects.get(
-            idempotency_key=(
-                "admin-api-payout-1"
-            )
-        )
+        payout = TeacherPayout.objects.get(idempotency_key=("admin-api-payout-1"))
 
         self.assertEqual(
             payout.status,
@@ -316,9 +276,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="USD",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -332,15 +290,11 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="USD",
-            idempotency_key=(
-                "moderator-execute-payout"
-            ),
+            idempotency_key=("moderator-execute-payout"),
             created_by=self.admin_user,
         )
 
-        self.client.force_authenticate(
-            user=self.moderator_user
-        )
+        self.client.force_authenticate(user=self.moderator_user)
 
         response = self.client.post(
             reverse(
@@ -388,9 +342,7 @@ class TeacherFinanceTests(APITestCase):
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="sandbox_test_private",
         LIQPAY_API_VERSION=7,
-        LIQPAY_API_URL=(
-            "https://www.liqpay.ua/api/request"
-        ),
+        LIQPAY_API_URL=("https://www.liqpay.ua/api/request"),
     )
     @patch.object(
         LiqPayService,
@@ -432,23 +384,17 @@ class TeacherFinanceTests(APITestCase):
             "action": "p2pcredit",
             "status": "failure",
             "err_code": "err_b2c_settings",
-            "err_description": (
-                "B2C settings not defined"
-            ),
+            "err_description": ("B2C settings not defined"),
             "version": 7,
             "type": "p2pcredit",
             "public_key": "sandbox_test_public",
-            "order_id": (
-                f"nexo-teacher-payout-{payout.id}"
-            ),
+            "order_id": (f"nexo-teacher-payout-{payout.id}"),
             "transaction_id": 2912407823,
         }
 
-        payout = (
-            PaymentService.execute_teacher_payout(
-                payout=payout,
-                client_ip="203.0.113.10",
-            )
+        payout = PaymentService.execute_teacher_payout(
+            payout=payout,
+            client_ip="203.0.113.10",
         )
 
         payout.refresh_from_db()
@@ -469,28 +415,20 @@ class TeacherFinanceTests(APITestCase):
         )
 
         self.assertEqual(
-            payout.metadata["provider_response"][
-                "err_code"
-            ],
+            payout.metadata["provider_response"]["err_code"],
             "err_b2c_settings",
         )
 
         self.assertEqual(
-            payout.metadata["provider_response"][
-                "err_description"
-            ],
+            payout.metadata["provider_response"]["err_description"],
             "B2C settings not defined",
         )
 
-        self.assertFalse(
-            payout.metadata["request_uncertain"]
-        )
+        self.assertFalse(payout.metadata["request_uncertain"])
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -525,9 +463,7 @@ class TeacherFinanceTests(APITestCase):
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="sandbox_test_private",
         LIQPAY_API_VERSION=7,
-        LIQPAY_API_URL=(
-            "https://www.liqpay.ua/api/request"
-        ),
+        LIQPAY_API_URL=("https://www.liqpay.ua/api/request"),
     )
     @patch.object(
         LiqPayService,
@@ -571,16 +507,12 @@ class TeacherFinanceTests(APITestCase):
             "status": "success",
             "version": 7,
             "public_key": "sandbox_test_public",
-            "order_id": (
-                f"nexo-teacher-payout-{payout.id}"
-            ),
+            "order_id": (f"nexo-teacher-payout-{payout.id}"),
         }
 
-        payout = (
-            PaymentService.execute_teacher_payout(
-                payout=payout,
-                client_ip="203.0.113.10",
-            )
+        payout = PaymentService.execute_teacher_payout(
+            payout=payout,
+            client_ip="203.0.113.10",
         )
 
         payout.refresh_from_db()
@@ -607,9 +539,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -673,18 +603,13 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "liqpay-no-double-send-test"
-            ),
+            idempotency_key=("liqpay-no-double-send-test"),
         )
 
-        payout = (
-            PaymentService
-            ._prepare_payout_execution(
-                payout,
-                payout_mode="liqpay_sandbox",
-            )[0]
-        )
+        payout = PaymentService._prepare_payout_execution(
+            payout,
+            payout_mode="liqpay_sandbox",
+        )[0]
 
         payout.refresh_from_db()
 
@@ -693,11 +618,9 @@ class TeacherFinanceTests(APITestCase):
             TeacherPayout.StatusChoices.PROCESSING,
         )
 
-        result = (
-            PaymentService.execute_teacher_payout(
-                payout=payout,
-                client_ip="203.0.113.10",
-            )
+        result = PaymentService.execute_teacher_payout(
+            payout=payout,
+            client_ip="203.0.113.10",
         )
 
         self.assertEqual(
@@ -738,22 +661,17 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "reconcile-uncertain-failure"
-            ),
+            idempotency_key=("reconcile-uncertain-failure"),
         )
 
         with patch.object(
             LiqPayService,
             "_liqpay_send_request",
-            side_effect=PaymentError(
-                "Connection lost."
-            ),
+            side_effect=PaymentError("Connection lost."),
         ):
             with self.assertRaises(PaymentError):
                 (
-                    PaymentService
-                    .execute_teacher_payout(
+                    PaymentService.execute_teacher_payout(
                         payout=payout,
                         client_ip="203.0.113.10",
                     )
@@ -766,9 +684,7 @@ class TeacherFinanceTests(APITestCase):
             TeacherPayout.StatusChoices.PROCESSING,
         )
 
-        self.assertTrue(
-            payout.metadata["request_uncertain"]
-        )
+        self.assertTrue(payout.metadata["request_uncertain"])
 
         with patch.object(
             LiqPayService,
@@ -778,26 +694,15 @@ class TeacherFinanceTests(APITestCase):
                 "action": "p2pcredit",
                 "status": "failure",
                 "err_code": "err_b2c_settings",
-                "err_description": (
-                    "B2C settings not defined"
-                ),
+                "err_description": ("B2C settings not defined"),
                 "version": 7,
-                "public_key": (
-                    "sandbox_test_public"
-                ),
-                "order_id": (
-                    payout.provider_order_id
-                ),
+                "public_key": ("sandbox_test_public"),
+                "order_id": (payout.provider_order_id),
                 "payment_id": 2912407823,
                 "transaction_id": 2912407823,
             },
         ):
-            payout = (
-                PaymentService
-                .reconcile_teacher_payout(
-                    payout=payout
-                )
-            )
+            payout = PaymentService.reconcile_teacher_payout(payout=payout)
 
         payout.refresh_from_db()
 
@@ -806,9 +711,7 @@ class TeacherFinanceTests(APITestCase):
             TeacherPayout.StatusChoices.FAILED,
         )
 
-        self.assertFalse(
-            payout.metadata["request_uncertain"]
-        )
+        self.assertFalse(payout.metadata["request_uncertain"])
 
         self.assertEqual(
             payout.provider_payment_id,
@@ -817,9 +720,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -873,17 +774,12 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "reconcile-success-test"
-            ),
+            idempotency_key=("reconcile-success-test"),
         )
 
-        payout, _ = (
-            PaymentService
-            ._prepare_payout_execution(
-                payout,
-                payout_mode="liqpay_sandbox",
-            )
+        payout, _ = PaymentService._prepare_payout_execution(
+            payout,
+            payout_mode="liqpay_sandbox",
         )
 
         mock_status.return_value = {
@@ -897,12 +793,7 @@ class TeacherFinanceTests(APITestCase):
             "transaction_id": 888001,
         }
 
-        payout = (
-            PaymentService
-            .reconcile_teacher_payout(
-                payout=payout
-            )
-        )
+        payout = PaymentService.reconcile_teacher_payout(payout=payout)
 
         payout.refresh_from_db()
 
@@ -923,9 +814,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -938,9 +827,7 @@ class TeacherFinanceTests(APITestCase):
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="sandbox_test_private",
         LIQPAY_API_VERSION=7,
-        LIQPAY_API_URL=(
-            "https://www.liqpay.ua/api/request"
-        ),
+        LIQPAY_API_URL=("https://www.liqpay.ua/api/request"),
     )
     @patch.object(
         LiqPayService,
@@ -973,14 +860,10 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "liqpay-network-uncertain-test"
-            ),
+            idempotency_key=("liqpay-network-uncertain-test"),
         )
 
-        mock_send_request.side_effect = PaymentError(
-            "Could not connect to LiqPay API."
-        )
+        mock_send_request.side_effect = PaymentError("Could not connect to LiqPay API.")
 
         with self.assertRaises(PaymentError):
             PaymentService.execute_teacher_payout(
@@ -1005,15 +888,11 @@ class TeacherFinanceTests(APITestCase):
             f"nexo-teacher-payout-{payout.id}",
         )
 
-        self.assertTrue(
-            payout.metadata["request_uncertain"]
-        )
+        self.assertTrue(payout.metadata["request_uncertain"])
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -1074,10 +953,7 @@ class TeacherFinanceTests(APITestCase):
                 status=Refund.StatusChoices.PENDING,
             )
 
-            entry = (
-                TeacherFinanceService
-                .ensure_refund_reservation(refund)
-            )
+            entry = TeacherFinanceService.ensure_refund_reservation(refund)
 
             entry.post()
             refund.status = Refund.StatusChoices.SUCCEEDED
@@ -1085,10 +961,7 @@ class TeacherFinanceTests(APITestCase):
 
             refunds.append(entry)
 
-        amounts = [
-            entry.amount
-            for entry in refunds
-        ]
+        amounts = [entry.amount for entry in refunds]
 
         self.assertEqual(
             amounts,
@@ -1150,13 +1023,9 @@ class TeacherFinanceTests(APITestCase):
                 amount=Decimal("25.00"),
             )
 
-        refund = Refund.objects.get(
-            payment=payment
-        )
+        refund = Refund.objects.get(payment=payment)
 
-        adjustment = TeacherLedgerEntry.objects.get(
-            refund=refund
-        )
+        adjustment = TeacherLedgerEntry.objects.get(refund=refund)
 
         self.assertEqual(
             refund.status,
@@ -1203,15 +1072,11 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "simulated-execution-success"
-            ),
+            idempotency_key=("simulated-execution-success"),
         )
 
-        payout = (
-            PaymentService.execute_teacher_payout(
-                payout=payout,
-            )
+        payout = PaymentService.execute_teacher_payout(
+            payout=payout,
         )
 
         payout.refresh_from_db()
@@ -1238,9 +1103,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -1298,15 +1161,11 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "simulated-execution-failure"
-            ),
+            idempotency_key=("simulated-execution-failure"),
         )
 
-        payout = (
-            PaymentService.execute_teacher_payout(
-                payout=payout,
-            )
+        payout = PaymentService.execute_teacher_payout(
+            payout=payout,
         )
 
         payout.refresh_from_db()
@@ -1323,9 +1182,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -1395,13 +1252,9 @@ class TeacherFinanceTests(APITestCase):
             amount=Decimal("25.00"),
         )
 
-        refund = Refund.objects.get(
-            payment=payment
-        )
+        refund = Refund.objects.get(payment=payment)
 
-        adjustment = TeacherLedgerEntry.objects.get(
-            refund=refund
-        )
+        adjustment = TeacherLedgerEntry.objects.get(refund=refund)
 
         self.assertEqual(
             adjustment.amount,
@@ -1413,9 +1266,7 @@ class TeacherFinanceTests(APITestCase):
             TeacherLedgerEntry.StatusChoices.POSTED,
         )
 
-        self.assertIsNotNone(
-            adjustment.posted_at
-        )
+        self.assertIsNotNone(adjustment.posted_at)
 
     @patch.object(
         LiqPayService,
@@ -1464,15 +1315,11 @@ class TeacherFinanceTests(APITestCase):
             amount=Decimal("25.00"),
         )
 
-        refund = Refund.objects.get(
-            payment=payment
-        )
+        refund = Refund.objects.get(payment=payment)
 
         adjustment = TeacherLedgerEntry.objects.get(
             refund=refund,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.REFUND
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.REFUND),
         )
 
         self.assertEqual(
@@ -1502,12 +1349,8 @@ class TeacherFinanceTests(APITestCase):
 
         earning = TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.EARNING
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.POSTED
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.EARNING),
+            status=(TeacherLedgerEntry.StatusChoices.POSTED),
             amount=Decimal("80.00"),
             currency="UAH",
             payment=payment,
@@ -1519,21 +1362,11 @@ class TeacherFinanceTests(APITestCase):
             teacher=self.teacher_profile,
             destination=self.payout_destination,
             destination_snapshot={
-                "destination_type": (
-                    self.payout_destination.destination_type
-                ),
-                "receiver_account": (
-                    self.payout_destination.receiver_account
-                ),
-                "receiver_mfo": (
-                    self.payout_destination.receiver_mfo
-                ),
-                "receiver_okpo": (
-                    self.payout_destination.receiver_okpo
-                ),
-                "receiver_company": (
-                    self.payout_destination.receiver_company
-                ),
+                "destination_type": (self.payout_destination.destination_type),
+                "receiver_account": (self.payout_destination.receiver_account),
+                "receiver_mfo": (self.payout_destination.receiver_mfo),
+                "receiver_okpo": (self.payout_destination.receiver_okpo),
+                "receiver_company": (self.payout_destination.receiver_company),
             },
             amount=Decimal("50.00"),
             currency="UAH",
@@ -1550,12 +1383,8 @@ class TeacherFinanceTests(APITestCase):
 
         reservation = TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.PENDING
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
+            status=(TeacherLedgerEntry.StatusChoices.PENDING),
             amount=Decimal("-50.00"),
             currency="UAH",
             payout=payout,
@@ -1585,21 +1414,15 @@ class TeacherFinanceTests(APITestCase):
             TeacherLedgerEntry.StatusChoices.POSTED,
         )
 
-        self.assertIsNotNone(
-            reservation.posted_at
-        )
+        self.assertIsNotNone(reservation.posted_at)
 
     def test_teacher_balance_is_currency_specific(
         self,
     ):
         TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.EARNING
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.POSTED
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.EARNING),
+            status=(TeacherLedgerEntry.StatusChoices.POSTED),
             amount=Decimal("100.00"),
             currency="UAH",
             source_key="currency-uah",
@@ -1608,12 +1431,8 @@ class TeacherFinanceTests(APITestCase):
 
         TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.EARNING
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.POSTED
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.EARNING),
+            status=(TeacherLedgerEntry.StatusChoices.POSTED),
             amount=Decimal("50.00"),
             currency="USD",
             source_key="currency-usd",
@@ -1645,12 +1464,8 @@ class TeacherFinanceTests(APITestCase):
     ):
         TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.EARNING
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.POSTED
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.EARNING),
+            status=(TeacherLedgerEntry.StatusChoices.POSTED),
             amount=Decimal("80.00"),
             currency="UAH",
             source_key="negative-earning",
@@ -1659,12 +1474,8 @@ class TeacherFinanceTests(APITestCase):
 
         TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.POSTED
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
+            status=(TeacherLedgerEntry.StatusChoices.POSTED),
             amount=Decimal("-80.00"),
             currency="UAH",
             source_key="negative-payout",
@@ -1673,12 +1484,8 @@ class TeacherFinanceTests(APITestCase):
 
         TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.REFUND
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.POSTED
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.REFUND),
+            status=(TeacherLedgerEntry.StatusChoices.POSTED),
             amount=Decimal("-20.00"),
             currency="UAH",
             source_key="negative-refund",
@@ -1714,17 +1521,14 @@ class TeacherFinanceTests(APITestCase):
             balance["available"],
             Decimal("-20.00"),
         )
+
     def test_teacher_balance_includes_pending_refund_reservation(
         self,
     ):
         TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.EARNING
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.POSTED
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.EARNING),
+            status=(TeacherLedgerEntry.StatusChoices.POSTED),
             amount=Decimal("80.00"),
             currency="UAH",
             source_key="balance-earning-1",
@@ -1733,12 +1537,8 @@ class TeacherFinanceTests(APITestCase):
 
         TeacherLedgerEntry.objects.create(
             teacher=self.teacher_profile,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.REFUND
-            ),
-            status=(
-                TeacherLedgerEntry.StatusChoices.PENDING
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.REFUND),
+            status=(TeacherLedgerEntry.StatusChoices.PENDING),
             amount=Decimal("-20.00"),
             currency="UAH",
             source_key="balance-refund-1",
@@ -1791,9 +1591,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="UAH",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -1830,9 +1628,7 @@ class TeacherFinanceTests(APITestCase):
             Decimal("50.00"),
         )
 
-        item = TeacherPayoutItem.objects.get(
-            payout=payout
-        )
+        item = TeacherPayoutItem.objects.get(payout=payout)
 
         self.assertEqual(
             item.payment,
@@ -1846,9 +1642,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -1875,6 +1669,7 @@ class TeacherFinanceTests(APITestCase):
             after["available"],
             Decimal("30.00"),
         )
+
     def test_teacher_cannot_reserve_payout_above_available_balance(
         self,
     ):
@@ -1905,11 +1700,8 @@ class TeacherFinanceTests(APITestCase):
                 idempotency_key="too-large-payout",
             )
 
-        self.assertFalse(
-            TeacherPayout.objects.filter(
-                idempotency_key="too-large-payout"
-            ).exists()
-        )
+        self.assertFalse(TeacherPayout.objects.filter(idempotency_key="too-large-payout").exists())
+
     def test_teacher_payout_reservation_is_idempotent(
         self,
     ):
@@ -1953,26 +1745,20 @@ class TeacherFinanceTests(APITestCase):
         )
 
         self.assertEqual(
-            TeacherPayout.objects.filter(
-                idempotency_key="same-payout-request"
-            ).count(),
+            TeacherPayout.objects.filter(idempotency_key="same-payout-request").count(),
             1,
         )
 
         self.assertEqual(
             TeacherLedgerEntry.objects.filter(
                 payout=first,
-                entry_type=(
-                    TeacherLedgerEntry.TypeChoices.PAYOUT
-                ),
+                entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
             ).count(),
             1,
         )
 
         self.assertEqual(
-            TeacherPayoutItem.objects.filter(
-                payout=first
-            ).count(),
+            TeacherPayoutItem.objects.filter(payout=first).count(),
             1,
         )
 
@@ -2020,9 +1806,7 @@ class TeacherFinanceTests(APITestCase):
             idempotency_key="multi-payment-payout",
         )
 
-        items = list(
-            payout.items.order_by("id")
-        )
+        items = list(payout.items.order_by("id"))
 
         self.assertEqual(
             len(items),
@@ -2031,20 +1815,14 @@ class TeacherFinanceTests(APITestCase):
 
         self.assertEqual(
             sum(
-                (
-                    item.amount
-                    for item in items
-                ),
+                (item.amount for item in items),
                 Decimal("0.00"),
             ),
             Decimal("100.00"),
         )
 
         self.assertEqual(
-            sorted(
-                item.amount
-                for item in items
-            ),
+            sorted(item.amount for item in items),
             [
                 Decimal("20.00"),
                 Decimal("80.00"),
@@ -2078,9 +1856,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="UAH",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -2094,58 +1870,35 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "payout-callback-failure"
-            ),
+            idempotency_key=("payout-callback-failure"),
         )
 
-        payout, _ = (
-            PaymentService
-            ._prepare_payout_execution(
-                payout,
-                payout_mode="liqpay_sandbox",
-            )
+        payout, _ = PaymentService._prepare_payout_execution(
+            payout,
+            payout_mode="liqpay_sandbox",
         )
 
         payload = {
-            "public_key": (
-                "sandbox_test_public"
-            ),
+            "public_key": ("sandbox_test_public"),
             "version": 7,
             "action": "p2pcredit",
-            "order_id": (
-                payout.provider_order_id
-            ),
+            "order_id": (payout.provider_order_id),
             "amount": "50.00",
             "currency": "UAH",
             "status": "failure",
             "result": "error",
             "err_code": "err_b2c_settings",
-            "err_description": (
-                "B2C settings not defined"
-            ),
+            "err_description": ("B2C settings not defined"),
             "payment_id": 2912407823,
             "transaction_id": 2912407823,
         }
 
-        data = (
-            PaymentService
-            ._liqpay_encode_payload(
-                payload
-            )
-        )
+        data = PaymentService._liqpay_encode_payload(payload)
 
-        signature = (
-            PaymentService
-            ._liqpay_sign_data(
-                data
-            )
-        )
+        signature = PaymentService._liqpay_sign_data(data)
 
         response = self.client.post(
-            reverse(
-                "liqpay-payout-callback"
-            ),
+            reverse("liqpay-payout-callback"),
             {
                 "data": data,
                 "signature": signature,
@@ -2162,27 +1915,17 @@ class TeacherFinanceTests(APITestCase):
 
         self.assertEqual(
             payout.status,
-            TeacherPayout
-            .StatusChoices
-            .FAILED,
+            TeacherPayout.StatusChoices.FAILED,
         )
 
-        ledger = (
-            TeacherLedgerEntry.objects.get(
-                payout=payout,
-                entry_type=(
-                    TeacherLedgerEntry
-                    .TypeChoices
-                    .PAYOUT
-                ),
-            )
+        ledger = TeacherLedgerEntry.objects.get(
+            payout=payout,
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
             ledger.status,
-            TeacherLedgerEntry
-            .StatusChoices
-            .VOID,
+            TeacherLedgerEntry.StatusChoices.VOID,
         )
 
         balance = PaymentService.balance(
@@ -2217,9 +1960,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="UAH",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -2233,45 +1974,29 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "payout-callback-bad-signature"
-            ),
+            idempotency_key=("payout-callback-bad-signature"),
         )
 
-        payout, _ = (
-            PaymentService
-            ._prepare_payout_execution(
-                payout,
-                payout_mode="liqpay_sandbox",
-            )
+        payout, _ = PaymentService._prepare_payout_execution(
+            payout,
+            payout_mode="liqpay_sandbox",
         )
 
         payload = {
-            "public_key": (
-                "sandbox_test_public"
-            ),
+            "public_key": ("sandbox_test_public"),
             "version": 7,
             "action": "p2pcredit",
-            "order_id": (
-                payout.provider_order_id
-            ),
+            "order_id": (payout.provider_order_id),
             "amount": "50.00",
             "currency": "UAH",
             "status": "success",
             "result": "ok",
         }
 
-        data = (
-            PaymentService
-            ._liqpay_encode_payload(
-                payload
-            )
-        )
+        data = PaymentService._liqpay_encode_payload(payload)
 
         response = self.client.post(
-            reverse(
-                "liqpay-payout-callback"
-            ),
+            reverse("liqpay-payout-callback"),
             {
                 "data": data,
                 "signature": "invalid-signature",
@@ -2288,30 +2013,18 @@ class TeacherFinanceTests(APITestCase):
 
         self.assertEqual(
             payout.status,
-            TeacherPayout
-            .StatusChoices
-            .PROCESSING,
+            TeacherPayout.StatusChoices.PROCESSING,
         )
 
-        ledger = (
-            TeacherLedgerEntry.objects.get(
-                payout=payout,
-                entry_type=(
-                    TeacherLedgerEntry
-                    .TypeChoices
-                    .PAYOUT
-                ),
-            )
+        ledger = TeacherLedgerEntry.objects.get(
+            payout=payout,
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
             ledger.status,
-            TeacherLedgerEntry
-            .StatusChoices
-            .PENDING,
+            TeacherLedgerEntry.StatusChoices.PENDING,
         )
-
-
 
     @override_settings(
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
@@ -2330,9 +2043,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="UAH",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -2346,30 +2057,21 @@ class TeacherFinanceTests(APITestCase):
             destination=self.payout_destination,
             amount=Decimal("50.00"),
             currency="UAH",
-            idempotency_key=(
-                "payout-callback-success"
-            ),
+            idempotency_key=("payout-callback-success"),
         )
 
-        payout, should_send = (
-            PaymentService
-            ._prepare_payout_execution(
-                payout,
-                payout_mode="liqpay_sandbox",
-            )
+        payout, should_send = PaymentService._prepare_payout_execution(
+            payout,
+            payout_mode="liqpay_sandbox",
         )
 
         self.assertTrue(should_send)
 
         payload = {
-            "public_key": (
-                "sandbox_test_public"
-            ),
+            "public_key": ("sandbox_test_public"),
             "version": 7,
             "action": "p2pcredit",
-            "order_id": (
-                payout.provider_order_id
-            ),
+            "order_id": (payout.provider_order_id),
             "amount": "50.00",
             "currency": "UAH",
             "status": "success",
@@ -2378,24 +2080,12 @@ class TeacherFinanceTests(APITestCase):
             "transaction_id": 888001,
         }
 
-        data = (
-            PaymentService
-            ._liqpay_encode_payload(
-                payload
-            )
-        )
+        data = PaymentService._liqpay_encode_payload(payload)
 
-        signature = (
-            PaymentService
-            ._liqpay_sign_data(
-                data
-            )
-        )
+        signature = PaymentService._liqpay_sign_data(data)
 
         response = self.client.post(
-            reverse(
-                "liqpay-payout-callback"
-            ),
+            reverse("liqpay-payout-callback"),
             {
                 "data": data,
                 "signature": signature,
@@ -2412,9 +2102,7 @@ class TeacherFinanceTests(APITestCase):
 
         self.assertEqual(
             payout.status,
-            TeacherPayout
-            .StatusChoices
-            .SUCCEEDED,
+            TeacherPayout.StatusChoices.SUCCEEDED,
         )
 
         self.assertEqual(
@@ -2427,32 +2115,22 @@ class TeacherFinanceTests(APITestCase):
             "888001",
         )
 
-        ledger = (
-            TeacherLedgerEntry.objects.get(
-                payout=payout,
-                entry_type=(
-                    TeacherLedgerEntry
-                    .TypeChoices
-                    .PAYOUT
-                ),
-            )
+        ledger = TeacherLedgerEntry.objects.get(
+            payout=payout,
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
             ledger.status,
-            TeacherLedgerEntry
-            .StatusChoices
-            .POSTED,
+            TeacherLedgerEntry.StatusChoices.POSTED,
         )
         second_response = self.client.post(
-        reverse(
-            "liqpay-payout-callback"
-        ),
-        {
-            "data": data,
-            "signature": signature,
-        },
-        format="json",
+            reverse("liqpay-payout-callback"),
+            {
+                "data": data,
+                "signature": signature,
+            },
+            format="json",
         )
 
         self.assertEqual(
@@ -2460,15 +2138,11 @@ class TeacherFinanceTests(APITestCase):
             status.HTTP_200_OK,
         )
         self.assertEqual(
-        TeacherLedgerEntry.objects.filter(
-            payout=payout,
-            entry_type=(
-                TeacherLedgerEntry
-                .TypeChoices
-                .PAYOUT
-            ),
-        ).count(),
-        1,
+            TeacherLedgerEntry.objects.filter(
+                payout=payout,
+                entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
+            ).count(),
+            1,
         )
 
     def test_processing_payout_keeps_money_reserved(
@@ -2509,9 +2183,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -2584,9 +2256,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -2604,9 +2274,7 @@ class TeacherFinanceTests(APITestCase):
             TeacherLedgerEntry.StatusChoices.POSTED,
         )
 
-        self.assertIsNotNone(
-            ledger.posted_at
-        )
+        self.assertIsNotNone(ledger.posted_at)
 
         balance = PaymentService.balance(
             teacher=self.teacher_profile,
@@ -2682,9 +2350,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -2760,9 +2426,7 @@ class TeacherFinanceTests(APITestCase):
 
         ledger = TeacherLedgerEntry.objects.get(
             payout=payout,
-            entry_type=(
-                TeacherLedgerEntry.TypeChoices.PAYOUT
-            ),
+            entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
         )
 
         self.assertEqual(
@@ -2773,9 +2437,7 @@ class TeacherFinanceTests(APITestCase):
         self.assertEqual(
             TeacherLedgerEntry.objects.filter(
                 payout=payout,
-                entry_type=(
-                    TeacherLedgerEntry.TypeChoices.PAYOUT
-                ),
+                entry_type=(TeacherLedgerEntry.TypeChoices.PAYOUT),
             ).count(),
             1,
         )
@@ -2807,9 +2469,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="USD",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -2818,13 +2478,9 @@ class TeacherFinanceTests(APITestCase):
             record_attempt=False,
         )
 
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
-        response = self.client.get(
-            reverse("teacher-finance-balance")
-        )
+        response = self.client.get(reverse("teacher-finance-balance"))
 
         self.assertEqual(
             response.status_code,
@@ -2858,9 +2514,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="USD",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -2869,13 +2523,9 @@ class TeacherFinanceTests(APITestCase):
             record_attempt=False,
         )
 
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
-        response = self.client.get(
-            reverse("teacher-finance-ledger")
-        )
+        response = self.client.get(reverse("teacher-finance-ledger"))
 
         self.assertEqual(
             response.status_code,
@@ -2884,8 +2534,7 @@ class TeacherFinanceTests(APITestCase):
 
         data = (
             response.data.get("results")
-            if isinstance(response.data, dict)
-            and "results" in response.data
+            if isinstance(response.data, dict) and "results" in response.data
             else response.data
         )
 
@@ -2893,9 +2542,7 @@ class TeacherFinanceTests(APITestCase):
 
         self.assertEqual(
             data[0]["entry_type"],
-            TeacherLedgerEntry
-            .TypeChoices
-            .EARNING,
+            TeacherLedgerEntry.TypeChoices.EARNING,
         )
 
         self.assertEqual(
@@ -2906,13 +2553,9 @@ class TeacherFinanceTests(APITestCase):
     def test_student_cannot_access_teacher_finance(
         self,
     ):
-        self.client.force_authenticate(
-            user=self.student_user
-        )
+        self.client.force_authenticate(user=self.student_user)
 
-        response = self.client.get(
-            reverse("teacher-finance-balance")
-        )
+        response = self.client.get(reverse("teacher-finance-balance"))
 
         self.assertEqual(
             response.status_code,
@@ -2932,19 +2575,13 @@ class TeacherFinanceTests(APITestCase):
                 "updated_at",
             ]
         )
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
         response = self.client.post(
-            reverse(
-                "teacher-finance-destinations-list"
-            ),
+            reverse("teacher-finance-destinations-list"),
             {
                 "destination_type": "bank_account",
-                "receiver_account": (
-                    "UA123456789012345678901234567"
-                ),
+                "receiver_account": ("UA123456789012345678901234567"),
                 "receiver_mfo": "305299",
                 "receiver_okpo": "1234567890",
                 "receiver_company": "Test Teacher",
@@ -2957,24 +2594,16 @@ class TeacherFinanceTests(APITestCase):
             status.HTTP_201_CREATED,
         )
 
-        destination = (
-            TeacherPayoutDestination.objects.get(
-                pk=response.data["id"]
-            )
-        )
+        destination = TeacherPayoutDestination.objects.get(pk=response.data["id"])
 
         self.assertEqual(
             destination.teacher,
             self.teacher_profile,
         )
 
-        self.assertTrue(
-            destination.is_active
-        )
+        self.assertTrue(destination.is_active)
 
-        self.assertTrue(
-            destination.is_default
-        )
+        self.assertTrue(destination.is_default)
 
         self.assertNotIn(
             "receiver_account",
@@ -2984,19 +2613,13 @@ class TeacherFinanceTests(APITestCase):
     def test_teacher_cannot_store_raw_card_pan(
         self,
     ):
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
         response = self.client.post(
-            reverse(
-                "teacher-finance-destinations-list"
-            ),
+            reverse("teacher-finance-destinations-list"),
             {
                 "destination_type": "card_token",
-                "receiver_card_token": (
-                    "4242424242424242"
-                ),
+                "receiver_card_token": ("4242424242424242"),
             },
             format="json",
         )
@@ -3007,32 +2630,22 @@ class TeacherFinanceTests(APITestCase):
         )
 
         self.assertFalse(
-            TeacherPayoutDestination.objects
-            .filter(
+            TeacherPayoutDestination.objects.filter(
                 teacher=self.teacher_profile,
-                receiver_card_token=(
-                    "4242424242424242"
-                ),
-            )
-            .exists()
+                receiver_card_token=("4242424242424242"),
+            ).exists()
         )
 
     def test_teacher_can_store_liqpay_card_token(
         self,
     ):
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
         response = self.client.post(
-            reverse(
-                "teacher-finance-destinations-list"
-            ),
+            reverse("teacher-finance-destinations-list"),
             {
                 "destination_type": "card_token",
-                "receiver_card_token": (
-                    "sandbox_receiver_token_001"
-                ),
+                "receiver_card_token": ("sandbox_receiver_token_001"),
             },
             format="json",
         )
@@ -3042,9 +2655,7 @@ class TeacherFinanceTests(APITestCase):
             status.HTTP_201_CREATED,
         )
 
-        self.assertTrue(
-            response.data["has_card_token"]
-        )
+        self.assertTrue(response.data["has_card_token"])
 
         self.assertNotIn(
             "receiver_card_token",
@@ -3054,30 +2665,22 @@ class TeacherFinanceTests(APITestCase):
     def test_new_default_destination_clears_previous_default(
         self,
     ):
-        first = (
-            TeacherPayoutDestination.objects.create(
-                teacher=self.teacher_profile,
-                provider="liqpay",
-                destination_type="card_token",
-                receiver_card_token="token-first",
-                is_active=True,
-                is_default=True,
-            )
+        first = TeacherPayoutDestination.objects.create(
+            teacher=self.teacher_profile,
+            provider="liqpay",
+            destination_type="card_token",
+            receiver_card_token="token-first",
+            is_active=True,
+            is_default=True,
         )
 
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
         response = self.client.post(
-            reverse(
-                "teacher-finance-destinations-list"
-            ),
+            reverse("teacher-finance-destinations-list"),
             {
                 "destination_type": "card_token",
-                "receiver_card_token": (
-                    "token-second"
-                ),
+                "receiver_card_token": ("token-second"),
                 "is_default": True,
             },
             format="json",
@@ -3090,37 +2693,25 @@ class TeacherFinanceTests(APITestCase):
 
         first.refresh_from_db()
 
-        second = (
-            TeacherPayoutDestination.objects.get(
-                pk=response.data["id"]
-            )
-        )
+        second = TeacherPayoutDestination.objects.get(pk=response.data["id"])
 
-        self.assertFalse(
-            first.is_default
-        )
+        self.assertFalse(first.is_default)
 
-        self.assertTrue(
-            second.is_default
-        )
+        self.assertTrue(second.is_default)
 
     def test_delete_destination_soft_deactivates_it(
         self,
     ):
-        destination = (
-            TeacherPayoutDestination.objects.create(
-                teacher=self.teacher_profile,
-                provider="liqpay",
-                destination_type="card_token",
-                receiver_card_token="token-delete",
-                is_active=True,
-                is_default=True,
-            )
+        destination = TeacherPayoutDestination.objects.create(
+            teacher=self.teacher_profile,
+            provider="liqpay",
+            destination_type="card_token",
+            receiver_card_token="token-delete",
+            is_active=True,
+            is_default=True,
         )
 
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
         response = self.client.delete(
             reverse(
@@ -3136,32 +2727,18 @@ class TeacherFinanceTests(APITestCase):
 
         destination.refresh_from_db()
 
-        self.assertFalse(
-            destination.is_active
-        )
+        self.assertFalse(destination.is_active)
 
-        self.assertFalse(
-            destination.is_default
-        )
+        self.assertFalse(destination.is_default)
 
-        self.assertTrue(
-            TeacherPayoutDestination.objects
-            .filter(pk=destination.pk)
-            .exists()
-        )
+        self.assertTrue(TeacherPayoutDestination.objects.filter(pk=destination.pk).exists())
 
     def test_teacher_cannot_use_staff_payout_api(
         self,
     ):
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
-        response = self.client.get(
-            reverse(
-                "staff-finance-payouts-list"
-            )
-        )
+        response = self.client.get(reverse("staff-finance-payouts-list"))
 
         self.assertEqual(
             response.status_code,
@@ -3180,9 +2757,7 @@ class TeacherFinanceTests(APITestCase):
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
             currency="USD",
-            payment_method=(
-                Payment.MethodChoices.LIQPAY
-            ),
+            payment_method=(Payment.MethodChoices.LIQPAY),
             status=Payment.StatusChoices.PENDING,
         )
 
@@ -3191,34 +2766,24 @@ class TeacherFinanceTests(APITestCase):
             record_attempt=False,
         )
 
-        self.client.force_authenticate(
-            user=self.admin_user
-        )
+        self.client.force_authenticate(user=self.admin_user)
 
         payload = {
             "teacher_id": self.teacher_profile.id,
-            "destination_id": (
-                self.payout_destination.id
-            ),
+            "destination_id": (self.payout_destination.id),
             "amount": "50.00",
             "currency": "USD",
-            "idempotency_key": (
-                "staff-api-idempotent"
-            ),
+            "idempotency_key": ("staff-api-idempotent"),
         }
 
         first = self.client.post(
-            reverse(
-                "staff-finance-payouts-list"
-            ),
+            reverse("staff-finance-payouts-list"),
             payload,
             format="json",
         )
 
         second = self.client.post(
-            reverse(
-                "staff-finance-payouts-list"
-            ),
+            reverse("staff-finance-payouts-list"),
             payload,
             format="json",
         )
@@ -3239,13 +2804,10 @@ class TeacherFinanceTests(APITestCase):
         )
 
         self.assertEqual(
-            TeacherPayout.objects.filter(
-                idempotency_key=(
-                    "staff-api-idempotent"
-                )
-            ).count(),
+            TeacherPayout.objects.filter(idempotency_key=("staff-api-idempotent")).count(),
             1,
         )
+
 
 @override_settings(
     LIQPAY_PUBLIC_KEY="i00000000",
@@ -3294,76 +2856,47 @@ class LiqPayServiceTests(APITestCase):
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="sandbox_test_private",
         LIQPAY_API_VERSION=7,
-        LIQPAY_API_URL=(
-            "https://www.liqpay.ua/api/request"
-        ),
+        LIQPAY_API_URL=("https://www.liqpay.ua/api/request"),
         LIQPAY_PAYOUT_SERVER_URL=(
-            "https://api.example.com/api/v1/"
-            "payments/liqpay/payout/callback/"
+            "https://api.example.com/api/v1/payments/liqpay/payout/callback/"
         ),
     )
     def test_build_liqpay_teacher_payout_request(
         self,
     ):
-        teacher_user, teacher = make_teacher(
-            email="liqpay-payout-builder@example.com"
-        )
+        teacher_user, teacher = make_teacher(email="liqpay-payout-builder@example.com")
 
-        destination = (
-            TeacherPayoutDestination.objects.create(
-                teacher=teacher,
-                provider="liqpay",
-                destination_type=(
-                    TeacherPayoutDestination
-                    .TypeChoices
-                    .BANK_ACCOUNT
-                ),
-                receiver_account=(
-                    "UA123456789012345678901234567"
-                ),
-                receiver_mfo="305299",
-                receiver_okpo="1234567890",
-                receiver_company="Test Teacher",
-                is_active=True,
-            )
+        destination = TeacherPayoutDestination.objects.create(
+            teacher=teacher,
+            provider="liqpay",
+            destination_type=(TeacherPayoutDestination.TypeChoices.BANK_ACCOUNT),
+            receiver_account=("UA123456789012345678901234567"),
+            receiver_mfo="305299",
+            receiver_okpo="1234567890",
+            receiver_company="Test Teacher",
+            is_active=True,
         )
 
         payout = TeacherPayout.objects.create(
             teacher=teacher,
             destination=destination,
             destination_snapshot={
-                "destination_type": (
-                    "bank_account"
-                ),
-                "receiver_account": (
-                    "UA123456789012345678901234567"
-                ),
+                "destination_type": ("bank_account"),
+                "receiver_account": ("UA123456789012345678901234567"),
                 "receiver_mfo": "305299",
                 "receiver_okpo": "1234567890",
                 "receiver_company": "Test Teacher",
             },
             amount=Decimal("50.00"),
             currency="UAH",
-            provider=(
-                TeacherPayout
-                .ProviderChoices
-                .LIQPAY
-            ),
-            idempotency_key=(
-                "liqpay-builder-test-1"
-            ),
+            provider=(TeacherPayout.ProviderChoices.LIQPAY),
+            idempotency_key=("liqpay-builder-test-1"),
         )
 
-        request_data = (
-            PaymentService
-            ._liqpay_build_payout_request(
-                payout=payout,
-                client_ip="203.0.113.10",
-                server_url=(
-                    "https://api.example.com/api/v1/"
-                    "payments/liqpay/payout/callback/"
-                ),
-            )
+        request_data = PaymentService._liqpay_build_payout_request(
+            payout=payout,
+            client_ip="203.0.113.10",
+            server_url=("https://api.example.com/api/v1/payments/liqpay/payout/callback/"),
         )
 
         self.assertEqual(
@@ -3371,20 +2904,11 @@ class LiqPayServiceTests(APITestCase):
             "https://www.liqpay.ua/api/request",
         )
 
-        self.assertTrue(
-            request_data["data"]
-        )
+        self.assertTrue(request_data["data"])
 
-        self.assertTrue(
-            request_data["signature"]
-        )
+        self.assertTrue(request_data["signature"])
 
-        payload = (
-            PaymentService
-            ._liqpay_decode_data(
-                request_data["data"]
-            )
-        )
+        payload = PaymentService._liqpay_decode_data(request_data["data"])
 
         self.assertEqual(
             payload["public_key"],
@@ -3418,10 +2942,7 @@ class LiqPayServiceTests(APITestCase):
 
         self.assertEqual(
             payload["server_url"],
-            (
-                "https://api.example.com/api/v1/"
-                "payments/liqpay/payout/callback/"
-            ),
+            ("https://api.example.com/api/v1/payments/liqpay/payout/callback/"),
         )
 
         self.assertEqual(
@@ -3450,12 +2971,9 @@ class LiqPayServiceTests(APITestCase):
         )
 
         self.assertTrue(
-            PaymentService
-            ._liqpay_verify_signature(
+            PaymentService._liqpay_verify_signature(
                 data=request_data["data"],
-                signature=(
-                    request_data["signature"]
-                ),
+                signature=(request_data["signature"]),
             )
         )
 
@@ -3485,17 +3003,11 @@ class LiqPayServiceTests(APITestCase):
         LIQPAY_API_URL="https://www.liqpay.ua/api/request",
     )
     def test_build_liqpay_status_request(self):
-        request_data = (
-            PaymentService._liqpay_build_status_request(
-                provider_order_id=(
-                    "nexo-payment-1-attempt-2"
-                ),
-            )
+        request_data = PaymentService._liqpay_build_status_request(
+            provider_order_id=("nexo-payment-1-attempt-2"),
         )
 
-        payload = PaymentService._liqpay_decode_data(
-            request_data["data"]
-        )
+        payload = PaymentService._liqpay_decode_data(request_data["data"])
 
         self.assertEqual(
             payload,
@@ -3503,9 +3015,7 @@ class LiqPayServiceTests(APITestCase):
                 "public_key": "sandbox_test_public",
                 "version": 7,
                 "action": "status",
-                "order_id": (
-                    "nexo-payment-1-attempt-2"
-                ),
+                "order_id": ("nexo-payment-1-attempt-2"),
             },
         )
 
@@ -3523,11 +3033,9 @@ class LiqPayServiceTests(APITestCase):
         LIQPAY_API_URL="https://www.liqpay.ua/api/request",
     )
     def test_build_liqpay_refund_request(self):
-        refund_request = (
-            PaymentService._liqpay_build_refund_request(
-                provider_order_id="nexo-payment-25-attempt-40",
-                amount=Decimal("25.00"),
-            )
+        refund_request = PaymentService._liqpay_build_refund_request(
+            provider_order_id="nexo-payment-25-attempt-40",
+            amount=Decimal("25.00"),
         )
 
         self.assertEqual(
@@ -3535,17 +3043,11 @@ class LiqPayServiceTests(APITestCase):
             "https://www.liqpay.ua/api/request",
         )
 
-        self.assertTrue(
-            refund_request["data"]
-        )
+        self.assertTrue(refund_request["data"])
 
-        self.assertTrue(
-            refund_request["signature"]
-        )
+        self.assertTrue(refund_request["signature"])
 
-        payload = PaymentService._liqpay_decode_data(
-            refund_request["data"]
-        )
+        payload = PaymentService._liqpay_decode_data(refund_request["data"])
 
         self.assertEqual(
             payload,
@@ -3571,16 +3073,12 @@ class LiqPayServiceTests(APITestCase):
         LIQPAY_API_VERSION=7,
     )
     def test_build_partial_liqpay_refund_request(self):
-        refund_request = (
-            PaymentService._liqpay_build_refund_request(
-                provider_order_id="nexo-payment-10-attempt-15",
-                amount=Decimal("7.50"),
-            )
+        refund_request = PaymentService._liqpay_build_refund_request(
+            provider_order_id="nexo-payment-10-attempt-15",
+            amount=Decimal("7.50"),
         )
 
-        payload = PaymentService._liqpay_decode_data(
-            refund_request["data"]
-        )
+        payload = PaymentService._liqpay_decode_data(refund_request["data"])
 
         self.assertEqual(
             payload["action"],
@@ -3603,6 +3101,7 @@ class LiqPayServiceTests(APITestCase):
                 provider_order_id="test-order",
                 amount=Decimal("0.00"),
             )
+
     @override_settings(
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="test_private_key",
@@ -3626,9 +3125,7 @@ class LiqPayServiceTests(APITestCase):
 
         mocked_response = BytesIO(response_body)
 
-        mock_urlopen.return_value.__enter__.return_value = (
-            mocked_response
-        )
+        mock_urlopen.return_value.__enter__.return_value = mocked_response
 
         response = PaymentService._liqpay_create_refund(
             provider_order_id="nexo-payment-1-attempt-1",
@@ -3682,21 +3179,17 @@ class LiqPayServiceTests(APITestCase):
         )
 
     @override_settings(
-    LIQPAY_PUBLIC_KEY="sandbox_test_public",
-    LIQPAY_PRIVATE_KEY="test_private_key",
+        LIQPAY_PUBLIC_KEY="sandbox_test_public",
+        LIQPAY_PRIVATE_KEY="test_private_key",
     )
     @patch("apps.payments.services.liqpay.urlopen")
     def test_liqpay_refund_rejects_invalid_api_response(
         self,
         mock_urlopen,
     ):
-        mocked_response = BytesIO(
-            b"this-is-not-json"
-        )
+        mocked_response = BytesIO(b"this-is-not-json")
 
-        mock_urlopen.return_value.__enter__.return_value = (
-            mocked_response
-        )
+        mock_urlopen.return_value.__enter__.return_value = mocked_response
 
         with self.assertRaises(PaymentError):
             PaymentService._liqpay_create_refund(
@@ -3711,59 +3204,37 @@ class LiqPayServiceTests(APITestCase):
     def test_liqpay_payout_uses_destination_snapshot(
         self,
     ):
-        _, teacher = make_teacher(
-            email="snapshot-payout@example.com"
-        )
+        _, teacher = make_teacher(email="snapshot-payout@example.com")
 
-        destination = (
-            TeacherPayoutDestination.objects.create(
-                teacher=teacher,
-                provider="liqpay",
-                destination_type=(
-                    TeacherPayoutDestination
-                    .TypeChoices
-                    .BANK_ACCOUNT
-                ),
-                receiver_account="OLD-ACCOUNT",
-                receiver_mfo="305299",
-                receiver_okpo="1234567890",
-                receiver_company="Old Name",
-            )
+        destination = TeacherPayoutDestination.objects.create(
+            teacher=teacher,
+            provider="liqpay",
+            destination_type=(TeacherPayoutDestination.TypeChoices.BANK_ACCOUNT),
+            receiver_account="OLD-ACCOUNT",
+            receiver_mfo="305299",
+            receiver_okpo="1234567890",
+            receiver_company="Old Name",
         )
 
         payout = TeacherPayout.objects.create(
             teacher=teacher,
             destination=destination,
             destination_snapshot={
-                "destination_type": (
-                    "bank_account"
-                ),
-                "receiver_account": (
-                    "OLD-ACCOUNT"
-                ),
+                "destination_type": ("bank_account"),
+                "receiver_account": ("OLD-ACCOUNT"),
                 "receiver_mfo": "305299",
                 "receiver_okpo": "1234567890",
                 "receiver_company": "Old Name",
             },
             amount=Decimal("10.00"),
             currency="UAH",
-            provider=(
-                TeacherPayout
-                .ProviderChoices
-                .LIQPAY
-            ),
-            idempotency_key=(
-                "snapshot-payout-test"
-            ),
+            provider=(TeacherPayout.ProviderChoices.LIQPAY),
+            idempotency_key=("snapshot-payout-test"),
         )
 
-        destination.receiver_account = (
-            "NEW-ACCOUNT"
-        )
+        destination.receiver_account = "NEW-ACCOUNT"
 
-        destination.receiver_company = (
-            "New Name"
-        )
+        destination.receiver_company = "New Name"
 
         destination.save(
             update_fields=[
@@ -3773,20 +3244,12 @@ class LiqPayServiceTests(APITestCase):
             ]
         )
 
-        request_data = (
-            PaymentService
-            ._liqpay_build_payout_request(
-                payout=payout,
-                client_ip="203.0.113.10",
-            )
+        request_data = PaymentService._liqpay_build_payout_request(
+            payout=payout,
+            client_ip="203.0.113.10",
         )
 
-        payload = (
-            PaymentService
-            ._liqpay_decode_data(
-                request_data["data"]
-            )
-        )
+        payload = PaymentService._liqpay_decode_data(request_data["data"])
 
         self.assertEqual(
             payload["receiver_account"],
@@ -3805,16 +3268,12 @@ class LiqPayServiceTests(APITestCase):
     def test_liqpay_payout_requires_client_ip(
         self,
     ):
-        _, teacher = make_teacher(
-            email="no-ip-payout@example.com"
-        )
+        _, teacher = make_teacher(email="no-ip-payout@example.com")
 
         payout = TeacherPayout.objects.create(
             teacher=teacher,
             destination_snapshot={
-                "destination_type": (
-                    "bank_account"
-                ),
+                "destination_type": ("bank_account"),
                 "receiver_account": "TEST",
                 "receiver_mfo": "305299",
                 "receiver_okpo": "1234567890",
@@ -3822,35 +3281,26 @@ class LiqPayServiceTests(APITestCase):
             },
             amount=Decimal("10.00"),
             currency="UAH",
-            provider=(
-                TeacherPayout
-                .ProviderChoices
-                .LIQPAY
-            ),
-            idempotency_key=(
-                "no-ip-payout-test"
-            ),
+            provider=(TeacherPayout.ProviderChoices.LIQPAY),
+            idempotency_key=("no-ip-payout-test"),
         )
 
         with self.assertRaises(PaymentError):
             (
-                PaymentService
-                ._liqpay_build_payout_request(
+                PaymentService._liqpay_build_payout_request(
                     payout=payout,
                     client_ip="",
                 )
             )
 
-    
+
 def make_stripe_event(event_data: dict):
     return stripe.Event.construct_from(event_data, None)
 
 
 class PaymentCheckoutTests(APITestCase):
     def setUp(self):
-        self.teacher_user, self.teacher_profile = make_teacher(
-            email="payments_teacher@example.com"
-        )
+        self.teacher_user, self.teacher_profile = make_teacher(email="payments_teacher@example.com")
 
         TeacherPayoutAccount.objects.create(
             teacher=self.teacher_profile,
@@ -3867,9 +3317,7 @@ class PaymentCheckoutTests(APITestCase):
             status=Course.StatusChoices.PUBLISHED,
         )
         self.plan = make_pricing_plan(self.course, price="25.00")
-        self.student_user, self.student_profile = make_student(
-            email="payments_student@example.com"
-        )
+        self.student_user, self.student_profile = make_student(email="payments_student@example.com")
         self.cart = Cart.objects.create(student_profile=self.student_profile)
         CartItem.objects.create(
             cart=self.cart,
@@ -3935,9 +3383,7 @@ class PaymentCheckoutTests(APITestCase):
             "https://www.liqpay.ua/api/3/checkout",
         )
 
-        payload = PaymentService._liqpay_decode_data(
-            checkout["data"]
-        )
+        payload = PaymentService._liqpay_decode_data(checkout["data"])
 
         self.assertEqual(
             payload["order_id"],
@@ -3978,10 +3424,8 @@ class PaymentCheckoutTests(APITestCase):
         self,
         mock_get_status,
     ):
-        payment, attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment, attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
         mock_get_status.return_value = {
@@ -3996,10 +3440,8 @@ class PaymentCheckoutTests(APITestCase):
             "transaction_id": 666001,
         }
 
-        payment, provider_status = (
-            PaymentService.sync_liqpay_payment_status(
-                payment=payment,
-            )
+        payment, provider_status = PaymentService.sync_liqpay_payment_status(
+            payment=payment,
         )
 
         payment.refresh_from_db()
@@ -4045,9 +3487,7 @@ class PaymentCheckoutTests(APITestCase):
             Enrollment.objects.filter(
                 student_profile=self.student_profile,
                 course=self.course,
-                access_status=(
-                    Enrollment.AccessStatusChoices.ACTIVE
-                ),
+                access_status=(Enrollment.AccessStatusChoices.ACTIVE),
             ).exists()
         )
         PaymentService.sync_liqpay_payment_status(
@@ -4069,26 +3509,22 @@ class PaymentCheckoutTests(APITestCase):
             ).count(),
             1,
         )
-            
+
     @override_settings(
-    LIQPAY_PUBLIC_KEY="sandbox_test_public",
-    LIQPAY_PRIVATE_KEY="test_private_key",
-    LIQPAY_API_VERSION=7,
-    LIQPAY_CHECKOUT_URL="https://www.liqpay.ua/api/3/checkout",
-    LIQPAY_SERVER_URL="https://api.example.com/api/v1/payments/liqpay/callback/",
-    LIQPAY_RESULT_URL="https://example.com/payment/result",
+        LIQPAY_PUBLIC_KEY="sandbox_test_public",
+        LIQPAY_PRIVATE_KEY="test_private_key",
+        LIQPAY_API_VERSION=7,
+        LIQPAY_CHECKOUT_URL="https://www.liqpay.ua/api/3/checkout",
+        LIQPAY_SERVER_URL="https://api.example.com/api/v1/payments/liqpay/callback/",
+        LIQPAY_RESULT_URL="https://example.com/payment/result",
     )
     def test_liqpay_checkout_retry_reuses_payment_and_attempt(self):
-        payment_1, attempt_1, checkout_1 = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment_1, attempt_1, checkout_1 = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
-        payment_2, attempt_2, checkout_2 = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment_2, attempt_2, checkout_2 = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
         self.assertEqual(
@@ -4142,16 +3578,11 @@ class PaymentCheckoutTests(APITestCase):
         LIQPAY_PRIVATE_KEY="test_private_key",
         LIQPAY_API_VERSION=7,
         LIQPAY_CHECKOUT_URL="https://www.liqpay.ua/api/3/checkout",
-        LIQPAY_SERVER_URL=(
-            "https://api.example.com/"
-            "api/v1/payments/liqpay/callback/"
-        ),
+        LIQPAY_SERVER_URL=("https://api.example.com/api/v1/payments/liqpay/callback/"),
         LIQPAY_RESULT_URL="https://example.com/payment/result",
     )
     def test_create_liqpay_checkout_from_cart(self):
-        self.client.force_authenticate(
-            user=self.student_user
-        )
+        self.client.force_authenticate(user=self.student_user)
 
         response = self.client.post(
             reverse("payments-liqpay-checkout"),
@@ -4173,9 +3604,7 @@ class PaymentCheckoutTests(APITestCase):
         self.assertTrue(response.data["signature"])
         self.assertTrue(response.data["provider_order_id"])
 
-        payment = Payment.objects.get(
-            pk=response.data["payment_id"]
-        )
+        payment = Payment.objects.get(pk=response.data["payment_id"])
 
         self.assertEqual(
             payment.payment_method,
@@ -4207,9 +3636,7 @@ class PaymentCheckoutTests(APITestCase):
             Payment.StatusChoices.PROCESSING,
         )
 
-        payload = PaymentService._liqpay_decode_data(
-            response.data["data"]
-        )
+        payload = PaymentService._liqpay_decode_data(response.data["data"])
 
         self.assertEqual(
             payload["order_id"],
@@ -4233,10 +3660,7 @@ class PaymentCheckoutTests(APITestCase):
 
         self.assertEqual(
             payload["server_url"],
-            (
-                "https://api.example.com/"
-                "api/v1/payments/liqpay/callback/"
-            ),
+            ("https://api.example.com/api/v1/payments/liqpay/callback/"),
         )
 
         self.assertTrue(
@@ -4246,16 +3670,13 @@ class PaymentCheckoutTests(APITestCase):
             )
         )
 
-
     @override_settings(
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="test_private_key",
         LIQPAY_SERVER_URL="https://api.example.com/liqpay/callback/",
     )
     def test_liqpay_checkout_requires_student(self):
-        self.client.force_authenticate(
-            user=self.teacher_user
-        )
+        self.client.force_authenticate(user=self.teacher_user)
 
         response = self.client.post(
             reverse("payments-liqpay-checkout"),
@@ -4277,10 +3698,8 @@ class PaymentCheckoutTests(APITestCase):
         LIQPAY_RESULT_URL="https://example.com/payment/result",
     )
     def test_liqpay_success_callback_completes_payment(self):
-        payment, attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment, attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
         callback_payload = {
@@ -4295,9 +3714,7 @@ class PaymentCheckoutTests(APITestCase):
             "transaction_id": 987654321,
         }
 
-        data = PaymentService._liqpay_encode_payload(
-            callback_payload
-        )
+        data = PaymentService._liqpay_encode_payload(callback_payload)
         signature = PaymentService._liqpay_sign_data(data)
 
         PaymentService.handle_liqpay_callback(
@@ -4387,10 +3804,8 @@ class PaymentCheckoutTests(APITestCase):
         LIQPAY_API_VERSION=7,
     )
     def test_liqpay_callback_rejects_invalid_signature(self):
-        payment, attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment, attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
         payload = {
@@ -4403,9 +3818,7 @@ class PaymentCheckoutTests(APITestCase):
             "status": "success",
         }
 
-        data = PaymentService._liqpay_encode_payload(
-            payload
-        )
+        data = PaymentService._liqpay_encode_payload(payload)
 
         with self.assertRaises(PaymentError):
             PaymentService.handle_liqpay_callback(
@@ -4441,10 +3854,8 @@ class PaymentCheckoutTests(APITestCase):
         LIQPAY_RESULT_URL="https://example.com/payment/result",
     )
     def test_liqpay_callback_endpoint_completes_payment(self):
-        payment, attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment, attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
         callback_payload = {
@@ -4459,13 +3870,9 @@ class PaymentCheckoutTests(APITestCase):
             "transaction_id": 987654321,
         }
 
-        data = PaymentService._liqpay_encode_payload(
-            callback_payload
-        )
+        data = PaymentService._liqpay_encode_payload(callback_payload)
 
-        signature = PaymentService._liqpay_sign_data(
-            data
-        )
+        signature = PaymentService._liqpay_sign_data(data)
 
         body = urlencode(
             {
@@ -4523,17 +3930,15 @@ class PaymentCheckoutTests(APITestCase):
         )
 
     @override_settings(
-    LIQPAY_PUBLIC_KEY="sandbox_test_public",
-    LIQPAY_PRIVATE_KEY="test_private_key",
-    LIQPAY_API_VERSION=7,
-    LIQPAY_CHECKOUT_URL="https://www.liqpay.ua/api/3/checkout",
-    LIQPAY_SERVER_URL="https://api.example.com/api/v1/payments/liqpay/callback/",
+        LIQPAY_PUBLIC_KEY="sandbox_test_public",
+        LIQPAY_PRIVATE_KEY="test_private_key",
+        LIQPAY_API_VERSION=7,
+        LIQPAY_CHECKOUT_URL="https://www.liqpay.ua/api/3/checkout",
+        LIQPAY_SERVER_URL="https://api.example.com/api/v1/payments/liqpay/callback/",
     )
     def test_liqpay_callback_endpoint_rejects_invalid_signature(self):
-        payment, attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment, attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
         payload = {
@@ -4546,9 +3951,7 @@ class PaymentCheckoutTests(APITestCase):
             "status": "success",
         }
 
-        data = PaymentService._liqpay_encode_payload(
-            payload
-        )
+        data = PaymentService._liqpay_encode_payload(payload)
 
         body = urlencode(
             {
@@ -4581,7 +3984,6 @@ class PaymentCheckoutTests(APITestCase):
             Payment.StatusChoices.PROCESSING,
         )
 
-
     @override_settings(
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="test_private_key",
@@ -4601,12 +4003,10 @@ class PaymentCheckoutTests(APITestCase):
         )
 
         # First installment.
-        first_payment, first_attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-                payment_type=Order.PaymentTypeChoices.INSTALLMENTS,
-                installments_count=4,
-            )
+        first_payment, first_attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
+            payment_type=Order.PaymentTypeChoices.INSTALLMENTS,
+            installments_count=4,
         )
 
         first_payload = {
@@ -4621,13 +4021,9 @@ class PaymentCheckoutTests(APITestCase):
             "transaction_id": 2001,
         }
 
-        first_data = PaymentService._liqpay_encode_payload(
-            first_payload
-        )
+        first_data = PaymentService._liqpay_encode_payload(first_payload)
 
-        first_signature = PaymentService._liqpay_sign_data(
-            first_data
-        )
+        first_signature = PaymentService._liqpay_sign_data(first_data)
 
         PaymentService.handle_liqpay_callback(
             data=first_data,
@@ -4644,9 +4040,7 @@ class PaymentCheckoutTests(APITestCase):
             Order.StatusChoices.PARTIALLY_PAID,
         )
 
-        second_installment = order.installments.get(
-            installment_number=2
-        )
+        second_installment = order.installments.get(installment_number=2)
 
         self.assertEqual(
             second_installment.status,
@@ -4701,9 +4095,7 @@ class PaymentCheckoutTests(APITestCase):
             Payment.StatusChoices.PROCESSING,
         )
 
-        payload = PaymentService._liqpay_decode_data(
-            checkout["data"]
-        )
+        payload = PaymentService._liqpay_decode_data(checkout["data"])
 
         self.assertEqual(
             payload["order_id"],
@@ -4777,12 +4169,10 @@ class PaymentCheckoutTests(APITestCase):
         )
 
         # Create installment order and pay installment #1.
-        first_payment, first_attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-                payment_type=Order.PaymentTypeChoices.INSTALLMENTS,
-                installments_count=4,
-            )
+        first_payment, first_attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
+            payment_type=Order.PaymentTypeChoices.INSTALLMENTS,
+            installments_count=4,
         )
 
         payload = {
@@ -4809,13 +4199,9 @@ class PaymentCheckoutTests(APITestCase):
 
         order = first_payment.order
 
-        second_installment = order.installments.get(
-            installment_number=2
-        )
+        second_installment = order.installments.get(installment_number=2)
 
-        self.client.force_authenticate(
-            user=self.student_user
-        )
+        self.client.force_authenticate(user=self.student_user)
 
         response = self.client.post(
             reverse(
@@ -4854,21 +4240,13 @@ class PaymentCheckoutTests(APITestCase):
             order.currency,
         )
 
-        self.assertTrue(
-            response.data["data"]
-        )
+        self.assertTrue(response.data["data"])
 
-        self.assertTrue(
-            response.data["signature"]
-        )
+        self.assertTrue(response.data["signature"])
 
-        self.assertTrue(
-            response.data["provider_order_id"]
-        )
+        self.assertTrue(response.data["provider_order_id"])
 
-        payment = Payment.objects.get(
-            pk=response.data["payment_id"]
-        )
+        payment = Payment.objects.get(pk=response.data["payment_id"])
 
         attempt = PaymentAttempt.objects.get(
             payment=payment,
@@ -4895,9 +4273,7 @@ class PaymentCheckoutTests(APITestCase):
             response.data["provider_order_id"],
         )
 
-        decoded = PaymentService._liqpay_decode_data(
-            response.data["data"]
-        )
+        decoded = PaymentService._liqpay_decode_data(response.data["data"])
 
         self.assertEqual(
             decoded["order_id"],
@@ -4916,14 +4292,11 @@ class PaymentCheckoutTests(APITestCase):
             )
         )
 
-
     @override_settings(
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="test_private_key",
         LIQPAY_API_VERSION=7,
-        LIQPAY_SERVER_URL=(
-            "https://api.example.com/liqpay/callback/"
-        ),
+        LIQPAY_SERVER_URL=("https://api.example.com/liqpay/callback/"),
     )
     @patch.object(
         PaymentService,
@@ -4933,10 +4306,8 @@ class PaymentCheckoutTests(APITestCase):
         self,
         mock_get_status,
     ):
-        payment, attempt, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment, attempt, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
         mock_get_status.return_value = {
@@ -4951,14 +4322,10 @@ class PaymentCheckoutTests(APITestCase):
             "transaction_id": 888001,
         }
 
-        self.client.force_authenticate(
-            user=self.student_user
-        )
+        self.client.force_authenticate(user=self.student_user)
 
         response = self.client.post(
-            reverse(
-                "payments-liqpay-status-sync"
-            ),
+            reverse("payments-liqpay-status-sync"),
             {
                 "payment_id": payment.id,
             },
@@ -5001,31 +4368,21 @@ class PaymentCheckoutTests(APITestCase):
     @override_settings(
         LIQPAY_PUBLIC_KEY="sandbox_test_public",
         LIQPAY_PRIVATE_KEY="test_private_key",
-        LIQPAY_SERVER_URL=(
-            "https://api.example.com/liqpay/callback/"
-        ),
+        LIQPAY_SERVER_URL=("https://api.example.com/liqpay/callback/"),
     )
     def test_student_cannot_sync_another_students_liqpay_payment(
         self,
     ):
-        payment, _, _ = (
-            PaymentService.create_liqpay_checkout(
-                user=self.student_user,
-            )
+        payment, _, _ = PaymentService.create_liqpay_checkout(
+            user=self.student_user,
         )
 
-        other_user, _ = make_student(
-            email="other-liqpay@example.com"
-        )
+        other_user, _ = make_student(email="other-liqpay@example.com")
 
-        self.client.force_authenticate(
-            user=other_user
-        )
+        self.client.force_authenticate(user=other_user)
 
         response = self.client.post(
-            reverse(
-                "payments-liqpay-status-sync"
-            ),
+            reverse("payments-liqpay-status-sync"),
             {
                 "payment_id": payment.id,
             },
@@ -5740,6 +5097,7 @@ class PaymentCheckoutTests(APITestCase):
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.StatusChoices.PROCESSING)
 
+
 @override_settings(
     LIQPAY_PUBLIC_KEY="sandbox_test_public",
     LIQPAY_PRIVATE_KEY="test_private_key",
@@ -5799,9 +5157,7 @@ class LiqPayRefundTests(APITestCase):
 
         self.payment.refresh_from_db()
 
-        refund = Refund.objects.get(
-            payment=self.payment
-        )
+        refund = Refund.objects.get(payment=self.payment)
 
         self.assertEqual(
             refund.provider,
@@ -5852,9 +5208,7 @@ class LiqPayRefundTests(APITestCase):
 
         self.payment.refresh_from_db()
 
-        refund = Refund.objects.get(
-            payment=self.payment
-        )
+        refund = Refund.objects.get(payment=self.payment)
 
         self.assertEqual(
             refund.status,
@@ -5872,9 +5226,7 @@ class LiqPayRefundTests(APITestCase):
         )
 
         self.assertEqual(
-            PaymentService.refunded_total(
-                self.payment
-            ),
+            PaymentService.refunded_total(self.payment),
             Decimal("25.00"),
         )
 
@@ -5895,9 +5247,7 @@ class LiqPayRefundTests(APITestCase):
             amount=Decimal("80.00"),
         )
 
-        refund = Refund.objects.get(
-            payment=self.payment
-        )
+        refund = Refund.objects.get(payment=self.payment)
 
         self.assertEqual(
             refund.status,
@@ -5910,9 +5260,7 @@ class LiqPayRefundTests(APITestCase):
         )
 
         self.assertEqual(
-            PaymentService.refundable_remaining(
-                self.payment
-            ),
+            PaymentService.refundable_remaining(self.payment),
             Decimal("20.00"),
         )
 
@@ -5935,23 +5283,15 @@ class LiqPayRefundTests(APITestCase):
         mock_create_refund,
         mock_get_status,
     ):
-        mock_create_refund.side_effect = (
-            PaymentError(
-                "Connection lost."
-            )
-        )
+        mock_create_refund.side_effect = PaymentError("Connection lost.")
 
-        with self.assertRaises(
-            PaymentError
-        ):
+        with self.assertRaises(PaymentError):
             PaymentService.refund_payment(
                 payment=self.payment,
                 amount=Decimal("100.00"),
             )
 
-        refund = Refund.objects.get(
-            payment=self.payment
-        )
+        refund = Refund.objects.get(payment=self.payment)
 
         self.assertEqual(
             refund.status,
@@ -5965,14 +5305,10 @@ class LiqPayRefundTests(APITestCase):
 
         mock_get_status.return_value = {
             "result": "ok",
-            "public_key": (
-                "sandbox_test_public"
-            ),
+            "public_key": ("sandbox_test_public"),
             "version": 7,
             "action": "pay",
-            "order_id": (
-                self.attempt.provider_order_id
-            ),
+            "order_id": (self.attempt.provider_order_id),
             "amount": "100.00",
             "currency": "UAH",
             "status": "reversed",
@@ -5980,9 +5316,7 @@ class LiqPayRefundTests(APITestCase):
             "transaction_id": 123456,
         }
 
-        PaymentService.reconcile_liqpay_refund(
-            refund=refund
-        )
+        PaymentService.reconcile_liqpay_refund(refund=refund)
 
         refund.refresh_from_db()
         self.payment.refresh_from_db()
@@ -5997,39 +5331,23 @@ class LiqPayRefundTests(APITestCase):
             "reversed",
         )
 
-        self.assertFalse(
-            refund.metadata[
-                "request_uncertain"
-            ]
-        )
+        self.assertFalse(refund.metadata["request_uncertain"])
 
-        self.assertTrue(
-            refund.metadata[
-                "reconciled"
-            ]
-        )
+        self.assertTrue(refund.metadata["reconciled"])
 
         self.assertEqual(
             self.payment.status,
             Payment.StatusChoices.REFUNDED,
         )
 
-        ledger = (
-            TeacherLedgerEntry.objects.get(
-                refund=refund,
-                entry_type=(
-                    TeacherLedgerEntry
-                    .TypeChoices
-                    .REFUND
-                ),
-            )
+        ledger = TeacherLedgerEntry.objects.get(
+            refund=refund,
+            entry_type=(TeacherLedgerEntry.TypeChoices.REFUND),
         )
 
         self.assertEqual(
             ledger.status,
-            TeacherLedgerEntry
-            .StatusChoices
-            .POSTED,
+            TeacherLedgerEntry.StatusChoices.POSTED,
         )
 
     @patch.object(
@@ -6045,43 +5363,29 @@ class LiqPayRefundTests(APITestCase):
         mock_create_refund,
         mock_get_status,
     ):
-        mock_create_refund.side_effect = (
-            PaymentError(
-                "Connection lost."
-            )
-        )
+        mock_create_refund.side_effect = PaymentError("Connection lost.")
 
-        with self.assertRaises(
-            PaymentError
-        ):
+        with self.assertRaises(PaymentError):
             PaymentService.refund_payment(
                 payment=self.payment,
                 amount=Decimal("50.00"),
             )
 
-        refund = Refund.objects.get(
-            payment=self.payment
-        )
+        refund = Refund.objects.get(payment=self.payment)
 
         mock_get_status.return_value = {
             "result": "ok",
-            "public_key": (
-                "sandbox_test_public"
-            ),
+            "public_key": ("sandbox_test_public"),
             "version": 7,
             "action": "pay",
-            "order_id": (
-                self.attempt.provider_order_id
-            ),
+            "order_id": (self.attempt.provider_order_id),
             "amount": "100.00",
             "currency": "UAH",
             "status": "success",
             "payment_id": 123456,
         }
 
-        PaymentService.reconcile_liqpay_refund(
-            refund=refund
-        )
+        PaymentService.reconcile_liqpay_refund(refund=refund)
 
         refund.refresh_from_db()
 
@@ -6090,28 +5394,18 @@ class LiqPayRefundTests(APITestCase):
             Refund.StatusChoices.PENDING,
         )
 
-        ledger = (
-            TeacherLedgerEntry.objects.get(
-                refund=refund,
-                entry_type=(
-                    TeacherLedgerEntry
-                    .TypeChoices
-                    .REFUND
-                ),
-            )
+        ledger = TeacherLedgerEntry.objects.get(
+            refund=refund,
+            entry_type=(TeacherLedgerEntry.TypeChoices.REFUND),
         )
 
         self.assertEqual(
             ledger.status,
-            TeacherLedgerEntry
-            .StatusChoices
-            .PENDING,
+            TeacherLedgerEntry.StatusChoices.PENDING,
         )
 
         self.assertEqual(
-            PaymentService.refundable_remaining(
-                self.payment
-            ),
+            PaymentService.refundable_remaining(self.payment),
             Decimal("50.00"),
         )
 
@@ -6135,18 +5429,14 @@ class LiqPayRefundTests(APITestCase):
             amount=Decimal("30.00"),
         )
 
-        with self.assertRaises(
-            RefundError
-        ):
+        with self.assertRaises(RefundError):
             PaymentService.refund_payment(
                 payment=self.payment,
                 amount=Decimal("20.00"),
             )
 
         self.assertEqual(
-            Refund.objects.filter(
-                payment=self.payment
-            ).count(),
+            Refund.objects.filter(payment=self.payment).count(),
             1,
         )
 
@@ -6166,9 +5456,7 @@ class LiqPayRefundTests(APITestCase):
                 amount=Decimal("60.00"),
             )
 
-        refund = Refund.objects.get(
-            payment=self.payment
-        )
+        refund = Refund.objects.get(payment=self.payment)
 
         self.assertEqual(
             refund.status,
@@ -6176,9 +5464,7 @@ class LiqPayRefundTests(APITestCase):
         )
 
         self.assertEqual(
-            PaymentService.refundable_remaining(
-                self.payment
-            ),
+            PaymentService.refundable_remaining(self.payment),
             Decimal("100.00"),
         )
 
@@ -6190,9 +5476,7 @@ class LiqPayRefundTests(APITestCase):
         self,
         mock_refund,
     ):
-        mock_refund.side_effect = PaymentError(
-            "Could not connect to LiqPay API."
-        )
+        mock_refund.side_effect = PaymentError("Could not connect to LiqPay API.")
 
         with self.assertRaises(PaymentError):
             PaymentService.refund_payment(
@@ -6200,9 +5484,7 @@ class LiqPayRefundTests(APITestCase):
                 amount=Decimal("50.00"),
             )
 
-        refund = Refund.objects.get(
-            payment=self.payment
-        )
+        refund = Refund.objects.get(payment=self.payment)
 
         self.assertEqual(
             refund.status,
@@ -6214,48 +5496,29 @@ class LiqPayRefundTests(APITestCase):
             "request_uncertain",
         )
 
-        self.assertTrue(
-            refund.metadata[
-                "request_uncertain"
-            ]
-        )
+        self.assertTrue(refund.metadata["request_uncertain"])
 
-        self.assertIsNone(
-            refund.processed_at
-        )
+        self.assertIsNone(refund.processed_at)
 
         self.assertEqual(
-            refund.metadata[
-                "provider_order_id"
-            ],
+            refund.metadata["provider_order_id"],
             self.attempt.provider_order_id,
         )
 
-        ledger = (
-            TeacherLedgerEntry.objects
-            .get(
-                refund=refund,
-                entry_type=(
-                    TeacherLedgerEntry
-                    .TypeChoices
-                    .REFUND
-                ),
-            )
+        ledger = TeacherLedgerEntry.objects.get(
+            refund=refund,
+            entry_type=(TeacherLedgerEntry.TypeChoices.REFUND),
         )
 
         self.assertEqual(
             ledger.status,
-            TeacherLedgerEntry
-            .StatusChoices
-            .PENDING,
+            TeacherLedgerEntry.StatusChoices.PENDING,
         )
 
         # 50 UAH is still reserved for a refund
         # whose provider outcome is unknown.
         self.assertEqual(
-            PaymentService.refundable_remaining(
-                self.payment
-            ),
+            PaymentService.refundable_remaining(self.payment),
             Decimal("50.00"),
         )
         with self.assertRaises(RefundError):
@@ -6284,9 +5547,7 @@ class OverdueInstallmentTests(APITestCase):
             installment_count=4,
             installment_amount="6.25",
         )
-        self.student_user, self.student_profile = make_student(
-            email="overdue_student@example.com"
-        )
+        self.student_user, self.student_profile = make_student(email="overdue_student@example.com")
         self.order = Order.objects.create(
             user=self.student_user,
             student_profile=self.student_profile,
@@ -6322,14 +5583,16 @@ class OverdueInstallmentTests(APITestCase):
 
     def test_access_check_suspends_and_notifies_on_overdue_installment(self):
         has_access = EnrollmentService.student_has_course_access(
-            self.student_profile, self.course,
+            self.student_profile,
+            self.course,
         )
 
         self.assertFalse(has_access)
         self.enrollment.refresh_from_db()
         self.assertEqual(self.enrollment.access_status, Enrollment.AccessStatusChoices.SUSPENDED)
         notification = Notification.objects.get(
-            recipient=self.student_user, type=Notification.TypeChoices.PAYMENT_OVERDUE,
+            recipient=self.student_user,
+            type=Notification.TypeChoices.PAYMENT_OVERDUE,
         )
         self.assertIn(self.course.title, notification.body)
 
@@ -6350,7 +5613,8 @@ class OverdueInstallmentTests(APITestCase):
         self.overdue_installment.save(update_fields=["due_date"])
 
         has_access = EnrollmentService.student_has_course_access(
-            self.student_profile, self.course,
+            self.student_profile,
+            self.course,
         )
 
         self.assertTrue(has_access)
@@ -6417,9 +5681,7 @@ class OrderInvoiceTests(APITestCase):
             status=Course.StatusChoices.PUBLISHED,
         )
         self.plan = make_pricing_plan(self.course, price="25.00")
-        self.student_user, self.student_profile = make_student(
-            email="invoice_student@example.com"
-        )
+        self.student_user, self.student_profile = make_student(email="invoice_student@example.com")
         self.order = Order.objects.create(
             user=self.student_user,
             student_profile=self.student_profile,
@@ -6476,9 +5738,7 @@ class PaymentReceiptTests(APITestCase):
             status=Course.StatusChoices.PUBLISHED,
         )
         self.plan = make_pricing_plan(self.course, price="25.00")
-        self.student_user, self.student_profile = make_student(
-            email="receipt_student@example.com"
-        )
+        self.student_user, self.student_profile = make_student(email="receipt_student@example.com")
         self.order = Order.objects.create(
             user=self.student_user,
             student_profile=self.student_profile,
@@ -6508,7 +5768,9 @@ class PaymentReceiptTests(APITestCase):
             currency=self.plan.currency,
             status=status_value,
             stripe_payment_intent_id="pi_receipt_123",
-            processed_at=timezone.now() if status_value == Payment.StatusChoices.SUCCEEDED else None,
+            processed_at=timezone.now()
+            if status_value == Payment.StatusChoices.SUCCEEDED
+            else None,
         )
         PaymentItem.objects.create(
             payment=payment,
@@ -6550,7 +5812,9 @@ class PaymentReceiptTests(APITestCase):
         response = self.client.get(reverse("payments-receipt", args=[pending_payment.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertEqual(response.data["detail"], "Receipt is available only after successful payment.")
+        self.assertEqual(
+            response.data["detail"], "Receipt is available only after successful payment."
+        )
 
     def test_failed_payment_receipt_returns_conflict(self):
         failed_payment = self._create_payment(Payment.StatusChoices.FAILED)
@@ -6559,7 +5823,9 @@ class PaymentReceiptTests(APITestCase):
         response = self.client.get(reverse("payments-receipt", args=[failed_payment.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
-        self.assertEqual(response.data["detail"], "Receipt is available only after successful payment.")
+        self.assertEqual(
+            response.data["detail"], "Receipt is available only after successful payment."
+        )
 
     def test_missing_payment_receipt_returns_404(self):
         self.client.force_authenticate(user=self.student_user)
@@ -6584,24 +5850,47 @@ class TeacherPayoutConnectTests(APITestCase):
     @patch.object(PaymentService, "_load_stripe")
     def test_onboarding_reuses_connected_account(self, load_stripe):
         from types import SimpleNamespace
+
         load_stripe.return_value = SimpleNamespace(
-            Account=SimpleNamespace(create=lambda **kwargs: SimpleNamespace(id="acct_123", country="US")),
-            AccountLink=SimpleNamespace(create=lambda **kwargs: SimpleNamespace(url="https://connect.test/setup")),
+            Account=SimpleNamespace(
+                create=lambda **kwargs: SimpleNamespace(id="acct_123", country="US")
+            ),
+            AccountLink=SimpleNamespace(
+                create=lambda **kwargs: SimpleNamespace(url="https://connect.test/setup")
+            ),
         )
         self.client.force_authenticate(self.teacher_user)
         self.assertEqual(self.client.post(reverse("teacher-payout-onboarding")).status_code, 200)
         self.assertEqual(self.client.post(reverse("teacher-payout-onboarding")).status_code, 200)
         from apps.payments.models import TeacherPayoutAccount
+
         self.assertEqual(TeacherPayoutAccount.objects.filter(teacher=self.teacher).count(), 1)
 
     def test_account_updated_activates_account_idempotently(self):
         from apps.payments.models import TeacherPayoutAccount, WebhookEvent
-        payout = TeacherPayoutAccount.objects.create(teacher=self.teacher, provider_account_id="acct_active")
-        event = WebhookEvent.objects.create(provider="stripe", event_id="evt_account", event_type="account.updated", data={
-            "id": "evt_account", "type": "account.updated", "data": {"object": {
-                "id": "acct_active", "country": "US", "details_submitted": True,
-                "charges_enabled": True, "payouts_enabled": True, "requirements": {},
-            }}})
+
+        payout = TeacherPayoutAccount.objects.create(
+            teacher=self.teacher, provider_account_id="acct_active"
+        )
+        event = WebhookEvent.objects.create(
+            provider="stripe",
+            event_id="evt_account",
+            event_type="account.updated",
+            data={
+                "id": "evt_account",
+                "type": "account.updated",
+                "data": {
+                    "object": {
+                        "id": "acct_active",
+                        "country": "US",
+                        "details_submitted": True,
+                        "charges_enabled": True,
+                        "payouts_enabled": True,
+                        "requirements": {},
+                    }
+                },
+            },
+        )
         PaymentService.process_webhook_event(event)
         PaymentService.process_webhook_event(event)
         payout.refresh_from_db()

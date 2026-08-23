@@ -25,7 +25,9 @@ class TeacherApplicationModerationViewSet(viewsets.ReadOnlyModelViewSet):
     approve/cancel actions, the moderator-facing queue for applications
     submitted through the public "register as teacher" form."""
 
-    queryset = TeacherApplication.objects.select_related("moderator_profile__user").prefetch_related("directions")
+    queryset = TeacherApplication.objects.select_related(
+        "moderator_profile__user"
+    ).prefetch_related("directions")
     serializer_class = TeacherApplicationSerializer
     permission_classes = [IsAdminOrModerator]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -33,7 +35,9 @@ class TeacherApplicationModerationViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["submitted_at"]
     ordering = ["-submitted_at"]
 
-    @extend_schema(request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer})
+    @extend_schema(
+        request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer}
+    )
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         application = self.get_object()
@@ -51,7 +55,9 @@ class TeacherApplicationModerationViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(TeacherApplicationSerializer(application).data)
 
-    @extend_schema(request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer})
+    @extend_schema(
+        request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer}
+    )
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         application = self.get_object()

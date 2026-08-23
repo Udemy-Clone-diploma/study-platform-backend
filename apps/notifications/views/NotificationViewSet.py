@@ -23,9 +23,7 @@ class NotificationViewSet(
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return Notification.objects.filter(
-            recipient=self.request.user
-        ).select_related("actor")
+        return Notification.objects.filter(recipient=self.request.user).select_related("actor")
 
     @extend_schema(
         responses=inline_serializer(
@@ -34,9 +32,7 @@ class NotificationViewSet(
     )
     @action(detail=False, url_path="unread-count")
     def unread_count(self, request):
-        count = Notification.objects.filter(
-            recipient=request.user, is_read=False
-        ).count()
+        count = Notification.objects.filter(recipient=request.user, is_read=False).count()
         return Response({"count": count})
 
     @extend_schema(

@@ -19,7 +19,9 @@ class FeaturedCategoriesView(APIView):
 
     @extend_schema(
         tags=["Categories"],
-        parameters=[OpenApiParameter("limit", int, description="Max number of categories to return.")],
+        parameters=[
+            OpenApiParameter("limit", int, description="Max number of categories to return.")
+        ],
         responses={200: PublicCategorySerializer(many=True), 400: {"type": "object"}},
     )
     def get(self, request):

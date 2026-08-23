@@ -30,9 +30,7 @@ class VerifyEmailTests(APITestCase):
     def test_valid_token_marks_user_verified(self):
         uid, token = _uid_and_token(self.user)
 
-        response = self.client.get(
-            reverse("auth-verify-email", args=[uid, token])
-        )
+        response = self.client.get(reverse("auth-verify-email", args=[uid, token]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
@@ -41,9 +39,7 @@ class VerifyEmailTests(APITestCase):
     def test_invalid_token_returns_400(self):
         uid, _ = _uid_and_token(self.user)
 
-        response = self.client.get(
-            reverse("auth-verify-email", args=[uid, "totally-bogus"])
-        )
+        response = self.client.get(reverse("auth-verify-email", args=[uid, "totally-bogus"]))
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.user.refresh_from_db()
@@ -52,9 +48,7 @@ class VerifyEmailTests(APITestCase):
     def test_invalid_uid_returns_400(self):
         _, token = _uid_and_token(self.user)
 
-        response = self.client.get(
-            reverse("auth-verify-email", args=["bad-uid", token])
-        )
+        response = self.client.get(reverse("auth-verify-email", args=["bad-uid", token]))
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -108,9 +102,7 @@ class ResendVerificationTests(APITestCase):
         with patch(
             "apps.users.services.email_service.EmailService.send_verification_email"
         ) as send:
-            response = self.client.post(
-                self.url, {"email": "nobody@example.com"}
-            )
+            response = self.client.post(self.url, {"email": "nobody@example.com"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         send.assert_not_called()

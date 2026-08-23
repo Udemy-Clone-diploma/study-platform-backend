@@ -12,8 +12,14 @@ class CourseTeacherSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherProfile
         fields = [
-            "id", "name", "avatar", "bio", "specialization",
-            "years_experience", "partnerships_count", "students_taught",
+            "id",
+            "name",
+            "avatar",
+            "bio",
+            "specialization",
+            "years_experience",
+            "partnerships_count",
+            "students_taught",
         ]
 
     def get_avatar(self, obj: TeacherProfile) -> str | None:

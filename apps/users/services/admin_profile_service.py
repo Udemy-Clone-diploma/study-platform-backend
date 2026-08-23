@@ -38,12 +38,8 @@ class AdminProfileService:
             return result
 
         report_stats = {
-            "submitted": cls._report_stats(
-                UserReport.objects.filter(reporter=target), request
-            ),
-            "received": cls._report_stats(
-                UserReport.objects.filter(reported_user=target), request
-            ),
+            "submitted": cls._report_stats(UserReport.objects.filter(reporter=target), request),
+            "received": cls._report_stats(UserReport.objects.filter(reported_user=target), request),
         }
         result["report_stats"] = report_stats
 
@@ -225,7 +221,9 @@ class AdminProfileService:
 
     @staticmethod
     def _course_records(queryset, serializer_class, request) -> list[dict]:
-        records = queryset.order_by("-approved_at" if serializer_class is ApprovedCourseRecordSerializer else "-rejected_at")[:200]
+        records = queryset.order_by(
+            "-approved_at" if serializer_class is ApprovedCourseRecordSerializer else "-rejected_at"
+        )[:200]
         return serializer_class(records, many=True, context={"request": request}).data
 
     @classmethod
@@ -295,8 +293,12 @@ class AdminProfileService:
 
     @staticmethod
     def _report_stats(queryset, request) -> dict:
-        status_counts = dict(queryset.values("status").annotate(count=Count("id")).values_list("status", "count"))
-        reason_counts = dict(queryset.values("reason").annotate(count=Count("id")).values_list("reason", "count"))
+        status_counts = dict(
+            queryset.values("status").annotate(count=Count("id")).values_list("status", "count")
+        )
+        reason_counts = dict(
+            queryset.values("reason").annotate(count=Count("id")).values_list("reason", "count")
+        )
         reports = (
             queryset.select_related(
                 "reporter",
@@ -338,12 +340,16 @@ class AdminProfileService:
             },
             "courses": {
                 "total": courses.count(),
-                "by_status": list(courses.values("status").annotate(count=Count("id")).order_by("status")),
+                "by_status": list(
+                    courses.values("status").annotate(count=Count("id")).order_by("status")
+                ),
             },
             "categories": {
                 "total": categories.count(),
                 "with_courses": categories.annotate(
                     course_count=Count("courses", filter=Q(courses__is_deleted=False))
-                ).filter(course_count__gt=0).count(),
+                )
+                .filter(course_count__gt=0)
+                .count(),
             },
         }

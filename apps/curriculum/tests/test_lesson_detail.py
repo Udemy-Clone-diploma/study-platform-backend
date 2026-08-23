@@ -38,7 +38,9 @@ class LessonDetailAccessTests(APITestCase):
             status=Course.StatusChoices.DRAFT,
         )
         self.module = Module.objects.create(
-            course=self.course, title="M1", order=1,
+            course=self.course,
+            title="M1",
+            order=1,
         )
         self.preview_lesson = Lesson.objects.create(
             module=self.module,
@@ -56,7 +58,8 @@ class LessonDetailAccessTests(APITestCase):
 
     def _url(self, course_slug, lesson_id):
         return reverse(
-            "course-lesson-detail", args=[course_slug, lesson_id],
+            "course-lesson-detail",
+            args=[course_slug, lesson_id],
         )
 
     def test_anonymous_can_view_preview_lesson(self):
@@ -104,7 +107,10 @@ class LessonDetailAccessTests(APITestCase):
     def test_lesson_in_draft_course_returns_404(self):
         draft_module = Module.objects.create(course=self.draft, title="Draft M", order=1)
         draft_lesson = Lesson.objects.create(
-            module=draft_module, title="Hidden", order=1, is_preview=True,
+            module=draft_module,
+            title="Hidden",
+            order=1,
+            is_preview=True,
         )
         response = self.client.get(self._url(self.draft.slug, draft_lesson.pk))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -125,8 +131,7 @@ class LessonDetailAccessTests(APITestCase):
         self.assertEqual(first.status_code, status.HTTP_200_OK)
 
         with patch(
-            "apps.curriculum.views.LessonDetailView."
-            "LessonSerializer.to_representation",
+            "apps.curriculum.views.LessonDetailView.LessonSerializer.to_representation",
             side_effect=AssertionError("lesson should come from cache"),
         ):
             second = self.client.get(url)

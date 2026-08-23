@@ -37,12 +37,8 @@ class Command(BaseCommand):
         days = options["days"]
         cutoff = timezone.now() - timedelta(days=days)
 
-        deleted, _ = Notification.objects.filter(
-            is_read=True, created_at__lt=cutoff
-        ).delete()
+        deleted, _ = Notification.objects.filter(is_read=True, created_at__lt=cutoff).delete()
 
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Pruned {deleted} read notification(s) older than {days} day(s)."
-            )
+            self.style.SUCCESS(f"Pruned {deleted} read notification(s) older than {days} day(s).")
         )

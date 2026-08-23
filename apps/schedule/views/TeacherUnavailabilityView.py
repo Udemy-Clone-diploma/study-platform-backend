@@ -30,11 +30,12 @@ class TeacherUnavailabilityListCreateView(APIView):
     GET  – list the authenticated teacher's unavailability blocks.
     POST – add a new block (teacher / admin only).
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         teacher = _get_teacher_profile(request.user)
-        blocks  = TeacherUnavailability.objects.filter(teacher_profile=teacher)
+        blocks = TeacherUnavailability.objects.filter(teacher_profile=teacher)
         return Response(TeacherUnavailabilitySerializer(blocks, many=True).data)
 
     def post(self, request):
@@ -61,6 +62,7 @@ class TeacherUnavailabilityDetailView(APIView):
     PATCH  – update.
     DELETE – remove.
     """
+
     permission_classes = [IsAuthenticated]
 
     def _get_block(self, user, block_id: int) -> TeacherUnavailability:

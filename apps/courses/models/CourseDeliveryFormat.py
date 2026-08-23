@@ -5,17 +5,17 @@ from .Course import Course
 
 class CourseDeliveryFormat(models.Model):
     class FormatType(models.TextChoices):
-        SELF_PACED  = "self_paced",  "Self-paced"
-        SCHEDULED   = "scheduled",   "Scheduled"
-        INDIVIDUAL  = "individual",  "Individual (1-on-1 with teacher)"
-        GROUP       = "group",       "Group (with teacher)"
+        SELF_PACED = "self_paced", "Self-paced"
+        SCHEDULED = "scheduled", "Scheduled"
+        INDIVIDUAL = "individual", "Individual (1-on-1 with teacher)"
+        GROUP = "group", "Group (with teacher)"
 
     class StartType(models.TextChoices):
-        DATE   = "date",   "Specific start date"
+        DATE = "date", "Specific start date"
         MANUAL = "manual", "Manual activation"
 
     class UnlockMode(models.TextChoices):
-        IMMEDIATE  = "immediate",  "All content unlocked immediately"
+        IMMEDIATE = "immediate", "All content unlocked immediately"
         DATE_BASED = "date_based", "Unlock by date from course start"
         SEQUENTIAL = "sequential", "Unlock after completing previous lesson"
 
@@ -34,8 +34,10 @@ class CourseDeliveryFormat(models.Model):
     format_type = models.CharField(max_length=20, choices=FormatType.choices)
 
     start_type = models.CharField(
-        max_length=10, choices=StartType.choices,
-        null=True, blank=True,
+        max_length=10,
+        choices=StartType.choices,
+        null=True,
+        blank=True,
     )
     course_start_date = models.DateField(null=True, blank=True)
     # 0 = lifetime access; null = not configured yet
@@ -43,8 +45,10 @@ class CourseDeliveryFormat(models.Model):
 
     start_date = models.DateField(null=True, blank=True)
     unlock_mode = models.CharField(
-        max_length=20, choices=UnlockMode.choices,
-        null=True, blank=True,
+        max_length=20,
+        choices=UnlockMode.choices,
+        null=True,
+        blank=True,
     )
 
     # max concurrent students the teacher accepts under this format

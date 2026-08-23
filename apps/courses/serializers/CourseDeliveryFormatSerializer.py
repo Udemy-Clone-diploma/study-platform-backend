@@ -6,14 +6,22 @@ from apps.courses.models import CourseDeliveryFormat, PricingPlan
 class NestedPricingSerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     final_installment_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, allow_null=True,
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+        allow_null=True,
     )
 
     class Meta:
         model = PricingPlan
         fields = [
-            "id", "price", "final_price", "currency",
-            "installment_count", "installment_amount", "final_installment_amount",
+            "id",
+            "price",
+            "final_price",
+            "currency",
+            "installment_count",
+            "installment_amount",
+            "final_installment_amount",
         ]
 
 
@@ -26,11 +34,17 @@ class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseDeliveryFormat
         fields = [
-            "id", "format_type",
+            "id",
+            "format_type",
             "chat_id",
-            "start_type", "course_start_date", "access_duration_days",
-            "start_date", "unlock_mode",
-            "max_students", "enrolled_count", "completed_count",
+            "start_type",
+            "course_start_date",
+            "access_duration_days",
+            "start_date",
+            "unlock_mode",
+            "max_students",
+            "enrolled_count",
+            "completed_count",
             "pricing",
         ]
 
@@ -43,6 +57,7 @@ class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
             return obj.annotated_enrolled_count
 
         from apps.enrollments.models import Enrollment
+
         return Enrollment.objects.filter(
             delivery_format=obj,
             access_status=Enrollment.AccessStatusChoices.ACTIVE,
@@ -57,11 +72,16 @@ class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
             return obj.annotated_completed_count
 
         from apps.enrollments.models import Enrollment
-        return Enrollment.objects.filter(
-            delivery_format=obj,
-            access_status=Enrollment.AccessStatusChoices.ACTIVE,
-            student_profile__course_completions__course=obj.course,
-        ).distinct().count()
+
+        return (
+            Enrollment.objects.filter(
+                delivery_format=obj,
+                access_status=Enrollment.AccessStatusChoices.ACTIVE,
+                student_profile__course_completions__course=obj.course,
+            )
+            .distinct()
+            .count()
+        )
 
 
 class CourseDeliveryFormatWriteSerializer(serializers.ModelSerializer):
@@ -73,8 +93,11 @@ class CourseDeliveryFormatWriteSerializer(serializers.ModelSerializer):
         model = CourseDeliveryFormat
         fields = [
             "format_type",
-            "start_type", "course_start_date", "access_duration_days",
-            "start_date", "unlock_mode",
+            "start_type",
+            "course_start_date",
+            "access_duration_days",
+            "start_date",
+            "unlock_mode",
             "max_students",
             "pricing",
         ]

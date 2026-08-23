@@ -40,13 +40,9 @@ class WebhookService(PaymentBaseService):
         data: str,
         payload: dict,
     ) -> tuple[WebhookEvent, bool]:
-        event_id = hashlib.sha256(
-            data.encode("utf-8")
-        ).hexdigest()
+        event_id = hashlib.sha256(data.encode("utf-8")).hexdigest()
 
-        provider_status = str(
-            payload.get("status") or ""
-        )
+        provider_status = str(payload.get("status") or "")
 
         safe_data = {
             "order_id": payload.get("order_id"),
@@ -79,69 +75,46 @@ class WebhookService(PaymentBaseService):
         signature: str,
     ) -> Payment:
         if not data or not signature:
-            raise PaymentError(
-                "LiqPay callback data and signature are required."
-            )
+            raise PaymentError("LiqPay callback data and signature are required.")
 
         # 1. Signature MUST be checked before trusting callback data.
         if not cls._liqpay_verify_signature(
             data=data,
             signature=signature,
         ):
-            raise PaymentError(
-                "Invalid LiqPay callback signature."
-            )
+            raise PaymentError("Invalid LiqPay callback signature.")
 
         payload = cls._liqpay_decode_data(data)
 
-        provider_order_id = str(
-            payload.get("order_id") or ""
-        )
-        provider_status = str(
-            payload.get("status") or ""
-        ).lower()
+        provider_order_id = str(payload.get("order_id") or "")
+        provider_status = str(payload.get("status") or "").lower()
 
         if not provider_order_id:
-            raise PaymentError(
-                "LiqPay callback order_id is missing."
-            )
+            raise PaymentError("LiqPay callback order_id is missing.")
 
         if not provider_status:
-            raise PaymentError(
-                "LiqPay callback status is missing."
-            )
+            raise PaymentError("LiqPay callback status is missing.")
 
         # 2. Callback must belong to our merchant.
         if payload.get("public_key") != cls._liqpay_public_key():
-            raise PaymentError(
-                "LiqPay callback public_key does not match."
-            )
+            raise PaymentError("LiqPay callback public_key does not match.")
 
         try:
             version = int(payload.get("version"))
         except (TypeError, ValueError) as exc:
-            raise PaymentError(
-                "Invalid LiqPay callback version."
-            ) from exc
+            raise PaymentError("Invalid LiqPay callback version.") from exc
 
         if version != cls._liqpay_api_version():
-            raise PaymentError(
-                "LiqPay callback API version does not match."
-            )
+            raise PaymentError("LiqPay callback API version does not match.")
 
-        action = str(
-            payload.get("action") or ""
-        ).lower()
+        action = str(payload.get("action") or "").lower()
 
         if action and action != "pay":
-            raise PaymentError(
-                "Unexpected LiqPay callback action."
-            )
+            raise PaymentError("Unexpected LiqPay callback action.")
 
         # 3. Lock our existing provider attempt.
         attempt = (
-            PaymentAttempt.objects
-            .select_for_update(of=("self",))
+            PaymentAttempt.objects.select_for_update(of=("self",))
             .filter(
                 provider=Payment.MethodChoices.LIQPAY,
                 provider_order_id=provider_order_id,
@@ -150,14 +123,11 @@ class WebhookService(PaymentBaseService):
         )
 
         if attempt is None:
-            raise PaymentError(
-                "LiqPay payment attempt was not found."
-            )
+            raise PaymentError("LiqPay payment attempt was not found.")
 
         # 4. Lock actual Payment separately.
         payment = (
-            Payment.objects
-            .select_for_update(of=("self",))
+            Payment.objects.select_for_update(of=("self",))
             .select_related(
                 "order",
                 "installment",
@@ -166,38 +136,24 @@ class WebhookService(PaymentBaseService):
         )
 
         if payment.payment_method != Payment.MethodChoices.LIQPAY:
-            raise PaymentError(
-                "Payment provider does not match LiqPay."
-            )
+            raise PaymentError("Payment provider does not match LiqPay.")
 
         # 5. Validate amount.
         try:
-            callback_amount = cls._decimal_money(
-                Decimal(str(payload.get("amount")))
-            )
+            callback_amount = cls._decimal_money(Decimal(str(payload.get("amount"))))
         except (InvalidOperation, TypeError, ValueError) as exc:
-            raise PaymentError(
-                "Invalid LiqPay callback amount."
-            ) from exc
+            raise PaymentError("Invalid LiqPay callback amount.") from exc
 
-        expected_amount = cls._decimal_money(
-            payment.amount
-        )
+        expected_amount = cls._decimal_money(payment.amount)
 
         if callback_amount != expected_amount:
-            raise PaymentError(
-                "LiqPay callback amount does not match payment."
-            )
+            raise PaymentError("LiqPay callback amount does not match payment.")
 
         # 6. Validate currency.
-        callback_currency = str(
-            payload.get("currency") or ""
-        ).upper()
+        callback_currency = str(payload.get("currency") or "").upper()
 
         if callback_currency != payment.currency.upper():
-            raise PaymentError(
-                "LiqPay callback currency does not match payment."
-            )
+            raise PaymentError("LiqPay callback currency does not match payment.")
 
         # 7. Record callback only AFTER validation.
         webhook_event, _ = cls.record_liqpay_event(
@@ -205,10 +161,7 @@ class WebhookService(PaymentBaseService):
             payload=payload,
         )
 
-        if (
-            webhook_event.status
-            == WebhookEvent.StatusChoices.PROCESSED
-        ):
+        if webhook_event.status == WebhookEvent.StatusChoices.PROCESSED:
             return payment
 
         payment, _ = cls._apply_liqpay_payment_status(
@@ -219,7 +172,7 @@ class WebhookService(PaymentBaseService):
         webhook_event.mark_as_processed()
 
         return payment
-    
+
     @classmethod
     @transaction.atomic
     def _apply_liqpay_payment_status(
@@ -228,18 +181,13 @@ class WebhookService(PaymentBaseService):
         provider_order_id: str,
         payload: dict,
     ) -> tuple[Payment, str]:
-        provider_status = str(
-            payload.get("status") or ""
-        ).lower()
+        provider_status = str(payload.get("status") or "").lower()
 
         if not provider_status:
-            raise PaymentError(
-                "LiqPay payment status is missing."
-            )
+            raise PaymentError("LiqPay payment status is missing.")
 
         attempt = (
-            PaymentAttempt.objects
-            .select_for_update(of=("self",))
+            PaymentAttempt.objects.select_for_update(of=("self",))
             .filter(
                 provider=Payment.MethodChoices.LIQPAY,
                 provider_order_id=provider_order_id,
@@ -248,13 +196,10 @@ class WebhookService(PaymentBaseService):
         )
 
         if attempt is None:
-            raise PaymentError(
-                "LiqPay payment attempt was not found."
-            )
+            raise PaymentError("LiqPay payment attempt was not found.")
 
         payment = (
-            Payment.objects
-            .select_for_update(of=("self",))
+            Payment.objects.select_for_update(of=("self",))
             .select_related(
                 "order",
                 "installment",
@@ -262,38 +207,18 @@ class WebhookService(PaymentBaseService):
             .get(pk=attempt.payment_id)
         )
 
-        if (
-            payment.payment_method
-            != Payment.MethodChoices.LIQPAY
-        ):
-            raise PaymentError(
-                "Payment provider does not match LiqPay."
-            )
+        if payment.payment_method != Payment.MethodChoices.LIQPAY:
+            raise PaymentError("Payment provider does not match LiqPay.")
 
-        response_order_id = str(
-            payload.get("order_id") or ""
-        )
+        response_order_id = str(payload.get("order_id") or "")
 
-        if (
-            response_order_id
-            and response_order_id != provider_order_id
-        ):
-            raise PaymentError(
-                "LiqPay order_id does not match payment attempt."
-            )
+        if response_order_id and response_order_id != provider_order_id:
+            raise PaymentError("LiqPay order_id does not match payment attempt.")
 
-        response_public_key = payload.get(
-            "public_key"
-        )
+        response_public_key = payload.get("public_key")
 
-        if (
-            response_public_key
-            and response_public_key
-            != cls._liqpay_public_key()
-        ):
-            raise PaymentError(
-                "LiqPay public_key does not match."
-            )
+        if response_public_key and response_public_key != cls._liqpay_public_key():
+            raise PaymentError("LiqPay public_key does not match.")
 
         response_version = payload.get("version")
 
@@ -301,89 +226,57 @@ class WebhookService(PaymentBaseService):
             try:
                 version = int(response_version)
             except (TypeError, ValueError) as exc:
-                raise PaymentError(
-                    "Invalid LiqPay API version."
-                ) from exc
+                raise PaymentError("Invalid LiqPay API version.") from exc
 
             if version != cls._liqpay_api_version():
-                raise PaymentError(
-                    "LiqPay API version does not match."
-                )
+                raise PaymentError("LiqPay API version does not match.")
 
         # Status API normally returns payment amount/currency.
         # Validate them whenever LiqPay included them.
         if payload.get("amount") is not None:
             try:
-                provider_amount = cls._decimal_money(
-                    Decimal(str(payload["amount"]))
-                )
+                provider_amount = cls._decimal_money(Decimal(str(payload["amount"])))
             except (
                 InvalidOperation,
                 TypeError,
                 ValueError,
             ) as exc:
-                raise PaymentError(
-                    "Invalid LiqPay payment amount."
-                ) from exc
+                raise PaymentError("Invalid LiqPay payment amount.") from exc
 
-            expected_amount = cls._decimal_money(
-                payment.amount
-            )
+            expected_amount = cls._decimal_money(payment.amount)
 
             if provider_amount != expected_amount:
-                raise PaymentError(
-                    "LiqPay payment amount does not match."
-                )
+                raise PaymentError("LiqPay payment amount does not match.")
 
         if payload.get("currency"):
-            provider_currency = str(
-                payload["currency"]
-            ).upper()
+            provider_currency = str(payload["currency"]).upper()
 
             if provider_currency != payment.currency.upper():
-                raise PaymentError(
-                    "LiqPay payment currency does not match."
-                )
+                raise PaymentError("LiqPay payment currency does not match.")
 
         attempt.provider_status = provider_status
 
         if payload.get("payment_id") is not None:
-            attempt.provider_payment_id = str(
-                payload["payment_id"]
-            )
+            attempt.provider_payment_id = str(payload["payment_id"])
 
         if payload.get("transaction_id") is not None:
-            attempt.provider_transaction_id = str(
-                payload["transaction_id"]
-            )
+            attempt.provider_transaction_id = str(payload["transaction_id"])
 
         attempt.metadata = {
             **(attempt.metadata or {}),
-            "last_liqpay_status_sync": (
-                timezone.now().isoformat()
-            ),
+            "last_liqpay_status_sync": (timezone.now().isoformat()),
             "liqpay_action": payload.get("action"),
             "liqpay_paytype": payload.get("paytype"),
-            "liqpay_order_id": payload.get(
-                "liqpay_order_id"
-            ),
+            "liqpay_order_id": payload.get("liqpay_order_id"),
         }
 
-        is_sandbox_success = (
-            provider_status == "sandbox"
-            and cls._liqpay_public_key().startswith(
-                "sandbox_"
-            )
+        is_sandbox_success = provider_status == "sandbox" and cls._liqpay_public_key().startswith(
+            "sandbox_"
         )
 
         # SUCCESS
-        if (
-            provider_status == "success"
-            or is_sandbox_success
-        ):
-            attempt.status = (
-                Payment.StatusChoices.SUCCEEDED
-            )
+        if provider_status == "success" or is_sandbox_success:
+            attempt.status = Payment.StatusChoices.SUCCEEDED
 
             if attempt.processed_at is None:
                 attempt.processed_at = timezone.now()
@@ -402,10 +295,7 @@ class WebhookService(PaymentBaseService):
 
             # Never turn an already-refunded payment
             # back into succeeded.
-            if (
-                payment.status
-                != Payment.StatusChoices.REFUNDED
-            ):
+            if payment.status != Payment.StatusChoices.REFUNDED:
                 payment = cls._complete_successful_payment(
                     payment,
                     record_attempt=False,
@@ -439,10 +329,7 @@ class WebhookService(PaymentBaseService):
                 Payment.StatusChoices.SUCCEEDED,
                 Payment.StatusChoices.REFUNDED,
             }:
-                payment.mark_as_failed(
-                    "LiqPay payment finished with "
-                    f"status: {provider_status}."
-                )
+                payment.mark_as_failed(f"LiqPay payment finished with status: {provider_status}.")
 
                 if payment.installment_id:
                     payment.installment.mark_as_failed()
@@ -451,9 +338,7 @@ class WebhookService(PaymentBaseService):
 
         # REVERSED
         if provider_status == "reversed":
-            attempt.status = (
-                Payment.StatusChoices.CANCELED
-            )
+            attempt.status = Payment.StatusChoices.CANCELED
 
             if attempt.processed_at is None:
                 attempt.processed_at = timezone.now()
@@ -476,16 +361,12 @@ class WebhookService(PaymentBaseService):
                 Payment.StatusChoices.SUCCEEDED,
                 Payment.StatusChoices.REFUNDED,
             }:
-                payment.mark_as_canceled(
-                    "LiqPay payment was reversed."
-                )
+                payment.mark_as_canceled("LiqPay payment was reversed.")
 
             return payment, provider_status
 
         # Any non-final provider state.
-        attempt.status = (
-            Payment.StatusChoices.PROCESSING
-        )
+        attempt.status = Payment.StatusChoices.PROCESSING
 
         attempt.save(
             update_fields=[
@@ -506,46 +387,29 @@ class WebhookService(PaymentBaseService):
         *,
         payment: Payment,
     ) -> tuple[Payment, str]:
-        if (
-            payment.payment_method
-            != Payment.MethodChoices.LIQPAY
-        ):
-            raise PaymentError(
-                "This payment is not a LiqPay payment."
-            )
+        if payment.payment_method != Payment.MethodChoices.LIQPAY:
+            raise PaymentError("This payment is not a LiqPay payment.")
 
         attempt = (
-            payment.attempts
-            .filter(
+            payment.attempts.filter(
                 provider=Payment.MethodChoices.LIQPAY,
             )
-            .exclude(
-                provider_order_id=""
-            )
+            .exclude(provider_order_id="")
             .order_by("-created_at")
             .first()
         )
 
         if attempt is None:
-            raise PaymentError(
-                "LiqPay payment attempt was not found."
-            )
+            raise PaymentError("LiqPay payment attempt was not found.")
 
         # IMPORTANT:
         # network call happens OUTSIDE DB transaction/row lock.
-        payload = cls._liqpay_get_payment_status(
-            provider_order_id=(
-                attempt.provider_order_id
-            )
-        )
+        payload = cls._liqpay_get_payment_status(provider_order_id=(attempt.provider_order_id))
 
         return cls._apply_liqpay_payment_status(
-            provider_order_id=(
-                attempt.provider_order_id
-            ),
+            provider_order_id=(attempt.provider_order_id),
             payload=payload,
         )
-
 
     @classmethod
     @transaction.atomic
@@ -581,7 +445,9 @@ class WebhookService(PaymentBaseService):
 
             if webhook_event.event_type == "account.updated":
                 account = webhook_event.data["data"]["object"]
-                payout = TeacherPayoutAccount.objects.filter(provider_account_id=account["id"]).first()
+                payout = TeacherPayoutAccount.objects.filter(
+                    provider_account_id=account["id"]
+                ).first()
                 if payout:
                     cls.sync_account(payout, account)
                 webhook_event.mark_as_processed()
@@ -612,7 +478,7 @@ class WebhookService(PaymentBaseService):
             customer_id=customer_id,
         )
         TeacherFinanceService.ensure_payment_earning(payment)
-        
+
         if charge_id and payment.stripe_charge_id != charge_id:
             payment.stripe_charge_id = charge_id
             payment.save(update_fields=["stripe_charge_id", "updated_at"])
@@ -675,9 +541,13 @@ class WebhookService(PaymentBaseService):
             payment = Payment.objects.select_for_update().filter(pk=payment_id).first()
 
         if payment is None:
-            payment = Payment.objects.select_for_update().filter(
-                stripe_payment_intent_id=payment_intent["id"],
-            ).first()
+            payment = (
+                Payment.objects.select_for_update()
+                .filter(
+                    stripe_payment_intent_id=payment_intent["id"],
+                )
+                .first()
+            )
 
         if payment is None:
             return None
@@ -703,9 +573,13 @@ class WebhookService(PaymentBaseService):
             payment = Payment.objects.select_related("installment").filter(pk=payment_id).first()
 
         if payment is None:
-            payment = Payment.objects.select_related("installment").filter(
-                stripe_payment_intent_id=payment_intent["id"],
-            ).first()
+            payment = (
+                Payment.objects.select_related("installment")
+                .filter(
+                    stripe_payment_intent_id=payment_intent["id"],
+                )
+                .first()
+            )
 
         if payment and payment.status != Payment.StatusChoices.SUCCEEDED:
             payment.mark_as_failed("Stripe PaymentIntent failed.")
@@ -714,9 +588,9 @@ class WebhookService(PaymentBaseService):
             PaymentAttempt.objects.create(
                 payment=payment,
                 status=Payment.StatusChoices.FAILED,
-            error_message="Stripe PaymentIntent failed.",
-            metadata={"stripe_payment_intent_id": payment_intent["id"]},
-        )
+                error_message="Stripe PaymentIntent failed.",
+                metadata={"stripe_payment_intent_id": payment_intent["id"]},
+            )
 
     @classmethod
     def _validate_payment_intent_matches_payment(
@@ -787,9 +661,13 @@ class WebhookService(PaymentBaseService):
 
     @staticmethod
     def handle_checkout_session_expired(session: dict) -> None:
-        payment = Payment.objects.select_related("installment").filter(
-            stripe_session_id=session["id"],
-        ).first()
+        payment = (
+            Payment.objects.select_related("installment")
+            .filter(
+                stripe_session_id=session["id"],
+            )
+            .first()
+        )
         if payment and payment.status in {
             Payment.StatusChoices.PENDING,
             Payment.StatusChoices.PROCESSING,
@@ -800,9 +678,13 @@ class WebhookService(PaymentBaseService):
 
     @staticmethod
     def handle_checkout_session_failed(session: dict) -> None:
-        payment = Payment.objects.select_related("installment").filter(
-            stripe_session_id=session["id"],
-        ).first()
+        payment = (
+            Payment.objects.select_related("installment")
+            .filter(
+                stripe_session_id=session["id"],
+            )
+            .first()
+        )
         if payment and payment.status != Payment.StatusChoices.SUCCEEDED:
             payment.mark_as_failed("Stripe Checkout payment failed.")
             if payment.installment_id:
@@ -818,11 +700,13 @@ class WebhookService(PaymentBaseService):
     def _grant_enrollments(payment: Payment) -> None:
         order = payment.order if payment.order_id else None
         items = (
-            order.items.select_related("course", "cohort", "pricing_plan__delivery_format")
-            .prefetch_related("schedule_slots")
+            order.items.select_related(
+                "course", "cohort", "pricing_plan__delivery_format"
+            ).prefetch_related("schedule_slots")
             if order is not None
-            else payment.items.select_related("course", "cohort", "pricing_plan__delivery_format")
-            .prefetch_related("schedule_slots")
+            else payment.items.select_related(
+                "course", "cohort", "pricing_plan__delivery_format"
+            ).prefetch_related("schedule_slots")
         )
         access_order_id = order.id if order is not None else payment.id
 

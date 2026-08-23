@@ -154,9 +154,7 @@ class UserReportModerationTests(APITestCase):
             response.data["results"][0]["reported_user"]["email"],
             self.target.email,
         )
-        self.assertIsNotNone(
-            response.data["results"][0]["reported_user"]["date_joined"]
-        )
+        self.assertIsNotNone(response.data["results"][0]["reported_user"]["date_joined"])
 
     def test_claim_is_atomic_idempotent_and_creates_missing_profile(self):
         report = self._create_report()
@@ -234,9 +232,7 @@ class UserReportModerationTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn(note, mail.outbox[0].body)
 
-        official_chat = ChatRoom.objects.get(
-            direct_key=f"school_admin_{self.target.pk}"
-        )
+        official_chat = ChatRoom.objects.get(direct_key=f"school_admin_{self.target.pk}")
         self.assertEqual(official_chat.title, "School Administration")
         self.assertTrue(official_chat.is_read_only)
         self.assertTrue(
@@ -314,9 +310,7 @@ class UserReportModerationTests(APITestCase):
         self.assertEqual(self.target.status, User.StatusChoices.ACTIVE)
         self.assertEqual(report.status, UserReport.StatusChoices.RESOLVED)
         self.assertEqual(report.resolution, UserReport.ResolutionChoices.UNBLOCKED)
-        unblock_action = report.actions.get(
-            action=UserReportAction.ActionChoices.UNBLOCKED
-        )
+        unblock_action = report.actions.get(action=UserReportAction.ActionChoices.UNBLOCKED)
         self.assertEqual(unblock_action.actor_id, self.moderator.pk)
         self.assertEqual(
             unblock_action.previous_status,
@@ -434,9 +428,7 @@ class UserReportModerationTests(APITestCase):
         self.assertEqual(action.action, UserReportAction.ActionChoices.ESCALATED)
         self.assertIsNone(action.actor)
         self.assertEqual(action.actor_role, "system")
-        recipients = set(
-            Notification.objects.values_list("recipient_id", flat=True)
-        )
+        recipients = set(Notification.objects.values_list("recipient_id", flat=True))
         self.assertEqual(recipients, {self.admin.pk, second_admin.pk})
         for notification in Notification.objects.all():
             self.assertEqual(notification.link_url, "/admin/reports")
@@ -536,9 +528,7 @@ class UserReportModerationTests(APITestCase):
         )
         self.client.force_authenticate(self.admin)
         self.assertEqual(
-            self.client.get(reverse("user-report-moderation-escalated")).data[
-                "count"
-            ],
+            self.client.get(reverse("user-report-moderation-escalated")).data["count"],
             0,
         )
 

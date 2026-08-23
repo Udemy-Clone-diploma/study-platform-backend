@@ -14,29 +14,31 @@ class ScheduleOverride(models.Model):
     """
 
     class Status(models.TextChoices):
-        CANCELLED   = "cancelled",   "Cancelled"
+        CANCELLED = "cancelled", "Cancelled"
         RESCHEDULED = "rescheduled", "Rescheduled"
 
     slot = models.ForeignKey(
         ScheduleSlot,
         on_delete=models.CASCADE,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="overrides",
     )
     schedule = models.ForeignKey(
         CohortSchedule,
         on_delete=models.CASCADE,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="overrides",
     )
 
-    original_date  = models.DateField()
-    status         = models.CharField(max_length=20, choices=Status.choices)
+    original_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices)
 
-    new_date       = models.DateField(null=True, blank=True)
+    new_date = models.DateField(null=True, blank=True)
     new_start_time = models.TimeField(null=True, blank=True)
-    new_end_time   = models.TimeField(null=True, blank=True)
-    meeting_link   = models.URLField(null=True, blank=True)
+    new_end_time = models.TimeField(null=True, blank=True)
+    meeting_link = models.URLField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -34,7 +34,9 @@ class TeacherApplication(models.Model):
 
     # Workflow.
     status = models.CharField(
-        max_length=20, choices=StatusChoices.choices, default=StatusChoices.PENDING,
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.PENDING,
     )
     moderator_profile = models.ForeignKey(
         ModeratorProfile,

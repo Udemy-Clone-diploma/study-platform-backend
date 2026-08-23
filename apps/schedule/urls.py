@@ -46,7 +46,6 @@ urlpatterns = [
         CohortScheduleDetailView.as_view(),
         name="cohort-schedules-detail",
     ),
-
     path(
         "courses/<slug:slug>/delivery-formats/<int:format_id>/schedule-slots/",
         ScheduleSlotListCreateView.as_view(),
@@ -77,7 +76,6 @@ urlpatterns = [
         EnrollmentPeriodView.as_view(),
         name="enrollment-period",
     ),
-
     path(
         "courses/<slug:slug>/cohorts/<int:cohort_id>/session-dates/",
         CohortSessionDatesView.as_view(),
@@ -88,7 +86,6 @@ urlpatterns = [
         CohortAttendanceView.as_view(),
         name="cohort-attendance",
     ),
-
     path(
         "courses/<slug:slug>/individual-enrollments/",
         IndividualEnrollmentListView.as_view(),
@@ -104,7 +101,6 @@ urlpatterns = [
         IndividualAttendanceView.as_view(),
         name="enrollment-attendance",
     ),
-
     path(
         "teacher/unavailability/",
         TeacherUnavailabilityListCreateView.as_view(),
@@ -115,16 +111,41 @@ urlpatterns = [
         TeacherUnavailabilityDetailView.as_view(),
         name="teacher-unavailability-detail",
     ),
-
     path("calendar/", CalendarView.as_view(), name="calendar"),
-    path("calendar/events/extra/",                           ExtraSessionView.as_view(),            name="extra-session-create"),
-    path("calendar/events/personal/conflicts/",              PersonalEventConflictView.as_view(),   name="personal-event-conflicts"),
-    path("calendar/events/personal/",                        PersonalEventView.as_view(),           name="personal-event-create"),
-    path("calendar/events/personal/<int:pk>/invite/",        EventInviteView.as_view(),             name="personal-event-invite"),
-    path("calendar/events/personal/<int:pk>/invitations/",   EventInvitationStatusView.as_view(),   name="personal-event-invitations"),
-    path("calendar/events/personal/<int:pk>/participants/",  EventParticipantsView.as_view(),       name="personal-event-participants"),
-    path("calendar/events/personal/<int:pk>/",               PersonalEventDetailView.as_view(),     name="personal-event-detail"),
-    path("calendar/events/<str:event_id>/",                  CalendarEventUpdateView.as_view(),     name="calendar-event-update"),
-    path("calendar/invitations/",                            InvitationListView.as_view(),          name="invitation-list"),
-    path("calendar/invitations/<int:pk>/",                   InvitationRespondView.as_view(),       name="invitation-respond"),
+    path("calendar/events/extra/", ExtraSessionView.as_view(), name="extra-session-create"),
+    path(
+        "calendar/events/personal/conflicts/",
+        PersonalEventConflictView.as_view(),
+        name="personal-event-conflicts",
+    ),
+    path("calendar/events/personal/", PersonalEventView.as_view(), name="personal-event-create"),
+    path(
+        "calendar/events/personal/<int:pk>/invite/",
+        EventInviteView.as_view(),
+        name="personal-event-invite",
+    ),
+    path(
+        "calendar/events/personal/<int:pk>/invitations/",
+        EventInvitationStatusView.as_view(),
+        name="personal-event-invitations",
+    ),
+    path(
+        "calendar/events/personal/<int:pk>/participants/",
+        EventParticipantsView.as_view(),
+        name="personal-event-participants",
+    ),
+    path(
+        "calendar/events/personal/<int:pk>/",
+        PersonalEventDetailView.as_view(),
+        name="personal-event-detail",
+    ),
+    path(
+        "calendar/events/<str:event_id>/",
+        CalendarEventUpdateView.as_view(),
+        name="calendar-event-update",
+    ),
+    path("calendar/invitations/", InvitationListView.as_view(), name="invitation-list"),
+    path(
+        "calendar/invitations/<int:pk>/", InvitationRespondView.as_view(), name="invitation-respond"
+    ),
 ]

@@ -14,7 +14,11 @@ class CanCreateArticle(BasePermission):
             user
             and user.is_authenticated
             and user.role
-            in (User.RoleChoices.TEACHER, User.RoleChoices.MODERATOR, User.RoleChoices.ADMINISTRATOR)
+            in (
+                User.RoleChoices.TEACHER,
+                User.RoleChoices.MODERATOR,
+                User.RoleChoices.ADMINISTRATOR,
+            )
         )
 
 

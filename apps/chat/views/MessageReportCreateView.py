@@ -24,13 +24,8 @@ class MessageReportCreateView(APIView):
             message_queryset_for_user(request.user),
             pk=message_id,
         )
-        if (
-            message.chat.is_read_only
-            or message.message_type == Message.TypeChoices.SYSTEM
-        ):
-            raise ValidationError(
-                "Official administration messages cannot be reported."
-            )
+        if message.chat.is_read_only or message.message_type == Message.TypeChoices.SYSTEM:
+            raise ValidationError("Official administration messages cannot be reported.")
         if message.sender_id == request.user.pk:
             raise ValidationError("You cannot report your own message.")
         if message.is_deleted:

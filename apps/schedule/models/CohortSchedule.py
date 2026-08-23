@@ -13,22 +13,22 @@ class CohortSchedule(models.Model):
     """
 
     class DayOfWeek(models.IntegerChoices):
-        MONDAY    = 0, "Monday"
-        TUESDAY   = 1, "Tuesday"
+        MONDAY = 0, "Monday"
+        TUESDAY = 1, "Tuesday"
         WEDNESDAY = 2, "Wednesday"
-        THURSDAY  = 3, "Thursday"
-        FRIDAY    = 4, "Friday"
-        SATURDAY  = 5, "Saturday"
-        SUNDAY    = 6, "Sunday"
+        THURSDAY = 3, "Thursday"
+        FRIDAY = 4, "Friday"
+        SATURDAY = 5, "Saturday"
+        SUNDAY = 6, "Sunday"
 
     cohort = models.ForeignKey(
         "courses.Cohort",
         on_delete=models.CASCADE,
         related_name="schedules",
     )
-    day_of_week  = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
-    start_time   = models.TimeField()
-    end_time     = models.TimeField()
+    day_of_week = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -46,7 +46,7 @@ class CohortSchedule(models.Model):
             try:
                 old = CohortSchedule.objects.get(pk=self.pk)
                 time_changed = old.start_time != self.start_time or old.end_time != self.end_time
-                day_changed  = old.day_of_week != self.day_of_week
+                day_changed = old.day_of_week != self.day_of_week
             except CohortSchedule.DoesNotExist:
                 time_changed = day_changed = False
         else:
@@ -56,6 +56,7 @@ class CohortSchedule(models.Model):
 
         if time_changed or day_changed:
             from apps.schedule.models.Session import Session
+
             today = date.today()
             future = Session.objects.filter(
                 schedule=self,
@@ -70,7 +71,4 @@ class CohortSchedule(models.Model):
 
     def __str__(self):
         day = self.get_day_of_week_display()
-        return (
-            f"{self.cohort} – {day} "
-            f"{self.start_time:%H:%M}–{self.end_time:%H:%M}"
-        )
+        return f"{self.cohort} – {day} {self.start_time:%H:%M}–{self.end_time:%H:%M}"

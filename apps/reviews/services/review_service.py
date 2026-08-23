@@ -57,7 +57,10 @@ class ReviewService:
 
         try:
             return Review.objects.create(
-                course=course, student=user, rating=rating, text=text,
+                course=course,
+                student=user,
+                rating=rating,
+                text=text,
             )
         except IntegrityError as exc:
             raise ReviewAlreadyExistsError from exc
@@ -106,12 +109,20 @@ class ReviewService:
     @classmethod
     def get_unassigned_reported_queryset(cls) -> QuerySet[Review]:
         """The shared pool: reported reviews no moderator has claimed yet."""
-        return cls.get_reported_queryset().filter(moderator_profile__isnull=True).order_by("created_at")
+        return (
+            cls.get_reported_queryset()
+            .filter(moderator_profile__isnull=True)
+            .order_by("created_at")
+        )
 
     @classmethod
     def get_my_reported_queryset(cls, moderator_profile) -> QuerySet[Review]:
         """Reported reviews the given moderator has claimed, at any resolution status."""
-        return cls.get_reported_queryset().filter(moderator_profile=moderator_profile).order_by("-created_at")
+        return (
+            cls.get_reported_queryset()
+            .filter(moderator_profile=moderator_profile)
+            .order_by("-created_at")
+        )
 
     @classmethod
     @transaction.atomic

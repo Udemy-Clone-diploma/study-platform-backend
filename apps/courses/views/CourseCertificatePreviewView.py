@@ -29,6 +29,8 @@ class CourseCertificatePreviewView(APIView):
 
         pdf = CertificateService.render_preview_pdf(course)
         response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="certificate-preview-{course.slug}.pdf"'
+        response["Content-Disposition"] = (
+            f'inline; filename="certificate-preview-{course.slug}.pdf"'
+        )
         response["Content-Length"] = str(len(pdf))
         return response

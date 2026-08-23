@@ -313,10 +313,6 @@ class PublicCourseResponseCacheTests(APITestCase):
         )
 
         response = self.client.get(reverse("categories-list"))
-        category = next(
-            item
-            for item in response.data["results"]
-            if item["id"] == self.category.id
-        )
+        category = next(item for item in response.data["results"] if item["id"] == self.category.id)
 
         self.assertEqual(category["courses_count"], 1)

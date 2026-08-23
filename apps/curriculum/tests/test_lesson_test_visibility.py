@@ -31,7 +31,9 @@ class LessonTestVisibilityTests(APITestCase):
     def setUpTestData(cls):
         cls.owner_user, cls.owner = make_teacher(email="vis_owner@example.com")
         cls.course = make_course(
-            cls.owner, slug="vis-course", status=Course.StatusChoices.PUBLISHED,
+            cls.owner,
+            slug="vis-course",
+            status=Course.StatusChoices.PUBLISHED,
         )
         cls.module = make_module(cls.course)
         cls.locked_lesson = make_lesson(cls.module, order=1, is_preview=False)
@@ -49,7 +51,6 @@ class LessonTestVisibilityTests(APITestCase):
         items = response.data["items"]
         test_item = next(i for i in items if i["item_type"] == "test")
         return test_item["test"]
-
 
     def test_enrolled_student_does_not_receive_answer_fields(self):
         student_user, profile = make_student(email="vis_student@example.com")
@@ -79,17 +80,18 @@ class LessonTestVisibilityTests(APITestCase):
         for q in self._test_item(response)["questions"]:
             self.assertNotIn("correct_indices", q)
 
-
     def test_owner_teacher_receives_answer_fields(self):
         self.client.force_authenticate(self.owner_user)
         response = self.client.get(self._url(self.locked_lesson))
         single = next(
-            q for q in self._test_item(response)["questions"]
+            q
+            for q in self._test_item(response)["questions"]
             if q["question_type"] == "single_choice"
         )
         self.assertEqual(single["correct_indices"], [1])
         short = next(
-            q for q in self._test_item(response)["questions"]
+            q
+            for q in self._test_item(response)["questions"]
             if q["question_type"] == "short_answer"
         )
         self.assertEqual(short["sample_answer"], "Paris")
@@ -97,28 +99,25 @@ class LessonTestVisibilityTests(APITestCase):
 
     def test_admin_receives_answer_fields(self):
         admin = User.objects.create_user(
-            email="vis_admin@example.com", password="pass12345",
+            email="vis_admin@example.com",
+            password="pass12345",
             role=User.RoleChoices.ADMINISTRATOR,
         )
         self.client.force_authenticate(admin)
         response = self.client.get(self._url(self.locked_lesson))
         for q in self._test_item(response)["questions"]:
             self.assertIn("question_type", q)
-        self.assertTrue(
-            any("correct_indices" in q for q in self._test_item(response)["questions"])
-        )
+        self.assertTrue(any("correct_indices" in q for q in self._test_item(response)["questions"]))
 
     def test_moderator_receives_answer_fields(self):
         moderator = User.objects.create_user(
-            email="vis_mod@example.com", password="pass12345",
+            email="vis_mod@example.com",
+            password="pass12345",
             role=User.RoleChoices.MODERATOR,
         )
         self.client.force_authenticate(moderator)
         response = self.client.get(self._url(self.locked_lesson))
-        self.assertTrue(
-            any("correct_bool" in q for q in self._test_item(response)["questions"])
-        )
-
+        self.assertTrue(any("correct_bool" in q for q in self._test_item(response)["questions"]))
 
     def test_enrolled_student_gets_attempt_status_enrichment(self):
         student_user, profile = make_student(email="vis_enrich@example.com")
@@ -142,7 +141,9 @@ class LessonTestVisibilityTests(APITestCase):
     def test_zero_question_test_is_not_attemptable(self):
         empty_lesson = make_lesson(self.module, order=3, is_preview=False)
         empty_test = self.test.__class__.objects.create(
-            module=self.module, order=3, title="Empty",
+            module=self.module,
+            order=3,
+            title="Empty",
         )
         attach_test_to_lesson(empty_lesson, empty_test)
         student_user, profile = make_student(email="vis_empty@example.com")

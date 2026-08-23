@@ -21,7 +21,9 @@ class AttemptTestBase(APITestCase):
     def setUp(self):
         self.owner_user, self.owner = make_teacher(email="att_owner@example.com")
         self.course = make_course(
-            self.owner, slug="att-course", status=Course.StatusChoices.PUBLISHED,
+            self.owner,
+            slug="att-course",
+            status=Course.StatusChoices.PUBLISHED,
         )
         self.module = make_module(self.course)
         self.lesson = make_lesson(self.module)
@@ -60,7 +62,8 @@ class AttemptPermissionTests(AttemptTestBase):
         self.client.force_authenticate(self.student_user)
         response = self.client.post(
             f"/api/v1/courses/{self.course.slug}/tests/999999/attempts/",
-            {"answers": []}, format="json",
+            {"answers": []},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -118,7 +121,8 @@ class AttemptGradingTests(AttemptTestBase):
             answers = [{"question_id": questions["multi"].id, "selected_indices": selection}]
             d = self.submit(answers, test=test).data
             self.assertEqual(
-                self.by_id(d)[questions["multi"].id]["is_correct"], expected,
+                self.by_id(d)[questions["multi"].id]["is_correct"],
+                expected,
                 msg=f"selection {selection}",
             )
 
@@ -133,7 +137,8 @@ class AttemptGradingTests(AttemptTestBase):
             answers = [{"question_id": questions["short"].id, "answer_text": text}]
             d = self.submit(answers, test=test).data
             self.assertTrue(
-                self.by_id(d)[questions["short"].id]["is_correct"], msg=text,
+                self.by_id(d)[questions["short"].id]["is_correct"],
+                msg=text,
             )
 
     def test_short_answer_wrong_is_incorrect(self):
@@ -149,7 +154,9 @@ class AttemptGradingTests(AttemptTestBase):
         ]
         self.client.force_authenticate(self.student_user)
         response = self.client.post(
-            self.url(test), {"answers": answers}, format="json",
+            self.url(test),
+            {"answers": answers},
+            format="json",
         )
         self.assertEqual(response.data["score"], 50)
         self.assertTrue(response.data["passed"])
@@ -173,7 +180,10 @@ class AttemptRetakeTests(AttemptTestBase):
 
     def test_max_attempts_cap_is_enforced(self):
         test, questions = build_quiz(
-            self.module, order=2, allow_retakes=True, max_attempts=2,
+            self.module,
+            order=2,
+            allow_retakes=True,
+            max_attempts=2,
         )
         self.client.force_authenticate(self.student_user)
         body = {"answers": all_correct_answers(questions)}
@@ -190,7 +200,10 @@ class AttemptRetakeTests(AttemptTestBase):
 
     def test_unlimited_retakes_increment_attempt_number(self):
         test, questions = build_quiz(
-            self.module, order=2, allow_retakes=True, max_attempts=None,
+            self.module,
+            order=2,
+            allow_retakes=True,
+            max_attempts=None,
         )
         self.client.force_authenticate(self.student_user)
         body = {"answers": all_correct_answers(questions)}
@@ -199,9 +212,7 @@ class AttemptRetakeTests(AttemptTestBase):
             for _ in range(3)
         ]
         self.assertEqual(numbers, [1, 2, 3])
-        self.assertTrue(
-            self.client.post(self.url(test), body, format="json").data["can_retake"]
-        )
+        self.assertTrue(self.client.post(self.url(test), body, format="json").data["can_retake"])
 
 
 class AttemptHistoryTests(AttemptTestBase):
@@ -215,11 +226,14 @@ class AttemptHistoryTests(AttemptTestBase):
         response = self.client.get(self.url())
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
-            set(response.data.keys()), {"count", "next", "previous", "results"},
+            set(response.data.keys()),
+            {"count", "next", "previous", "results"},
         )
         self.assertEqual(response.data["count"], 2)
         first = response.data["results"][0]
-        self.assertEqual(set(first.keys()), {"id", "attempt_number", "score", "passed", "submitted_at"})
+        self.assertEqual(
+            set(first.keys()), {"id", "attempt_number", "score", "passed", "submitted_at"}
+        )
 
     def test_history_only_returns_own_attempts(self):
         self.submit(all_correct_answers(self.questions))
@@ -231,13 +245,12 @@ class AttemptHistoryTests(AttemptTestBase):
 
     def test_last_attempt_reflected_in_lesson_detail(self):
         from ._factories import attach_test_to_lesson
+
         attach_test_to_lesson(self.lesson, self.test)
         self.submit(all_correct_answers(self.questions))
 
         self.client.force_authenticate(self.student_user)
-        response = self.client.get(
-            f"/api/v1/courses/{self.course.slug}/lessons/{self.lesson.id}/"
-        )
+        response = self.client.get(f"/api/v1/courses/{self.course.slug}/lessons/{self.lesson.id}/")
         test_item = next(i for i in response.data["items"] if i["item_type"] == "test")
         test_obj = test_item["test"]
         self.assertEqual(test_obj["attempts_used"], 1)

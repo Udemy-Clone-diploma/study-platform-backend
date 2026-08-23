@@ -17,7 +17,8 @@ from apps.enrollments.services import ProgressService
 
 def _get_published_course(slug: str) -> Course:
     course = Course.objects.filter(
-        slug=slug, status=Course.StatusChoices.PUBLISHED,
+        slug=slug,
+        status=Course.StatusChoices.PUBLISHED,
     ).first()
     if course is None:
         raise NotFound("Course not found.")
@@ -37,7 +38,9 @@ class LessonCompletionView(APIView):
         course = _get_published_course(slug)
         try:
             payload = ProgressService.mark_lesson_complete(
-                request.user, course, lesson_id,
+                request.user,
+                course,
+                lesson_id,
             )
         except ActiveEnrollmentRequiredError:
             return Response(
@@ -67,7 +70,9 @@ class LessonCompletionView(APIView):
         course = _get_published_course(slug)
         try:
             payload = ProgressService.unmark_lesson_complete(
-                request.user, course, lesson_id,
+                request.user,
+                course,
+                lesson_id,
             )
         except ActiveEnrollmentRequiredError:
             return Response(

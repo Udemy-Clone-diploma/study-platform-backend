@@ -23,13 +23,9 @@ class ChatParticipantDetailView(APIView):
             request.user,
             chat,
         ):
-            raise PermissionDenied(
-                "Only group owners and admins can remove participants."
-            )
+            raise PermissionDenied("Only group owners and admins can remove participants.")
         if chat.type != ChatRoom.TypeChoices.GROUP:
-            raise ValidationError(
-                "Participants can only be removed from group chats."
-            )
+            raise ValidationError("Participants can only be removed from group chats.")
         participant = ChatService.remove_participant(chat, user_id)
         events.broadcast_participant_removed(chat, participant)
         return Response(status=status.HTTP_204_NO_CONTENT)
