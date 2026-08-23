@@ -40,7 +40,7 @@ class PricingPlanInline(admin.TabularInline):
 class CourseDeliveryFormatInline(admin.TabularInline):
     model = CourseDeliveryFormat
     extra = 0
-    fields = ("format_type", "start_type", "access_duration_days", "start_date", "enrollment_deadline", "max_students")
+    fields = ("format_type", "start_type", "access_duration_days", "start_date", "max_students")
     show_change_link = True
 
 
@@ -68,7 +68,7 @@ class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(CourseDeliveryFormat)
 class CourseDeliveryFormatAdmin(admin.ModelAdmin):
-    list_display = ("course", "format_type", "start_date", "enrollment_deadline")
+    list_display = ("course", "format_type", "start_date")
     list_filter = ("format_type",)
     search_fields = ("course__title", "course__slug")
     list_select_related = ("course",)
