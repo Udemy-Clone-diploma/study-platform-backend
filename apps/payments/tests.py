@@ -313,7 +313,7 @@ class TeacherFinanceTests(APITestCase):
             gross_amount=Decimal("100.00"),
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
-            currency="UAH",
+            currency="USD",
             payment_method=(
                 Payment.MethodChoices.LIQPAY
             ),
@@ -329,7 +329,7 @@ class TeacherFinanceTests(APITestCase):
             teacher=self.teacher_profile,
             destination=self.payout_destination,
             amount=Decimal("50.00"),
-            currency="UAH",
+            currency="USD",
             idempotency_key=(
                 "moderator-execute-payout"
             ),
@@ -368,7 +368,7 @@ class TeacherFinanceTests(APITestCase):
 
         balance = PaymentService.balance(
             teacher=self.teacher_profile,
-            currency="UAH",
+            currency="USD",
         )
 
         self.assertEqual(
@@ -2855,7 +2855,7 @@ class TeacherFinanceTests(APITestCase):
             gross_amount=Decimal("100.00"),
             platform_fee_amount=Decimal("20.00"),
             teacher_amount=Decimal("80.00"),
-            currency="UAH",
+            currency="USD",
             payment_method=(
                 Payment.MethodChoices.LIQPAY
             ),
