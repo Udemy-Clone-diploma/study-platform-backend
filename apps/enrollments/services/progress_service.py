@@ -145,7 +145,7 @@ class ProgressService:
     @classmethod
     def get_test_stats(cls, user: User, course: Course) -> dict:
         """
-        Informational only — does NOT affect course completion """
+        Informational only: does NOT affect course completion """
         enrollment = cls.get_active_enrollment(user, course)
         return cls._test_stats_for_enrollment(enrollment, course)
 
@@ -186,7 +186,7 @@ class ProgressService:
     @classmethod
     def get_homework_stats(cls, user: User, course: Course) -> dict:
         """
-        Informational only — does NOT affect course completion. Homework only
+        Informational only: does NOT affect course completion. Homework only
         makes sense for a specific enrollment taught with a teacher  """
         enrollment = cls.get_active_enrollment(user, course)
         return cls._homework_stats_for_enrollment(enrollment)

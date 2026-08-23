@@ -10,7 +10,7 @@ from apps.enrollments.models import CourseCompletion
 
 @extend_schema(tags=["Notes"])
 class NoteListView(generics.ListAPIView):
-    """GET /notes/ — every lesson note the current user has written, across all courses."""
+    """GET /notes/: every lesson note the current user has written, across all courses."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = NoteListItemSerializer

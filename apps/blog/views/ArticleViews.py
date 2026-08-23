@@ -38,7 +38,7 @@ def _moderator_profile(user):
 
 @extend_schema(tags=["Blog"])
 class ArticleListCreateView(ListCreateAPIView):
-    """GET /blog/articles/ — public/own/moderation article listing. POST creates a draft.
+    """GET /blog/articles/: public/own/moderation article listing. POST creates a draft.
 
     Query params: category=<slug>, mine=true (own articles, any status),
     status=<draft|review|rejected|published|archived> (staff-only unless combined
@@ -237,42 +237,42 @@ class _ArticleActionView(APIView):
 
 @extend_schema(tags=["Blog"])
 class ArticleSubmitReviewView(_ArticleActionView):
-    """POST /blog/articles/{slug}/submit/ — teacher submits a draft/rejected article for moderation."""
+    """POST /blog/articles/{slug}/submit/: teacher submits a draft/rejected article for moderation."""
 
     service_method_name = "submit_for_review"
 
 
 @extend_schema(tags=["Blog"])
 class ArticlePublishView(_ArticleActionView):
-    """POST /blog/articles/{slug}/publish/ — moderator/admin publishes their own draft directly."""
+    """POST /blog/articles/{slug}/publish/: moderator/admin publishes their own draft directly."""
 
     service_method_name = "publish_own_article"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleWithdrawView(_ArticleActionView):
-    """POST /blog/articles/{slug}/withdraw/ — author pulls a review/published article back to draft."""
+    """POST /blog/articles/{slug}/withdraw/: author pulls a review/published article back to draft."""
 
     service_method_name = "withdraw_to_draft"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleArchiveView(_ArticleActionView):
-    """POST /blog/articles/{slug}/archive/ — shelve a published article (or, for staff, any article)."""
+    """POST /blog/articles/{slug}/archive/: shelve a published article (or, for staff, any article)."""
 
     service_method_name = "archive_article"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleRestoreView(_ArticleActionView):
-    """POST /blog/articles/{slug}/restore/ — bring an archived article back to draft."""
+    """POST /blog/articles/{slug}/restore/: bring an archived article back to draft."""
 
     service_method_name = "restore_from_archive"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleAssignModeratorView(APIView):
-    """POST /blog/articles/{slug}/assign-moderator/ — claim an under-review article from the shared queue."""
+    """POST /blog/articles/{slug}/assign-moderator/: claim an under-review article from the shared queue."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -289,7 +289,7 @@ class ArticleAssignModeratorView(APIView):
 
 @extend_schema(tags=["Blog"])
 class ArticleApproveView(APIView):
-    """POST /blog/articles/{slug}/approve/ — publish an article the requester is assigned to review."""
+    """POST /blog/articles/{slug}/approve/: publish an article the requester is assigned to review."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -306,7 +306,7 @@ class ArticleApproveView(APIView):
 
 @extend_schema(tags=["Blog"])
 class ArticleRejectView(APIView):
-    """POST /blog/articles/{slug}/reject/ — return an article under review with a comment."""
+    """POST /blog/articles/{slug}/reject/: return an article under review with a comment."""
 
     permission_classes = [IsAdminOrModerator]
 

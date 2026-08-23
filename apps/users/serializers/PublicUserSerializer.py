@@ -6,7 +6,6 @@ from .PublicModeratorProfileSerializer import PublicModeratorProfileSerializer
 from .PublicStudentProfileSerializer import PublicStudentProfileSerializer
 from .PublicTeacherProfileSerializer import PublicTeacherProfileSerializer
 
-
 PUBLIC_PROFILE_SERIALIZERS = {
     User.RoleChoices.STUDENT: PublicStudentProfileSerializer,
     User.RoleChoices.TEACHER: PublicTeacherProfileSerializer,

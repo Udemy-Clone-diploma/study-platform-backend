@@ -38,7 +38,7 @@ class LessonItemService:
 
         # The (lesson, order) unique constraint is checked per-statement (not
         # deferrable), so writing final positions directly can collide with
-        # whatever currently holds that slot -- stage through an out-of-range
+        # whatever currently holds that slot, so stage through an out-of-range
         # offset first, then assign final positions.
         offset = len(item_ids)
         for item in items:

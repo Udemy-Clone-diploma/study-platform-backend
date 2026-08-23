@@ -112,7 +112,7 @@ class EmailService:
         """The one email sent after a teacher application is approved.
 
         A single link both confirms the email and lets the teacher set their
-        own password — no generated password is ever emailed.
+        own password, no generated password is ever emailed.
         """
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = teacher_invitation_token.make_token(user)

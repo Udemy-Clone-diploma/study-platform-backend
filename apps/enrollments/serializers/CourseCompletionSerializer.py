@@ -29,7 +29,7 @@ class CourseCompletionSerializer(serializers.ModelSerializer):
         return obj.course.slug if obj.course_id else None
 
     def get_duration_hours(self, obj) -> int | None:
-        # Not snapshotted at completion time -- read live from the course, so
+        # Not snapshotted at completion time, read live from the course, so
         # null if it was later hard-deleted (course is nullable, see model).
         return obj.course.duration_hours if obj.course_id else None
 

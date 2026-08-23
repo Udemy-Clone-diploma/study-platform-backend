@@ -12,7 +12,7 @@ from ._course_scoped import ensure_can_modify_course, get_course_for_request
 
 @extend_schema(tags=["Courses"])
 class CourseCertificatePreviewView(APIView):
-    """Live certificate preview for the course owner (teacher) or an admin --
+    """Live certificate preview for the course owner (teacher) or an admin,
     always rendered from the course's current data, never persisted."""
 
     permission_classes = [IsAuthenticated]

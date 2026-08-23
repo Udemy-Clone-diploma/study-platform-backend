@@ -220,7 +220,6 @@ class CertificateRegistryService:
         certificate.save(update_fields=["is_public", "updated_at"])
         return certificate
 
-    # ── internals ────────────────────────────────────────────────────────
 
     @staticmethod
     def _student_profile(student_user):

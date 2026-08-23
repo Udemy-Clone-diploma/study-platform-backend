@@ -14,7 +14,6 @@ from apps.users.models import TeacherProfile, UserReport
 from apps.users.tests._factories import make_user
 from apps.users.views.PublicUserProfileView import PublicUserProfileView
 
-
 TEST_CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

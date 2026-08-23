@@ -7,7 +7,6 @@ from channels.layers import get_channel_layer
 from apps.chat.models import ChatParticipant, ChatRoom, Message
 from apps.chat.serializers import ChatMessageSerializer, ChatRoomSerializer
 
-
 logger = logging.getLogger(__name__)
 
 

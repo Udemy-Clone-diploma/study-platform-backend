@@ -12,7 +12,7 @@ from apps.certificates.services import CertificateRegistryService
 
 @extend_schema(tags=["Certificates"])
 class CertificateVerifyView(APIView):
-    """GET /certificates/verify/<lookup>/ -- public certificate check.
+    """GET /certificates/verify/<lookup>/: public certificate check.
 
     Unauthenticated by design: this is what an employer hits. Throttled per IP
     because it takes a short identifier and answers truthfully, which without a

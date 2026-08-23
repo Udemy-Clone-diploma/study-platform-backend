@@ -1565,7 +1565,7 @@ class OrderViewSet(
 
 @extend_schema(tags=["Orders"])
 class TeacherOrdersView(APIView):
-    """GET /orders/teacher/ -- one row per (student, course) purchase across
+    """GET /orders/teacher/: one row per (student, course) purchase across
     the teacher's own courses, for the teacher dashboard Payments table."""
 
     permission_classes = [IsAuthenticated]
@@ -1659,7 +1659,7 @@ class TeacherOrdersView(APIView):
 
 @extend_schema(tags=["Orders"])
 class TeacherOrderInvoiceView(APIView):
-    """GET /orders/teacher/<order_id>/invoice/ -- download the invoice PDF for
+    """GET /orders/teacher/<order_id>/invoice/: download the invoice PDF for
     an order that includes one of the requesting teacher's courses."""
 
     permission_classes = [IsAuthenticated]

@@ -33,7 +33,6 @@ class CourseDeliveryFormat(models.Model):
     )
     format_type = models.CharField(max_length=20, choices=FormatType.choices)
 
-    # --- self_paced fields ---
     start_type = models.CharField(
         max_length=10, choices=StartType.choices,
         null=True, blank=True,
@@ -42,7 +41,6 @@ class CourseDeliveryFormat(models.Model):
     # 0 = lifetime access; null = not configured yet
     access_duration_days = models.PositiveIntegerField(null=True, blank=True)
 
-    # --- scheduled / group fields ---
     start_date = models.DateField(null=True, blank=True)
     enrollment_deadline = models.DateField(null=True, blank=True)
     unlock_mode = models.CharField(
@@ -50,7 +48,6 @@ class CourseDeliveryFormat(models.Model):
         null=True, blank=True,
     )
 
-    # --- individual fields ---
     # max concurrent students the teacher accepts under this format
     max_students = models.PositiveSmallIntegerField(null=True, blank=True)
 

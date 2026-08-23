@@ -23,7 +23,7 @@ class TeacherInvitationTokenGenerator(DjangoPasswordResetTokenGenerator):
     """Single-use link sent after a teacher application is approved.
 
     Completing it (setting a password) also confirms the email, so the hash
-    bakes in both `password` and `is_email_verified` — either changing
+    bakes in both `password` and `is_email_verified`, either changing
     invalidates the link.
     """
 

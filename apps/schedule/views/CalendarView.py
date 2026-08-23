@@ -19,8 +19,6 @@ from apps.schedule.services import ScheduleNotificationService
 from apps.users.models import User
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
 def _teacher_unavailable_on(teacher_profile, event_date: date, start_time, end_time) -> bool:
     """Return True if any unavailability block covers the given date and time window."""
     time_q = Q(start_time__lt=end_time) & Q(end_time__gt=start_time)
@@ -95,7 +93,6 @@ def _period_active_on(start_date, duration_months: int | None, event_date: date)
     return True
 
 
-# ── Event builders ─────────────────────────────────────────────────────────────
 
 def _build_session_event(session: Session, *, slot=None, sched=None, student=None, is_available=None) -> dict:
     if slot:
@@ -171,7 +168,6 @@ def _build_personal_event(
     }
 
 
-# ── Bulk session loader ────────────────────────────────────────────────────────
 
 def _get_or_create_sessions(
     slots, cohort_schedules, week_start: date, week_end: date
@@ -224,7 +220,6 @@ def _load_replacement_sessions(
     return [s for s in qs if s.id not in built_ids]
 
 
-# ── Views ──────────────────────────────────────────────────────────────────────
 
 @extend_schema(
     tags=["Calendar"],
@@ -382,7 +377,7 @@ class CalendarView(APIView):
         # Excludes finished courses: a completed group enrollment's cohort
         # session should stop appearing for that student even though other
         # (still-studying) cohort members keep meeting. Individual slots don't
-        # need this -- completion already frees `ScheduleSlot.booked_by`
+        # need this because completion already frees `ScheduleSlot.booked_by`
         # (apps/enrollments/signals.py:course_completion_created).
         active_enrollments = Enrollment.objects.with_active_access().exclude_completed().filter(
             student_profile=user.student_profile,
@@ -506,7 +501,6 @@ class CalendarView(APIView):
         return events
 
 
-# ── Personal Event CRUD ────────────────────────────────────────────────────────
 
 def _check_personal_event_conflicts(user, ev_date, start_t, end_t, exclude_event_id=None):
     time_q = Q(start_time__lt=end_t) & Q(end_time__gt=start_t)
@@ -565,7 +559,7 @@ def _check_personal_event_conflicts(user, ev_date, start_t, end_t, exclude_event
 
 @extend_schema(tags=["Calendar"])
 class PersonalEventView(APIView):
-    """POST /calendar/events/personal/ — create a personal event."""
+    """POST /calendar/events/personal/: create a personal event."""
 
     permission_classes = [IsAuthenticated]
 
@@ -827,11 +821,10 @@ class PersonalEventConflictView(APIView):
         return Response({"sessions": session_list, "personal_events": personal_list})
 
 
-# ── Extra sessions (manually created by teacher) ──────────────────────────────
 
 @extend_schema(tags=["Calendar"])
 class ExtraSessionView(APIView):
-    """POST /calendar/events/extra/ — teacher creates an extra lesson outside the main schedule."""
+    """POST /calendar/events/extra/: teacher creates an extra lesson outside the main schedule."""
 
     permission_classes = [IsAuthenticated]
 
@@ -902,11 +895,10 @@ class ExtraSessionView(APIView):
         return Response({"status": "created", "id": f"session_{session.id}"}, status=201)
 
 
-# ── Invitations ────────────────────────────────────────────────────────────────
 
 @extend_schema(tags=["Calendar"])
 class EventInviteView(APIView):
-    """POST /calendar/events/personal/{id}/invite/ — invite a user by email."""
+    """POST /calendar/events/personal/{id}/invite/: invite a user by email."""
 
     permission_classes = [IsAuthenticated]
 
@@ -943,7 +935,7 @@ class EventInviteView(APIView):
 
 @extend_schema(tags=["Calendar"])
 class InvitationListView(APIView):
-    """GET /calendar/invitations/ — pending + declined invitations for the authenticated user."""
+    """GET /calendar/invitations/: pending + declined invitations for the authenticated user."""
 
     permission_classes = [IsAuthenticated]
 
@@ -994,7 +986,7 @@ class InvitationListView(APIView):
 
 @extend_schema(tags=["Calendar"])
 class InvitationRespondView(APIView):
-    """PATCH /calendar/invitations/{id}/ — accept or decline."""
+    """PATCH /calendar/invitations/{id}/: accept or decline."""
 
     permission_classes = [IsAuthenticated]
 
@@ -1038,7 +1030,7 @@ class InvitationRespondView(APIView):
 
 @extend_schema(tags=["Calendar"])
 class EventInvitationStatusView(APIView):
-    """GET /calendar/events/personal/{id}/invitations/ — list for event organizer."""
+    """GET /calendar/events/personal/{id}/invitations/: list for event organizer."""
 
     permission_classes = [IsAuthenticated]
 
@@ -1065,7 +1057,7 @@ class EventInvitationStatusView(APIView):
 
 @extend_schema(tags=["Calendar"])
 class EventParticipantsView(APIView):
-    """GET /calendar/events/personal/{id}/participants/ — accessible to owner and any invitee."""
+    """GET /calendar/events/personal/{id}/participants/: accessible to owner and any invitee."""
 
     permission_classes = [IsAuthenticated]
 
@@ -1121,15 +1113,14 @@ class EventParticipantsView(APIView):
         return Response({"my_invite": my_invite, "participants": participants})
 
 
-# ── Session / Calendar Event update ───────────────────────────────────────────
 
 @extend_schema(tags=["Calendar"])
 class CalendarEventUpdateView(APIView):
     """
     PATCH /calendar/events/{event_id}/
     event_id formats:
-      session_{id}  — update a Session (cancel / reschedule / update_link / update_lesson)
-      personal_{id} — handled by PersonalEventDetailView
+      session_{id}, update a Session (cancel / reschedule / update_link / update_lesson)
+      personal_{id}, handled by PersonalEventDetailView
     """
 
     permission_classes = [IsAuthenticated]

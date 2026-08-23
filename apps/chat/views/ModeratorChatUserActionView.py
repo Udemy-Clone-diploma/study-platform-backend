@@ -22,6 +22,7 @@ from apps.chat.services import ChatService
 from apps.notifications.services import NotificationService
 from apps.users.models import User
 
+
 @extend_schema(tags=["Chat"])
 class ModeratorChatUserActionView(APIView):
     permission_classes = [IsAuthenticated]

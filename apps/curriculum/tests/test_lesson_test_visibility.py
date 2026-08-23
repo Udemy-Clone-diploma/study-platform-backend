@@ -50,7 +50,6 @@ class LessonTestVisibilityTests(APITestCase):
         test_item = next(i for i in items if i["item_type"] == "test")
         return test_item["test"]
 
-    # --- answer hiding ----------------------------------------------------
 
     def test_enrolled_student_does_not_receive_answer_fields(self):
         student_user, profile = make_student(email="vis_student@example.com")
@@ -80,7 +79,6 @@ class LessonTestVisibilityTests(APITestCase):
         for q in self._test_item(response)["questions"]:
             self.assertNotIn("correct_indices", q)
 
-    # --- authors keep the answer key --------------------------------------
 
     def test_owner_teacher_receives_answer_fields(self):
         self.client.force_authenticate(self.owner_user)
@@ -121,7 +119,6 @@ class LessonTestVisibilityTests(APITestCase):
             any("correct_bool" in q for q in self._test_item(response)["questions"])
         )
 
-    # --- attempt-status enrichment ----------------------------------------
 
     def test_enrolled_student_gets_attempt_status_enrichment(self):
         student_user, profile = make_student(email="vis_enrich@example.com")

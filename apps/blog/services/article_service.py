@@ -137,7 +137,7 @@ class ArticleService:
 
     @classmethod
     def delete_article(cls, article: Article, user: User) -> None:
-        # Staff can archive any article (see archive_article) but only ever delete their own --
+        # Staff can archive any article (see archive_article) but only ever delete their own:
         # deleting someone else's work outright isn't a moderation action, just archiving is.
         if article.author_id != user.id:
             raise BlogError("Only the article's author can delete it. Staff can archive it instead.")
@@ -161,7 +161,7 @@ class ArticleService:
     @classmethod
     def _create_snapshot(cls, article: Article, moderator_profile, decision: str, comment: str = "") -> None:
         """Freezes the article's current display fields into a permanent moderation
-        record -- see ArticleModerationSnapshot for why this exists instead of relying
+        record, see ArticleModerationSnapshot for why this exists instead of relying
         on the live Article row (which keeps mutating after the decision)."""
         snapshot = ArticleModerationSnapshot(
             article=article,

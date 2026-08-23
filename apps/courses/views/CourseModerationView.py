@@ -12,7 +12,7 @@ from apps.users.permissions import IsAdminOrModerator
 
 @extend_schema(tags=["Courses"])
 class SaveReviewDraftView(APIView):
-    """POST /courses/{slug}/save-review-draft/ — persist moderator review progress without changing course status."""
+    """POST /courses/{slug}/save-review-draft/: persist moderator review progress without changing course status."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -35,7 +35,7 @@ class SaveReviewDraftView(APIView):
 
 @extend_schema(tags=["Courses"])
 class CourseApproveView(APIView):
-    """POST /courses/{slug}/approve/ — publish a course that is awaiting review."""
+    """POST /courses/{slug}/approve/: publish a course that is awaiting review."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -52,7 +52,7 @@ class CourseApproveView(APIView):
 
 @extend_schema(tags=["Courses"])
 class CourseAssignModeratorView(APIView):
-    """POST /courses/{slug}/assign-moderator/ — assign the current moderator to a course."""
+    """POST /courses/{slug}/assign-moderator/: assign the current moderator to a course."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -62,7 +62,7 @@ class CourseAssignModeratorView(APIView):
             CourseService.assign_moderator_self(course, _moderator_profile(request.user))
         except CoursesError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
-        # The frontend discards the response body -- avoid re-serializing the
+        # The frontend discards the response body, so avoid re-serializing the
         # full course tree (with moderator-only image/video hashing) just to
         # throw it away.
         return Response({"detail": "Moderator assigned."})
@@ -70,7 +70,7 @@ class CourseAssignModeratorView(APIView):
 
 @extend_schema(tags=["Courses"])
 class CourseRejectView(APIView):
-    """POST /courses/{slug}/reject/ — return a course for revision with an optional comment."""
+    """POST /courses/{slug}/reject/: return a course for revision with an optional comment."""
 
     permission_classes = [IsAdminOrModerator]
 

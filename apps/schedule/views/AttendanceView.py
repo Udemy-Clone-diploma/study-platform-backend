@@ -26,7 +26,6 @@ def _get_course_and_check(view, slug: str) -> Course:
     return course
 
 
-# ── GROUP ─────────────────────────────────────────────────────────────────────
 
 @extend_schema(tags=["Attendance"])
 class CohortSessionDatesView(GenericAPIView):
@@ -95,7 +94,7 @@ class CohortAttendanceView(GenericAPIView):
                 for a in Attendance.objects.filter(session=session, enrollment_id__in=enrollment_ids)
             }
 
-        # Monthly and all-time attendance — four queries total, no N+1
+        # Monthly and all-time attendance, four queries total, no N+1
         now   = timezone.now()
         today = now.date()
 
@@ -173,7 +172,6 @@ class CohortAttendanceView(GenericAPIView):
         return Response({"enrollment_id": enrollment_id, "is_present": attendance.is_present})
 
 
-# ── INDIVIDUAL ────────────────────────────────────────────────────────────────
 
 @extend_schema(tags=["Attendance"])
 class IndividualEnrollmentListView(GenericAPIView):

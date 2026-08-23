@@ -44,10 +44,10 @@ def _get_pending_edit(course: Course) -> CoursePendingEdit:
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditView(APIView):
     """
-    GET  /courses/{slug}/pending-edit/  — read (or auto-create) the pending edit;
+    GET  /courses/{slug}/pending-edit/: read (or auto-create) the pending edit;
          resolves to a hidden draft_course whose slug the teacher edits directly
          via the normal course/module/lesson/etc. CRUD endpoints.
-    DELETE /courses/{slug}/pending-edit/ — discard all changes (course stays published).
+    DELETE /courses/{slug}/pending-edit/: discard all changes (course stays published).
     """
 
     permission_classes = [IsTeacherOrAdmin]
@@ -75,7 +75,7 @@ class CoursePendingEditView(APIView):
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditSubmitView(APIView):
-    """POST /courses/{slug}/pending-edit/submit/ — submit for moderation."""
+    """POST /courses/{slug}/pending-edit/submit/: submit for moderation."""
 
     permission_classes = [IsTeacherOrAdmin]
 
@@ -95,7 +95,7 @@ class CoursePendingEditSubmitView(APIView):
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditWithdrawView(APIView):
-    """POST /courses/{slug}/pending-edit/withdraw/ — pull back from moderation (edits kept)."""
+    """POST /courses/{slug}/pending-edit/withdraw/: pull back from moderation (edits kept)."""
 
     permission_classes = [IsTeacherOrAdmin]
 
@@ -115,7 +115,7 @@ class CoursePendingEditWithdrawView(APIView):
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditApproveView(APIView):
-    """POST /courses/{slug}/pending-edit/approve/ — apply changes to live course (moderator only)."""
+    """POST /courses/{slug}/pending-edit/approve/: apply changes to live course (moderator only)."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -128,7 +128,7 @@ class CoursePendingEditApproveView(APIView):
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditRejectView(APIView):
-    """POST /courses/{slug}/pending-edit/reject/ — return for revision with optional comment."""
+    """POST /courses/{slug}/pending-edit/reject/: return for revision with optional comment."""
 
     permission_classes = [IsAdminOrModerator]
 

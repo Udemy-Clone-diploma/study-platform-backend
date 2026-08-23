@@ -91,7 +91,7 @@ def lesson_completion_deleted(sender, instance, **kwargs):
 def course_completion_created(sender, instance: CourseCompletion, created: bool, **kwargs):
     """On finishing a course: free up any booked individual slot, cancel its
     future sessions, and notify the student. Group cohort membership and
-    upcoming group sessions are left alone -- other members still meet."""
+    upcoming group sessions are left alone: other members still meet."""
     if not created:
         return
 

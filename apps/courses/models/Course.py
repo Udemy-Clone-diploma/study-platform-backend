@@ -50,7 +50,7 @@ class Course(models.Model):
         ARCHIVED = "archived", "Archived"
         PENDING_EDIT = "pending_edit", "Pending Edit (hidden shadow draft of a published course)"
 
-    # FileField (not ImageField) because Pillow — which ImageField uses to validate — cannot
+    # FileField (not ImageField) because Pillow (which ImageField uses to validate) cannot
     # open SVGs, and the default course icons are SVGs. Extension check stands in for that.
     image = models.FileField(
         upload_to=UUIDUploadTo("courses"),
@@ -58,7 +58,7 @@ class Course(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=COURSE_IMAGE_EXTENSIONS)],
     )
-    # Cached MD5 of `image`'s bytes -- see LessonItem.video_hash for why.
+    # Cached MD5 of `image`'s bytes. See LessonItem.video_hash for why.
     image_hash = models.CharField(max_length=32, blank=True, default="")
 
     title = models.CharField(max_length=255, db_index=True)

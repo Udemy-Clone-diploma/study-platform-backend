@@ -5,9 +5,9 @@ from apps.courses.models import Category, Course, Tag
 from apps.users.models import User
 
 # Status transitions a course owner (teacher) may trigger directly via this
-# serializer (i.e. via a plain PATCH). Anything else — becoming PUBLISHED,
+# serializer (i.e. via a plain PATCH). Anything else, becoming PUBLISHED,
 # REJECTED, NEEDS_REVISION, or the internal-only PENDING_EDIT shadow-draft
-# status — only happens through the moderation service methods
+# status, only happens through the moderation service methods
 # (approve_course/reject_course/restore_rejected_course/clone_for_pending_edit),
 # which set the field directly on the model and never go through this serializer.
 _TEACHER_ALLOWED_STATUS_TRANSITIONS = {

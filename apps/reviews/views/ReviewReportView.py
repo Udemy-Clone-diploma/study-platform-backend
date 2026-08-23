@@ -16,7 +16,7 @@ class _ReviewReportSerializer(serializers.Serializer):
 
 @extend_schema(tags=["Reviews"])
 class ReviewReportView(APIView):
-    """POST /reviews/{id}/report/ — flag a review for moderator attention."""
+    """POST /reviews/{id}/report/: flag a review for moderator attention."""
 
     permission_classes = [IsAuthenticated]
 

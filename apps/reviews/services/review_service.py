@@ -73,7 +73,7 @@ class ReviewService:
             raise AlreadyReportedError from exc
 
         # A previously-approved review that gets a fresh report from someone new
-        # deserves another look -- send it back to the shared unassigned queue
+        # deserves another look, so send it back to the shared unassigned queue
         # rather than letting it sit silently under "Approved" with a rising
         # count nobody's watching. (Rejected reviews are hidden/unreportable,
         # so this only ever applies to the approved outcome.)

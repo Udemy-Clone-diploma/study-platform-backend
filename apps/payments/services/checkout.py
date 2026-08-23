@@ -1,6 +1,6 @@
 from decimal import Decimal
-from django.conf import settings
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -208,7 +208,7 @@ class CheckoutService(PaymentBaseService):
                 )
 
             configured_counts.add(plan.installment_count)
-            # final_installment_amount applies the course's current discount (if any) --
+            # final_installment_amount applies the course's current discount (if any):
             # installment_amount alone would silently ignore an active sale.
             installment_amounts_by_item[item.id] = cls._decimal_money(plan.final_installment_amount)
 

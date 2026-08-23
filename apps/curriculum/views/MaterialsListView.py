@@ -11,8 +11,8 @@ from apps.users.models import User
 
 @extend_schema(tags=["Materials"])
 class MaterialsListView(ListAPIView):
-    """GET /materials/ — every lesson with attached documents across the student's
-    enrolled courses (the "Educational materials" library). No pagination -- the
+    """GET /materials/: every lesson with attached documents across the student's
+    enrolled courses (the "Educational materials" library). No pagination, the
     page itself renders the full, month-grouped list at once."""
 
     permission_classes = [IsAuthenticated]

@@ -199,7 +199,7 @@ class EnrollmentService:
         schedule_slot_ids: list[int] | None = None,
     ) -> tuple[Enrollment, bool]:
         """Grant student access when the target (or, if unspecified, the
-        course's first) delivery format has a zero-price plan -- bypassing
+        course's first) delivery format has a zero-price plan, bypassing
         payment entirely but still applying that format's cohort/slot setup,
         the same as a paid checkout would (see `apply_delivery_setup`).
         Target format can be identified either by `delivery_format_id` or by
@@ -347,7 +347,7 @@ class EnrollmentService:
     def _sync_overdue_status(cls, enrollment: Enrollment) -> Enrollment:
         """Lazily suspend access the moment it's checked, if an installment
         payment on this enrollment's order is overdue. There's no scheduler
-        involved -- the check runs exactly when a student tries to open the
+        involved, the check runs exactly when a student tries to open the
         course, so there's never a window where access is overdue but not yet
         blocked (the trade-off a periodic job would have)."""
         if enrollment.access_status != Enrollment.AccessStatusChoices.ACTIVE:

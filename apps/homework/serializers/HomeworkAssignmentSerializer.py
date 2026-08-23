@@ -14,7 +14,6 @@ from apps.homework.models import (
 )
 from apps.users.models import StudentProfile
 
-
 MAX_HOMEWORK_ATTACHMENT_BYTES = 25 * 1024 * 1024
 HOMEWORK_SCORE_MIN = 1
 HOMEWORK_SCORE_MAX = 5

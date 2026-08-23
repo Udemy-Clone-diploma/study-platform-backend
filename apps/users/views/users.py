@@ -28,7 +28,7 @@ from apps.users.services.user_service import UserService
 
 @extend_schema(tags=["Users"])
 class UserSearchView(APIView):
-    """GET /users/search/?email=... — find users to invite to personal events.
+    """GET /users/search/ finds users to invite to personal events.
 
     Not the admin user search: the admin Users table filters via
     GET /users/?search= instead.

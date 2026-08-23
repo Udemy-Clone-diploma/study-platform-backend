@@ -7,7 +7,7 @@ repeatedly will not duplicate rows.
     python manage.py seed_blog --cover-image /path/to/cover.png
 
 Requires at least one teacher/moderator/administrator user to already exist
-(e.g. via `python manage.py seed`) -- authors are picked at random from them.
+(e.g. via `python manage.py seed`), authors are picked at random from them.
 """
 
 import random
@@ -120,7 +120,7 @@ BLOG_TOPICS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# Real first-person narratives for Student Stories, keyed by slugify(name) — everything else
+# Real first-person narratives for Student Stories, keyed by slugify(name), everything else
 # in the category uses LOREM, but these are meant to read as actual student journeys.
 STUDENT_STORY_BODIES: dict[str, list[str]] = {
     "priya-sharma": [

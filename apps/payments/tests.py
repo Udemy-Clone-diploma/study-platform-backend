@@ -6240,7 +6240,7 @@ class LiqPayRefundTests(APITestCase):
 
 class OverdueInstallmentTests(APITestCase):
     """Access is suspended lazily, the moment it's checked (course page /
-    lesson open -- both go through EnrollmentService.student_has_course_access /
+    lesson open, both go through EnrollmentService.student_has_course_access /
     get_access_status), not by any scheduled job."""
 
     def setUp(self):

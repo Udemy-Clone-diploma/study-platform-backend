@@ -31,7 +31,6 @@ from apps.schedule.views import (
 )
 
 urlpatterns = [
-    # ── Cohort schedules ───────────────────────────────────────────────────────
     path(
         "courses/<slug:slug>/cohorts/<int:cohort_id>/schedules/",
         CohortScheduleListCreateView.as_view(),
@@ -48,7 +47,6 @@ urlpatterns = [
         name="cohort-schedules-detail",
     ),
 
-    # ── Individual schedule slots ──────────────────────────────────────────────
     path(
         "courses/<slug:slug>/delivery-formats/<int:format_id>/schedule-slots/",
         ScheduleSlotListCreateView.as_view(),
@@ -80,7 +78,6 @@ urlpatterns = [
         name="enrollment-period",
     ),
 
-    # ── Attendance ────────────────────────────────────────────────────────────
     path(
         "courses/<slug:slug>/cohorts/<int:cohort_id>/session-dates/",
         CohortSessionDatesView.as_view(),
@@ -92,7 +89,6 @@ urlpatterns = [
         name="cohort-attendance",
     ),
 
-    # ── Individual attendance ─────────────────────────────────────────────────
     path(
         "courses/<slug:slug>/individual-enrollments/",
         IndividualEnrollmentListView.as_view(),
@@ -109,7 +105,6 @@ urlpatterns = [
         name="enrollment-attendance",
     ),
 
-    # ── Teacher unavailability ─────────────────────────────────────────────────
     path(
         "teacher/unavailability/",
         TeacherUnavailabilityListCreateView.as_view(),
@@ -121,7 +116,6 @@ urlpatterns = [
         name="teacher-unavailability-detail",
     ),
 
-    # ── Calendar ───────────────────────────────────────────────────────────────
     path("calendar/", CalendarView.as_view(), name="calendar"),
     path("calendar/events/extra/",                           ExtraSessionView.as_view(),            name="extra-session-create"),
     path("calendar/events/personal/conflicts/",              PersonalEventConflictView.as_view(),   name="personal-event-conflicts"),

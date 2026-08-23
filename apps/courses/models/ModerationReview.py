@@ -18,17 +18,17 @@ class ModerationReview(models.Model):
         blank=True,
         related_name="moderation_reviews",
     )
-    # Step 1 — Basics
+    # Step 1: Basics
     basics_field_statuses = models.JSONField(default=dict, blank=True)
     basics_action = models.CharField(max_length=20, blank=True, default="")
     basics_comment = models.TextField(blank=True, default="")
 
-    # Step 2 — Content
+    # Step 2: Content
     content_item_statuses = models.JSONField(default=dict, blank=True)
     content_action = models.CharField(max_length=20, blank=True, default="")
     content_comment = models.TextField(blank=True, default="")
 
-    # Step 3 — Review & Publish
+    # Step 3: Review & Publish
     final_action = models.CharField(max_length=20, blank=True, default="")
     final_comment = models.TextField(blank=True, default="")
 

@@ -19,7 +19,7 @@ def _moderator_profile(user):
 @extend_schema(tags=["Users"])
 class TeacherApplicationModerationViewSet(viewsets.ReadOnlyModelViewSet):
     """GET /teacher-applications/ and /teacher-applications/{id}/, plus the
-    approve/cancel actions — the moderator-facing queue for applications
+    approve/cancel actions, the moderator-facing queue for applications
     submitted through the public "register as teacher" form."""
 
     queryset = TeacherApplication.objects.select_related("moderator_profile__user").prefetch_related("directions")

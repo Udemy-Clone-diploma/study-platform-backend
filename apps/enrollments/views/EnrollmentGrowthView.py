@@ -45,7 +45,7 @@ def _bucket_enrollment_counts(qs, period: str) -> tuple[list[dict], int]:
 
 @extend_schema(tags=["Enrollments"])
 class EnrollmentGrowthView(APIView):
-    """GET /enrollments/growth/ — new-enrollment count over time, for the teacher dashboard "Growth" widget."""
+    """GET /enrollments/growth/: new-enrollment count over time, for the teacher dashboard "Growth" widget."""
 
     permission_classes = [IsAuthenticated]
 
@@ -57,7 +57,7 @@ class EnrollmentGrowthView(APIView):
         if user.role != User.RoleChoices.TEACHER:
             return Response({"total": 0, "points": [], "courses": []})
 
-        # `courses` stays unfiltered regardless of `course_slug` -- it feeds the
+        # `courses` stays unfiltered regardless of `course_slug`, it feeds the
         # dropdown's full option list, not the chart data itself.
         courses = Course.objects.filter(teacher_profile=user.teacher_profile)
         enrollments = Enrollment.objects.filter(course__teacher_profile__user_id=user.id)

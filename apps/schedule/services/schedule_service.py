@@ -22,7 +22,6 @@ from apps.users.models import TeacherProfile
 
 
 class ScheduleService:
-       # ── Conflict checker ───────────────────────────────────────────────
 
     @staticmethod
     def _time_overlap_filter(start_time, end_time) -> Q:
@@ -270,7 +269,6 @@ class ScheduleService:
 
         return result
 
-    # ── ScheduleSlot (individual) ──────────────────────────────────────
 
     @classmethod
     @transaction.atomic
@@ -378,7 +376,6 @@ class ScheduleService:
         slot.save(update_fields=["booked_by"])
         return slot
 
-    # ── CohortSchedule (group) ─────────────────────────────────────────
 
     @classmethod
     @transaction.atomic
@@ -437,7 +434,6 @@ class ScheduleService:
         cohort_schedule.save()
         return cohort_schedule
 
-    # ── TeacherUnavailability ──────────────────────────────────────────
 
     @classmethod
     @transaction.atomic
@@ -558,11 +554,10 @@ class ScheduleService:
         unavailability.save()
         return unavailability
 
-    # ── Read helpers ───────────────────────────────────────────────────
 
     @staticmethod
     def get_available_slots(delivery_format: CourseDeliveryFormat):
-        """Return only unbooked slots — shown to prospective buyers."""
+        """Return only unbooked slots, shown to prospective buyers."""
         return ScheduleSlot.objects.filter(
             delivery_format=delivery_format,
             booked_by__isnull=True,

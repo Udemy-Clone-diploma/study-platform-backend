@@ -19,7 +19,7 @@ def _moderator_profile(user):
 
 @extend_schema(tags=["Reviews"])
 class ReviewsUnassignedModerationView(ListAPIView):
-    """GET /reviews/moderation/unassigned/ — reported reviews no moderator has claimed yet."""
+    """GET /reviews/moderation/unassigned/: reported reviews no moderator has claimed yet."""
 
     serializer_class = ModeratorReviewSerializer
     permission_classes = [IsAdminOrModerator]
@@ -30,7 +30,7 @@ class ReviewsUnassignedModerationView(ListAPIView):
 
 @extend_schema(tags=["Reviews"])
 class ReviewsMyModerationView(ListAPIView):
-    """GET /reviews/moderation/mine/ — reported reviews claimed by the current moderator."""
+    """GET /reviews/moderation/mine/: reported reviews claimed by the current moderator."""
 
     serializer_class = ModeratorReviewSerializer
     permission_classes = [IsAdminOrModerator]
@@ -41,7 +41,7 @@ class ReviewsMyModerationView(ListAPIView):
 
 @extend_schema(tags=["Reviews"])
 class ReviewAssignModeratorView(APIView):
-    """POST /reviews/{id}/assign-moderator/ — claim a reported review for moderation."""
+    """POST /reviews/{id}/assign-moderator/: claim a reported review for moderation."""
 
     permission_classes = [IsAuthenticated, IsAdminOrModerator]
 
@@ -58,7 +58,7 @@ class ReviewAssignModeratorView(APIView):
 
 @extend_schema(tags=["Reviews"])
 class ReviewApproveView(APIView):
-    """POST /reviews/{id}/approve/ — dismiss the reports; the review stays live."""
+    """POST /reviews/{id}/approve/: dismiss the reports; the review stays live."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -73,7 +73,7 @@ class ReviewApproveView(APIView):
 
 @extend_schema(tags=["Reviews"])
 class ReviewRejectView(APIView):
-    """POST /reviews/{id}/reject/ — uphold the reports; hide the review from public view."""
+    """POST /reviews/{id}/reject/: uphold the reports; hide the review from public view."""
 
     permission_classes = [IsAdminOrModerator]
 

@@ -14,7 +14,7 @@ class Certificate(models.Model):
     Split out of `CourseCompletion` because it outlives it: it can be issued by
     hand with no completion behind it, re-issued after a correction, and
     revoked, and a third party has to be able to verify it long afterwards.
-    Deliberately has no delete endpoint -- it records something asserted to an
+    Deliberately has no delete endpoint, it records something asserted to an
     employer, so the registry must still answer for it years later.
     """
 

@@ -108,7 +108,7 @@ class CourseViewSet(
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)
         # DjangoFilterBackend's OrderingFilter does a plain order_by("-min_price"),
-        # which on Postgres defaults to NULLS FIRST for descending order -- courses
+        # which on Postgres defaults to NULLS FIRST for descending order, so courses
         # with no pricing plan (min_price is NULL) would sort as if they were the
         # most expensive. Force NULLS LAST in both directions so unpriced courses
         # always sort to the end instead.

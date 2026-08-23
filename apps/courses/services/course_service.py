@@ -121,7 +121,7 @@ class CourseService:
     def delivery_formats_prefetch() -> Prefetch:
         """Prefetch for Course.delivery_formats with the active-enrollment and
         completed-enrollment counts pre-annotated (see CourseDeliveryFormatSerializer
-        .get_enrolled_count/get_completed_count) -- without this, retrieving a course
+        .get_enrolled_count/get_completed_count), without this, retrieving a course
         fires one or two COUNT(*) queries per delivery format."""
         completed_subquery = (
             Enrollment.objects.filter(
@@ -340,7 +340,7 @@ class CourseService:
             setattr(course, attr, value)
 
         # Leaving the moderation pipeline back to draft/archived (withdraw, archive)
-        # releases whichever moderator was assigned — resubmitting later should land
+        # releases whichever moderator was assigned, resubmitting later should land
         # back in the unassigned pool, not stay privately assigned to whoever had it
         # before. (Re-submitting straight from needs_revision keeps the moderator,
         # since continuing with the same reviewer for a resubmission is desired.)
@@ -811,8 +811,8 @@ class CourseService:
 
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
-        # with_visible_access (not with_active_access) so a suspended course --
-        # overdue installment -- stays listed instead of vanishing from "my
+        # with_visible_access (not with_active_access) so a suspended course
+        # (overdue installment) stays listed instead of vanishing from "my
         # courses"; enrollment_access_status lets the frontend show why.
         visible_enrollments = Enrollment.objects.with_visible_access().filter(
             student_profile=student_profile,

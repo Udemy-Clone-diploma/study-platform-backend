@@ -273,7 +273,7 @@ class AuthService:
         """Sets the teacher's own password and activates the account.
 
         Since the link could only have reached the applicant's inbox, using
-        it also counts as confirming the email — one step does both.
+        it also counts as confirming the email, one step does both.
         """
         user = cls._resolve_user_for_teacher_invitation(uidb64, token)
         user.set_password(password)

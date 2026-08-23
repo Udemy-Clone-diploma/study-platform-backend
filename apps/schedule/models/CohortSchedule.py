@@ -7,7 +7,7 @@ class CohortSchedule(models.Model):
     """
     A fixed recurring weekly class session for a group cohort.
 
-    The schedule is stable — it does not change once set.
+    The schedule is stable: it does not change once set.
     Students can view it before purchasing to evaluate fit.
     Teacher conflict validator ensures no two sessions (of any kind) overlap.
     """

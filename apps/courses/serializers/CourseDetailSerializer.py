@@ -53,7 +53,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         return absolute_media_url(obj.image, self.context.get("request"))
 
     def get_image_hash(self, obj) -> str | None:
-        # Only the moderator review diff needs this -- gate it on role. The
+        # Only the moderator review diff needs this, so gate it on role. The
         # value is a cheap cached field (computed on save), not read here.
         request = self.context.get("request")
         if not request or not IsAdminOrModerator().has_permission(request, None):

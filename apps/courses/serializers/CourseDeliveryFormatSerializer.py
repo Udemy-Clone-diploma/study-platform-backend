@@ -49,7 +49,7 @@ class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
         ).count()
 
     def get_completed_count(self, obj) -> int:
-        # Same pre-annotation pattern as get_enrolled_count -- how many of this
+        # Same pre-annotation pattern as get_enrolled_count: how many of this
         # format's actively-enrolled students have a CourseCompletion record for
         # the course (completion threshold is teacher-defined, not always 100%
         # lesson progress, so this can't be derived from progress_percent alone).

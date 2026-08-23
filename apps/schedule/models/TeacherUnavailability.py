@@ -3,7 +3,7 @@ from django.db import models
 
 class TeacherUnavailability(models.Model):
     """
-    A time block where a teacher is unavailable — personal plans, vacation, etc.
+    A time block where a teacher is unavailable: personal plans, vacation, etc.
 
     Two recurrence types:
     - weekly: repeats every week on the given day_of_week (date is ignored).
@@ -11,7 +11,7 @@ class TeacherUnavailability(models.Model):
                 for quick conflict queries without joining).
 
     These blocks are respected by the teacher conflict validator alongside
-    ScheduleSlots and CohortSchedules — no class of any type can overlap them.
+    ScheduleSlots and CohortSchedules, no class of any type can overlap them.
     """
 
     class RecurrenceType(models.TextChoices):

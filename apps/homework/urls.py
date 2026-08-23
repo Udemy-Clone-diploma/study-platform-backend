@@ -17,7 +17,6 @@ from apps.homework.views import (
     StudentHomeworkSubmissionView,
 )
 
-
 urlpatterns = [
     path(
         "courses/<slug:slug>/homework/",

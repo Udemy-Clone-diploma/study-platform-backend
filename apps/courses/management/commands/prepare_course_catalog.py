@@ -33,7 +33,6 @@ from apps.enrollments.models import Enrollment
 from apps.reviews.models import Review
 from apps.users.models import StudentProfile, TeacherProfile, User
 
-
 CATEGORY_SPECS = {
     "design": {
         "name_en": "Design",

@@ -20,11 +20,11 @@ FONTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 FONT_REGULAR_PATH = str(FONTS_DIR / "DejaVuSans.ttf")
 FONT_BOLD_PATH = str(FONTS_DIR / "DejaVuSans-Bold.ttf")
 
-# Rendered 1:1 with the Figma artboard (1415x1985 px, ~170dpi at A4-ish size) --
+# Rendered 1:1 with the Figma artboard (1415x1985 px, ~170dpi at A4-ish size),
 # crisp enough to print, small enough to stay a lightweight download.
 CANVAS_W, CANVAS_H = 1415, 1985
 # Physical PDF page size in points (the wrapped PDF is just this raster image,
-# scaled down from px to a printable page -- independent of image resolution).
+# scaled down from px to a printable page, independent of image resolution).
 PDF_SCALE = 0.42
 PDF_W, PDF_H = CANVAS_W * PDF_SCALE, CANVAS_H * PDF_SCALE
 
@@ -106,7 +106,6 @@ class CertificateService:
             return course.category.name_en
         return ""
 
-    # ── raster rendering ────────────────────────────────────────────────
 
     @classmethod
     def _render_image(
@@ -146,7 +145,6 @@ class CertificateService:
         thumb.save(buffer, format="JPEG", quality=85)
         return buffer.getvalue()
 
-    # ── layers ───────────────────────────────────────────────────────────
 
     @staticmethod
     def _gradient_background(w: int, h: int) -> Image.Image:
@@ -201,7 +199,7 @@ class CertificateService:
     @staticmethod
     def _draw_logo_box(canvas: Image.Image) -> None:
         # Right edge pinned to the panel's inner right margin (60 + 1295 = 1355
-        # is the panel edge). No background box -- the logo's own transparency
+        # is the panel edge). No background box: the logo's own transparency
         # sits directly on the gradient/panel.
         right, top, target_h = 1295, 105, 170
 
@@ -297,7 +295,7 @@ class CertificateService:
                 sig = Image.open(signature_file.open("rb")).convert("RGBA")
                 iw, ih = sig.size
                 # Fills most of the blank gap above the line (Focus row ends well
-                # above line_top) -- a small signature reads as an afterthought.
+                # above line_top), a small signature reads as an afterthought.
                 # Sits low enough to slightly cross the line, like a real signature.
                 target_h = 220
                 target_w = min(line_w * 1.3, target_h * iw / ih)
@@ -312,7 +310,6 @@ class CertificateService:
         draw.text((center_x, line_top + 32), teacher_name, font=font, fill=BLACK, anchor="ma")
         draw.text((center_x, line_top + 32 + 24 * 1.25), "Instructor", font=font, fill=BLACK, anchor="ma")
 
-    # ── text helpers ─────────────────────────────────────────────────────
 
     @staticmethod
     def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: float) -> list[str]:

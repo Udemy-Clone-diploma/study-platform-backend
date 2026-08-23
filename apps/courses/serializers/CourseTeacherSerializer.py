@@ -20,7 +20,7 @@ class CourseTeacherSerializer(serializers.ModelSerializer):
         return absolute_media_url(obj.user.avatar, self.context.get("request"))
 
     def get_students_taught(self, obj: TeacherProfile) -> int:
-        """Distinct students with active access across every course this teacher owns —
+        """Distinct students with active access across every course this teacher owns,
         computed live so it always reflects current enrollments, not a stale stored count."""
         from apps.enrollments.models import Enrollment
 

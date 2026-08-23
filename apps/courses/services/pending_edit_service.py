@@ -54,7 +54,7 @@ def _merge_row(Model, live_parent_lookup: dict, source_id, **kwargs):
             # Explicit update_fields (rather than a bare save()) matters beyond
             # the query itself: LessonItem.save() only recomputes video_hash
             # when "video" is among the saved fields, and video isn't touched
-            # here (it's merged separately, right after) -- a bare save() would
+            # here (it's merged separately, right after), a bare save() would
             # force a full re-read+re-hash of whatever video the live row
             # already has, for every single merged item, on every approval.
             obj.save(update_fields=[*kwargs.keys(), "is_deleted", "updated_at"])
@@ -108,7 +108,7 @@ class PendingEditService:
     def withdraw(pending_edit: CoursePendingEdit) -> CoursePendingEdit:
         if pending_edit.status != CoursePendingEdit.StatusChoices.PENDING:
             raise PendingEditLockedError("Can only withdraw when pending moderation.")
-        # Release the assigned moderator too — withdrawing abandons this review
+        # Release the assigned moderator too, withdrawing abandons this review
         # cycle entirely, so resubmitting later should land back in the
         # unassigned pool rather than staying privately assigned to whoever
         # had it before (unlike needs_revision, where the same moderator
@@ -210,7 +210,7 @@ class PendingEditService:
             return pending_edit
 
         # needs_revision: keep the draft as-is so the teacher can fix and resubmit
-        # the same rows — do not re-clone, or in-progress edits would be lost.
+        # the same rows, do not re-clone, or in-progress edits would be lost.
         pending_edit.status = CoursePendingEdit.StatusChoices.NEEDS_REVISION
         pending_edit.moderator_comment = final_comment
         pending_edit.save(update_fields=["status", "moderator_comment", "updated_at"])
@@ -237,7 +237,7 @@ class PendingEditService:
         """Merge the draft course's current tree onto the live course.
 
         For each draft row: if it has a source_* pointing at a live row, that live
-        row is updated in place (same id — preserves LessonCompletion/Note/etc FKs);
+        row is updated in place (same id, preserves LessonCompletion/Note/etc FKs);
         otherwise a new live row is created. Live rows soft-deleted up front and not
         re-claimed by any draft row stay deleted (removed by the teacher in the draft).
         """

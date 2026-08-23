@@ -601,7 +601,7 @@ def _bucket_scores(qs, period: str) -> tuple[list[dict], float]:
 
 @extend_schema(tags=["Homework"])
 class HomeworkGrowthView(APIView):
-    """GET /homework/growth/ — average reviewed homework score over time, for the dashboard "Growth" widget."""
+    """GET /homework/growth/: average reviewed homework score over time, for the dashboard "Growth" widget."""
 
     permission_classes = [IsAuthenticated]
 

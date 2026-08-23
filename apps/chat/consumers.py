@@ -11,7 +11,6 @@ from apps.chat.services import ChatService
 from apps.chat.views.utils import get_chat_for_user, message_queryset_for_user
 from apps.users.models import User
 
-
 ONLINE_USER_CONNECTIONS: dict[int, int] = {}
 
 
