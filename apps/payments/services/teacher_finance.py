@@ -77,9 +77,7 @@ class TeacherFinanceService(PaymentBaseService):
                         .POSTED
                     ),
                     "amount": teacher_amount,
-                    "currency": (
-                        payment.currency.upper()
-                    ),
+                    "currency": payment.currency.upper(),
                     "payment": payment,
                     "description": (
                         f"Earning from payment "
@@ -458,9 +456,7 @@ class TeacherFinanceService(PaymentBaseService):
             Decimal(str(amount))
         )
 
-        currency = str(
-            currency
-        ).strip().upper()
+        currency = str(currency).strip().upper()
 
         idempotency_key = str(
             idempotency_key

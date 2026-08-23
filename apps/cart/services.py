@@ -10,7 +10,7 @@ from apps.cart.serializers import (
     CartItemRemoveSerializer,
     CartSerializer,
 )
-from apps.courses.models import Course, CourseDeliveryFormat, PricingPlan
+from apps.courses.models import Course, PricingPlan
 from apps.enrollments.services import EnrollmentService
 from apps.users.models import StudentProfile, User
 
@@ -65,16 +65,10 @@ class CartService:
 
     @staticmethod
     def _expire_stale_items(cart: Cart) -> None:
-        """Drop group items after either the format or cohort enrollment closes."""
+        """Drop group items after the selected cohort enrollment closes."""
         today = timezone.localdate()
         cart.items.filter(
-            Q(
-                pricing_plan__delivery_format__format_type=(
-                    CourseDeliveryFormat.FormatType.GROUP
-                ),
-                pricing_plan__delivery_format__enrollment_deadline__lt=today,
-            )
-            | Q(cohort__enrollment_deadline__lt=today)
+            Q(cohort__enrollment_deadline__lt=today)
             | Q(cohort__is_enrollment_open=False)
         ).delete()
 

@@ -5,7 +5,6 @@ from django.utils import timezone
 
 from apps.cart.models import CartItem
 from apps.courses.models import Cohort, Course, CourseDeliveryFormat, PricingPlan
-from apps.courses.services import DeliveryFormatService
 from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
@@ -96,15 +95,6 @@ class EnrollmentService:
             validated_data.get("student_profile"),
         )
         cls._validate_course_is_available(course, request_user)
-
-        delivery_format = validated_data.get("delivery_format")
-        if (
-            delivery_format
-            and delivery_format.enrollment_deadline
-            and request_user.role != User.RoleChoices.ADMINISTRATOR
-            and delivery_format.enrollment_deadline < timezone.localdate()
-        ):
-            raise CourseNotEnrollableError("Enrollment for this format has closed.")
 
         if Enrollment.objects.filter(
             student_profile=student_profile,
@@ -223,13 +213,6 @@ class EnrollmentService:
         delivery_format = plan.delivery_format
 
         if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP:
-            if not DeliveryFormatService.accepts_enrollment_on(
-                delivery_format,
-                timezone.localdate(),
-            ):
-                raise FreeEnrollmentUnavailableError(
-                    "Enrollment for this group format has closed."
-                )
             if cohort_id is None:
                 raise FreeEnrollmentUnavailableError("Select a group to join before enrolling.")
             cohort = Cohort.objects.select_for_update().filter(

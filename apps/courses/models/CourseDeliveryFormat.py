@@ -44,7 +44,6 @@ class CourseDeliveryFormat(models.Model):
 
     # --- scheduled / group fields ---
     start_date = models.DateField(null=True, blank=True)
-    enrollment_deadline = models.DateField(null=True, blank=True)
     unlock_mode = models.CharField(
         max_length=20, choices=UnlockMode.choices,
         null=True, blank=True,
