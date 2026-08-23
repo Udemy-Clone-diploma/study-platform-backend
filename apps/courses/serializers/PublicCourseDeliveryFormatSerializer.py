@@ -18,7 +18,6 @@ class PublicCourseDeliveryFormatSerializer(serializers.ModelSerializer):
             "course_start_date",
             "access_duration_days",
             "start_date",
-            "enrollment_deadline",
             "unlock_mode",
             "max_students",
             "enrolled_count",

@@ -4,7 +4,6 @@ from rest_framework import serializers
 from apps.cart.models import Cart, CartItem
 from apps.common.files import absolute_media_url
 from apps.courses.models import Cohort, Course, CourseDeliveryFormat, PricingPlan
-from apps.courses.services import DeliveryFormatService
 from apps.schedule.models import ScheduleSlot
 
 
@@ -169,17 +168,13 @@ class CartItemAddSerializer(serializers.Serializer):
 
         delivery_format = pricing_plan.delivery_format if pricing_plan is not None else None
         if (
-            delivery_format is not None
-            and delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP
+            cohort is not None
+            and (
+                delivery_format is None
+                or delivery_format.format_type
+                != CourseDeliveryFormat.FormatType.GROUP
+            )
         ):
-            if not DeliveryFormatService.accepts_enrollment_on(
-                delivery_format,
-                timezone.localdate(),
-            ):
-                raise serializers.ValidationError(
-                    {"cohort_id": "Enrollment for this group format has closed."}
-                )
-        elif cohort is not None:
             raise serializers.ValidationError(
                 {"cohort_id": "A cohort can only be selected for the group format."}
             )

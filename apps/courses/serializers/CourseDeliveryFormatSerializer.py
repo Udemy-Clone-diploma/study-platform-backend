@@ -29,7 +29,7 @@ class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
             "id", "format_type",
             "chat_id",
             "start_type", "course_start_date", "access_duration_days",
-            "start_date", "enrollment_deadline", "unlock_mode",
+            "start_date", "unlock_mode",
             "max_students", "enrolled_count", "completed_count",
             "pricing",
         ]
@@ -74,26 +74,7 @@ class CourseDeliveryFormatWriteSerializer(serializers.ModelSerializer):
         fields = [
             "format_type",
             "start_type", "course_start_date", "access_duration_days",
-            "start_date", "enrollment_deadline", "unlock_mode",
+            "start_date", "unlock_mode",
             "max_students",
             "pricing",
         ]
-
-    def validate(self, attrs):
-        format_type = attrs.get(
-            "format_type",
-            getattr(self.instance, "format_type", None),
-        )
-        if (
-            self.instance is None
-            and format_type == CourseDeliveryFormat.FormatType.GROUP
-            and attrs.get("enrollment_deadline") is None
-        ):
-            raise serializers.ValidationError(
-                {
-                    "enrollment_deadline": (
-                        "A deadline date is required when creating a group format."
-                    )
-                }
-            )
-        return attrs
