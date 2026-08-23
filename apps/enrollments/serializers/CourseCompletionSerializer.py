@@ -9,6 +9,7 @@ class CourseCompletionSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     certificate_url = serializers.SerializerMethodField()
     certificate_thumbnail_url = serializers.SerializerMethodField()
+    certificate_serial = serializers.SerializerMethodField()
     duration_hours = serializers.SerializerMethodField()
 
     class Meta:
@@ -19,6 +20,7 @@ class CourseCompletionSerializer(serializers.ModelSerializer):
             "image_url", "progress_percent", "duration_hours",
             "started_at", "completed_at",
             "final_score", "certificate_url", "certificate_thumbnail_url",
+            "certificate_serial",
             "paid_amount", "paid_currency", "purchased_at",
         ]
         read_only_fields = fields
@@ -39,6 +41,15 @@ class CourseCompletionSerializer(serializers.ModelSerializer):
 
     def get_certificate_thumbnail_url(self, obj) -> str | None:
         return absolute_media_url(obj.certificate_thumbnail, self.context.get("request"))
+
+    def get_certificate_serial(self, obj) -> str | None:
+        """The registry serial, so the dashboard can print it next to the
+        certificate. Prefetched by the view; None for a revoked certificate or
+        a completion that predates the registry backfill."""
+        certificate = next(
+            (c for c in obj.certificates.all() if c.superseded_by_id is None), None
+        )
+        return certificate.serial if certificate else None
 
     def _absolute_url(self, url: str | None) -> str | None:
         if not url:

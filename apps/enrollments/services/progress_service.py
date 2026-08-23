@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.courses.models import Course
+from apps.common.cache import invalidate_cache_on_commit
 from apps.curriculum.models import Lesson, LessonItem, Test, TestAttempt
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
@@ -17,6 +18,7 @@ from apps.enrollments.exceptions import (
     MandatoryTestNotPassedError,
 )
 from apps.enrollments.models import CourseCompletion, Enrollment, LessonCompletion
+from apps.enrollments.cache import invalidate_course_progress_for_user
 from apps.users.models import StudentProfile, User
 
 logger = logging.getLogger(__name__)
@@ -116,6 +118,11 @@ class ProgressService:
         Enrollment.objects.filter(pk=enrollment.pk).update(
             last_lesson_id=lesson.id,
             last_opened_at=timezone.now(),
+        )
+        invalidate_cache_on_commit(
+            invalidate_course_progress_for_user,
+            user.pk,
+            course.pk,
         )
 
     @classmethod
@@ -309,6 +316,12 @@ class ProgressService:
         if completion is None:
             raise CourseCompletionNotFoundError
 
+        from apps.certificates.services import CertificateRegistryService
+
+        # The PDF is about to be deleted, so a certificate still marked valid
+        # would assert something the platform no longer stands behind.
+        CertificateRegistryService.revoke_for_deleted_completion(completion)
+
         if completion.certificate_file:
             completion.certificate_file.delete(save=False)
         if completion.certificate_thumbnail:
@@ -374,9 +387,15 @@ class ProgressService:
     def _attach_certificate(cls, completion: CourseCompletion, course: Course, user: User) -> None:
         from apps.enrollments.services.certificate_service import CertificateService
 
+        from apps.certificates.services import CertificateRegistryService
+
         try:
             pdf_bytes, thumbnail_bytes = CertificateService.render_certificate_assets(
-                course=course, completion=completion, student_name=user.get_full_name(),
+                course=course,
+                student_name=user.get_full_name(),
+                course_title=completion.title,
+                teacher_name=completion.teacher_name,
+                completed_at=completion.completed_at,
             )
         except Exception:
             logger.exception("Certificate generation failed for completion %s", completion.id)
@@ -390,6 +409,10 @@ class ProgressService:
         )
         completion.certificate_url = completion.certificate_file.url
         completion.save(update_fields=["certificate_file", "certificate_thumbnail", "certificate_url"])
+
+        # Registry row, so the admin panel and the student dashboard never
+        # disagree about which certificates exist.
+        CertificateRegistryService.issue_for_completion(completion, course, user)
 
     @staticmethod
     def review_threshold(total_lessons: int) -> int:

@@ -1,7 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import ModeratorProfile, StudentProfile, TeacherProfile, User
+from .models import (
+    ModeratorProfile,
+    StudentProfile,
+    TeacherProfile,
+    User,
+    UserReport,
+    UserReportAction,
+)
 
 
 def _is_moderator_profile_user_autocomplete(request):
@@ -43,6 +50,101 @@ class UserAdmin(BaseUserAdmin):
                 moderator_profile__isnull=True,
             )
         return queryset, may_have_duplicates
+
+
+@admin.register(UserReport)
+class UserReportAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "reported_user",
+        "reporter",
+        "reason",
+        "status",
+        "resolution",
+        "assigned_moderator",
+        "created_at",
+    )
+    list_filter = ("reason", "status", "resolution")
+    search_fields = (
+        "reported_user__email",
+        "reported_user__first_name",
+        "reported_user__last_name",
+        "reporter__email",
+        "details",
+    )
+    list_select_related = (
+        "reported_user",
+        "reporter",
+        "assigned_moderator__user",
+    )
+    raw_id_fields = (
+        "reported_user",
+        "reporter",
+        "assigned_moderator",
+        "escalated_by",
+        "resolved_by",
+    )
+    readonly_fields = (
+        "reported_user",
+        "reporter",
+        "reason",
+        "details",
+        "profile_snapshot",
+        "status",
+        "resolution",
+        "assigned_moderator",
+        "assigned_at",
+        "escalated_by",
+        "escalated_at",
+        "escalation_note",
+        "resolved_by",
+        "resolved_at",
+        "resolution_note",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(UserReportAction)
+class UserReportActionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "report",
+        "action",
+        "actor",
+        "actor_role",
+        "previous_status",
+        "new_status",
+        "created_at",
+    )
+    list_filter = ("action", "actor_role")
+    search_fields = ("report__id", "actor__email", "note")
+    list_select_related = ("report", "actor")
+    readonly_fields = (
+        "report",
+        "actor",
+        "actor_role",
+        "action",
+        "previous_status",
+        "new_status",
+        "note",
+        "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(StudentProfile)

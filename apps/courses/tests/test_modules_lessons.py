@@ -115,7 +115,7 @@ class LessonsCountSignalTests(TestCase):
 
 
 class CourseDetailIncludesModulesAndLessonsTests(APITestCase):
-    """GET /courses/{slug}/ returns modules with nested non-deleted lessons in order."""
+    """Public course detail returns ordered, non-deleted lesson summaries."""
 
     @classmethod
     def setUpTestData(cls):
@@ -149,27 +149,27 @@ class CourseDetailIncludesModulesAndLessonsTests(APITestCase):
         )
 
     def test_detail_includes_modules_in_order(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         modules = response.data["modules"]
         self.assertEqual([m["title"] for m in modules], ["Intro", "Advanced"])
 
     def test_detail_excludes_soft_deleted_modules(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         titles = [m["title"] for m in response.data["modules"]]
         self.assertNotIn("Hidden Module", titles)
 
     def test_module_lessons_are_nested_and_excluded_when_deleted(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         intro = next(m for m in response.data["modules"] if m["title"] == "Intro")
         titles = [l["title"] for l in intro["lessons"]]
         self.assertEqual(titles, ["Hello", "Setup"])
 
     def test_lesson_payload_includes_duration(self):
-        response = self.client.get(reverse("courses-detail", args=[self.course.slug]))
+        response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         intro = next(m for m in response.data["modules"] if m["title"] == "Intro")
         durations = [l["duration_minutes"] for l in intro["lessons"]]

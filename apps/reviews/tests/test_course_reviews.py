@@ -1,5 +1,7 @@
 from decimal import Decimal
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -10,10 +12,12 @@ from apps.curriculum.models import Lesson, Module
 from apps.enrollments.models import Enrollment, LessonCompletion
 from apps.reviews.models import Review
 from apps.reviews.tests._factories import make_student
+from apps.reviews.views.CourseReviewsView import CourseReviewsView
 
 
 class CourseReviewsReadTests(APITestCase):
     def setUp(self):
+        cache.clear()
         _, self.teacher_profile = make_teacher(email="reviews_teacher@example.com")
         self.published = make_course(
             self.teacher_profile,
@@ -35,9 +39,50 @@ class CourseReviewsReadTests(APITestCase):
         response = self.client.get(reverse("course-reviews", args=[self.draft.slug]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_reuses_cached_paginated_response(self):
+        student, _ = make_student(email="reviews_cached_student@example.com")
+        Review.objects.create(
+            course=self.published,
+            student=student,
+            rating=5,
+            text="Cached review",
+        )
+        url = reverse("course-reviews", args=[self.published.slug])
+        first = self.client.get(url)
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+
+        with patch.object(
+            CourseReviewsView,
+            "get_queryset",
+            side_effect=AssertionError("reviews should come from cache"),
+        ):
+            second = self.client.get(url)
+
+        self.assertEqual(second.data["results"][0]["text"], "Cached review")
+        self.assertEqual(second.data["results"][0]["student"]["role"], "Student")
+
+    def test_review_change_invalidates_course_cache(self):
+        student, _ = make_student(email="reviews_changed_student@example.com")
+        review = Review.objects.create(
+            course=self.published,
+            student=student,
+            rating=4,
+            text="Before",
+        )
+        url = reverse("course-reviews", args=[self.published.slug])
+        self.client.get(url)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            review.text = "After"
+            review.save(update_fields=["text"])
+
+        response = self.client.get(url)
+        self.assertEqual(response.data["results"][0]["text"], "After")
+
 
 class CourseReviewsWriteTests(APITestCase):
     def setUp(self):
+        cache.clear()
         _, self.teacher_profile = make_teacher(email="rw_teacher@example.com")
         self.course = make_course(
             self.teacher_profile,

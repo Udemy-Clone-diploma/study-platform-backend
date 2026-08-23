@@ -21,8 +21,10 @@ class CourseListSerializer(serializers.ModelSerializer):
         read_only=True,
         allow_null=True,
     )
+    original_price = serializers.SerializerMethodField()
     currency = serializers.CharField(source="min_currency", read_only=True, allow_null=True)
     enrolled_at = serializers.DateTimeField(read_only=True, default=None)
+    enrollment_access_status = serializers.CharField(read_only=True, default=None, allow_null=True)
     students_enrolled_last_30_days = serializers.IntegerField(read_only=True, default=0)
 
     pending_edit_status = serializers.SerializerMethodField()
@@ -36,16 +38,23 @@ class CourseListSerializer(serializers.ModelSerializer):
             "id", "image", "title", "subtitle", "short_description", "slug",
             "teacher_name", "category",
             "level", "language", "mode", "delivery_type", "course_type",
-            "price", "currency", "duration_hours", "lessons_count",
-            "with_certificate", "is_on_sale",
+            "price", "original_price", "currency", "duration_hours", "lessons_count",
+            "with_certificate", "is_on_sale", "discount_percent",
             "rating_avg", "rating_count", "students_count",
             "students_enrolled_last_30_days", "status",
             "published_at", "created_at", "tags", "enrolled_at",
+            "enrollment_access_status",
             "pending_edit_status", "moderator_id",
         ]
 
     def get_image(self, obj) -> str | None:
         return absolute_media_url(obj.image, self.context.get("request"))
+
+    def get_original_price(self, obj) -> str | None:
+        original = getattr(obj, "original_min_price", None)
+        if original is None or original == obj.min_price:
+            return None
+        return f"{original:.2f}"
 
     def get_pending_edit_status(self, obj) -> str | None:
         try:

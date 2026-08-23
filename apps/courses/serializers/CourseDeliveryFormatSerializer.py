@@ -4,20 +4,30 @@ from apps.courses.models import CourseDeliveryFormat, PricingPlan
 
 
 class NestedPricingSerializer(serializers.ModelSerializer):
+    final_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    final_installment_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True, allow_null=True,
+    )
+
     class Meta:
         model = PricingPlan
-        fields = ["id", "price", "currency", "installment_count", "installment_amount"]
+        fields = [
+            "id", "price", "final_price", "currency",
+            "installment_count", "installment_amount", "final_installment_amount",
+        ]
 
 
 class CourseDeliveryFormatSerializer(serializers.ModelSerializer):
     pricing = NestedPricingSerializer(read_only=True)
     enrolled_count = serializers.SerializerMethodField()
     completed_count = serializers.SerializerMethodField()
+    chat_id = serializers.IntegerField(source="group_chat_id", read_only=True)
 
     class Meta:
         model = CourseDeliveryFormat
         fields = [
             "id", "format_type",
+            "chat_id",
             "start_type", "course_start_date", "access_duration_days",
             "start_date", "enrollment_deadline", "unlock_mode",
             "max_students", "enrolled_count", "completed_count",
@@ -68,3 +78,22 @@ class CourseDeliveryFormatWriteSerializer(serializers.ModelSerializer):
             "max_students",
             "pricing",
         ]
+
+    def validate(self, attrs):
+        format_type = attrs.get(
+            "format_type",
+            getattr(self.instance, "format_type", None),
+        )
+        if (
+            self.instance is None
+            and format_type == CourseDeliveryFormat.FormatType.GROUP
+            and attrs.get("enrollment_deadline") is None
+        ):
+            raise serializers.ValidationError(
+                {
+                    "enrollment_deadline": (
+                        "A deadline date is required when creating a group format."
+                    )
+                }
+            )
+        return attrs

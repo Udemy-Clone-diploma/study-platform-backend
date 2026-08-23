@@ -29,6 +29,25 @@ def ensure_can_modify_course(user, course: Course) -> None:
     raise PermissionDenied("Only the course owner or an admin can modify this resource.")
 
 
+def ensure_can_view_course_management(user, course: Course) -> None:
+    """Allow full course-scoped management data only to trusted course roles."""
+    if not user or not user.is_authenticated:
+        raise PermissionDenied()
+    if user.role in (
+        User.RoleChoices.ADMINISTRATOR,
+        User.RoleChoices.MODERATOR,
+    ):
+        return
+    if (
+        user.role == User.RoleChoices.TEACHER
+        and course.teacher_profile.user_id == user.id
+    ):
+        return
+    raise PermissionDenied(
+        "Only the course owner, a moderator, or an admin can view this resource."
+    )
+
+
 def _can_view_course(user, course: Course) -> bool:
     if course.status == Course.StatusChoices.PUBLISHED:
         return True

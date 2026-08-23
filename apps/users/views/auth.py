@@ -13,6 +13,7 @@ from apps.users.exceptions import (
     AccountForbiddenError,
     AuthenticationError,
     EmailNotVerifiedError,
+    GoogleAuthError,
     InvalidTokenError,
     ProfileNotAvailableError,
 )
@@ -21,6 +22,7 @@ from apps.users.models import User
 from apps.users.serializers import (
     ChangePasswordSerializer,
     EmailRequestSerializer,
+    GoogleLoginSerializer,
     LoginSerializer,
     ModeratorProfileSerializer,
     PasswordResetConfirmSerializer,
@@ -68,6 +70,28 @@ class LoginView(APIView):
         except AuthenticationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except (EmailNotVerifiedError, AccountForbiddenError) as e:
+            return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(tokens, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Auth"])
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        request=GoogleLoginSerializer,
+        responses={200: TokenPairSerializer, 401: MessageSerializer, 403: MessageSerializer},
+    )
+    def post(self, request):
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            tokens = AuthService.google_login(serializer.validated_data["id_token"])
+        except GoogleAuthError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+        except AccountForbiddenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_403_FORBIDDEN)
 
         return Response(tokens, status=status.HTTP_200_OK)
@@ -309,3 +333,77 @@ class PasswordResetValidateView(APIView):
             )
 
         return Response({"valid": True}, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Auth"])
+class TeacherInvitationValidateView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        responses={
+            200: inline_serializer("TeacherInvitationValidOkSerializer", {"valid": drf_serializers.BooleanField()}),
+            400: inline_serializer(
+                "TeacherInvitationValidErrorSerializer",
+                {"valid": drf_serializers.BooleanField(), "detail": drf_serializers.CharField()},
+            ),
+        }
+    )
+    def get(self, request, uidb64, token):
+        try:
+            AuthService.validate_teacher_invitation_token(uidb64, token)
+        except InvalidTokenError:
+            return Response(
+                {"valid": False, "detail": EmailMessages.TEACHER_INVITATION_INVALID},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"valid": True}, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Auth"])
+class TeacherInvitationResendView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "teacher_invitation_resend"
+
+    @extend_schema(request=EmailRequestSerializer, responses={200: MessageSerializer})
+    def post(self, request):
+        serializer = EmailRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        AuthService.resend_teacher_invitation_email(serializer.validated_data["email"])
+        return Response(
+            {"detail": EmailMessages.TEACHER_INVITATION_RESEND_SUCCESS},
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(tags=["Auth"])
+class TeacherInvitationConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        operation_id="auth_teacher_invitation_confirm",
+        request=PasswordResetConfirmSerializer,
+        responses={200: MessageSerializer, 400: MessageSerializer},
+    )
+    def post(self, request, uidb64, token):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            AuthService.confirm_teacher_invitation(
+                uidb64,
+                token,
+                serializer.validated_data["password"],
+            )
+        except InvalidTokenError:
+            return Response(
+                {"detail": EmailMessages.TEACHER_INVITATION_INVALID},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"detail": EmailMessages.TEACHER_INVITATION_SUCCESS},
+            status=status.HTTP_200_OK,
+        )

@@ -12,6 +12,8 @@ from .NoteSerializer import NoteSerializer
 from .QuestionCreateUpdateSerializer import QuestionCreateUpdateSerializer
 from .QuestionSerializer import QuestionSerializer
 from .QuestionStudentSerializer import QuestionStudentSerializer
+from .PublicCourseLessonSerializer import PublicCourseLessonSerializer
+from .PublicCourseModuleSerializer import PublicCourseModuleSerializer
 from .TestAttemptListSerializer import TestAttemptListSerializer
 from .TestAttemptResultSerializer import TestAttemptResultSerializer
 from .TestCreateUpdateSerializer import TestCreateUpdateSerializer
@@ -32,6 +34,8 @@ __all__ = [
     "QuestionCreateUpdateSerializer",
     "QuestionSerializer",
     "QuestionStudentSerializer",
+    "PublicCourseLessonSerializer",
+    "PublicCourseModuleSerializer",
     "TestAttemptListSerializer",
     "TestAttemptResultSerializer",
     "TestCreateUpdateSerializer",

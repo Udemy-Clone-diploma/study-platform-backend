@@ -14,20 +14,10 @@ from apps.chat.services import ChatService
 from apps.common.files import absolute_media_url
 from apps.users.models import User
 
-
-class ChatUserSerializer(serializers.ModelSerializer):
-    name = serializers.SerializerMethodField()
-    avatar = serializers.SerializerMethodField()
-
-    class Meta:
-        model = User
-        fields = ["id", "name", "first_name", "last_name", "email", "role", "avatar"]
-
-    def get_name(self, obj) -> str:
-        return obj.get_full_name() or obj.email
-
-    def get_avatar(self, obj) -> str | None:
-        return absolute_media_url(obj.avatar, self.context.get("request"))
+from .chat_user_serializers import (
+    ModerationChatUserSerializer,
+    PublicChatUserSerializer,
+)
 
 
 class ChatMessageAttachmentSerializer(serializers.ModelSerializer):
@@ -42,7 +32,7 @@ class ChatMessageAttachmentSerializer(serializers.ModelSerializer):
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):
-    sender = ChatUserSerializer(read_only=True)
+    sender = PublicChatUserSerializer(read_only=True)
     attachments = ChatMessageAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
@@ -77,7 +67,7 @@ class MessageReportCreateSerializer(serializers.ModelSerializer):
 
 
 class MessageReportSerializer(serializers.ModelSerializer):
-    reporter = ChatUserSerializer(read_only=True)
+    reporter = ModerationChatUserSerializer(read_only=True)
     sender = serializers.SerializerMethodField()
     chat = serializers.SerializerMethodField()
     reason_label = serializers.CharField(source="get_reason_display", read_only=True)
@@ -95,7 +85,10 @@ class MessageReportSerializer(serializers.ModelSerializer):
     def get_sender(self, obj):
         if obj.message.sender is None:
             return None
-        return ChatUserSerializer(obj.message.sender, context=self.context).data
+        return ModerationChatUserSerializer(
+            obj.message.sender,
+            context=self.context,
+        ).data
 
     def get_chat(self, obj):
         chat = obj.message.chat
@@ -108,7 +101,7 @@ class MessageReportSerializer(serializers.ModelSerializer):
 
 
 class ChatModerationActionSerializer(serializers.ModelSerializer):
-    moderator = ChatUserSerializer(read_only=True)
+    moderator = ModerationChatUserSerializer(read_only=True)
     action_label = serializers.CharField(source="get_action_display", read_only=True)
 
     class Meta:
@@ -132,7 +125,7 @@ class ChatModerationRequestSerializer(serializers.Serializer):
 
 
 class ChatParticipantSerializer(serializers.ModelSerializer):
-    user = ChatUserSerializer(read_only=True)
+    user = PublicChatUserSerializer(read_only=True)
     last_read_message = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -165,7 +158,7 @@ class ChatParticipantSerializer(serializers.ModelSerializer):
 
 class ChatRoomSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
-    created_by = ChatUserSerializer(read_only=True)
+    created_by = PublicChatUserSerializer(read_only=True)
     participants = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
@@ -297,6 +290,7 @@ class DirectChatCreateSerializer(serializers.Serializer):
 
 class GroupChatCreateSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255, trim_whitespace=True)
+    image = serializers.ImageField(required=False, allow_null=True)
     participant_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         allow_empty=False,
@@ -318,6 +312,7 @@ class GroupChatCreateSerializer(serializers.Serializer):
             request.user,
             self.validated_data["title"],
             self.validated_data["participant_ids"],
+            image=self.validated_data.get("image"),
         )
 
 

@@ -1,3 +1,5 @@
+from decimal import ROUND_HALF_UP, Decimal
+
 from django.db import models
 
 
@@ -28,3 +30,19 @@ class PricingPlan(models.Model):
 
     def __str__(self):
         return f"{self.delivery_format} – {self.price} {self.currency}"
+
+    def _apply_discount(self, amount):
+        course = self.delivery_format.course
+        if not course.is_on_sale or not course.discount_percent or amount is None:
+            return amount
+
+        multiplier = Decimal(100 - course.discount_percent) / Decimal(100)
+        return (amount * multiplier).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @property
+    def final_price(self):
+        return self._apply_discount(self.price)
+
+    @property
+    def final_installment_amount(self):
+        return self._apply_discount(self.installment_amount)

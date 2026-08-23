@@ -24,10 +24,10 @@ class TagAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "slug", "is_deleted")
+    list_display = ("name_en", "slug", "is_deleted")
     list_filter = ("is_deleted",)
-    search_fields = ("name", "slug")
-    prepopulated_fields = {"slug": ("name",)}
+    search_fields = ("name_en", "name_uk", "name_fr", "name_es", "name_de", "slug")
+    prepopulated_fields = {"slug": ("name_en",)}
 
 
 class PricingPlanInline(admin.TabularInline):
@@ -59,8 +59,8 @@ class CohortInline(admin.TabularInline):
 
 @admin.register(Course)
 class CourseAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("title", "slug", "status", "lessons_count", "is_deleted")
-    list_filter = ("status", "is_deleted", "level", "language")
+    list_display = ("title", "slug", "status", "lessons_count", "is_on_sale", "discount_percent", "is_deleted")
+    list_filter = ("status", "is_deleted", "level", "language", "is_on_sale")
     search_fields = ("title", "slug")
     prepopulated_fields = {"slug": ("title",)}
     inlines = [CourseDeliveryFormatInline, CohortInline]

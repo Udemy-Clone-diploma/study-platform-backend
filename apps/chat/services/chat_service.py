@@ -183,7 +183,12 @@ class ChatService:
         return chat, created
 
     @staticmethod
-    def create_group_chat(created_by, title: str, participant_ids: list[int]) -> ChatRoom:
+    def create_group_chat(
+        created_by,
+        title: str,
+        participant_ids: list[int],
+        image=None,
+    ) -> ChatRoom:
         user_ids = list(dict.fromkeys([created_by.pk, *participant_ids]))
         users = list(User.objects.filter(pk__in=user_ids, is_deleted=False))
         if len(users) != len(user_ids):
@@ -194,6 +199,7 @@ class ChatService:
                 type=ChatRoom.TypeChoices.GROUP,
                 title=title,
                 created_by=created_by,
+                image=image,
             )
             participants = []
             for user in users:
@@ -205,6 +211,94 @@ class ChatService:
                 participants.append(ChatParticipant(chat=chat, user=user, role=role))
             ChatParticipant.objects.bulk_create(participants)
 
+        return chat
+
+    @staticmethod
+    def _cohort_chat_title(cohort) -> str:
+        group_name = cohort.name or "Study group"
+        return f"{cohort.course.title} — {group_name}"[:255]
+
+    @staticmethod
+    def _delivery_format_chat_title(delivery_format) -> str:
+        return (
+            f"{delivery_format.course.title} — "
+            f"{delivery_format.get_format_type_display()}"
+        )[:255]
+
+    @classmethod
+    def ensure_cohort_chat(cls, cohort: "object") -> ChatRoom:
+        """Return the cohort chat, creating it with the course teacher as owner.
+
+        The relation on Cohort makes this operation idempotent. Existing cohort
+        members are also synchronized so the helper is safe for legacy rows and
+        for membership records created outside the HTTP view.
+        """
+        from apps.courses.models import Cohort, CohortMember
+
+        with transaction.atomic():
+            locked_cohort = (
+                Cohort.objects.select_for_update()
+                .select_related("course__teacher_profile__user")
+                .get(pk=cohort.pk)
+            )
+            if locked_cohort.group_chat_id:
+                chat = ChatRoom.objects.get(pk=locked_cohort.group_chat_id)
+            else:
+                chat = cls.create_group_chat(
+                    created_by=locked_cohort.course.teacher_profile.user,
+                    title=cls._cohort_chat_title(locked_cohort),
+                    participant_ids=[],
+                )
+                Cohort.objects.filter(pk=locked_cohort.pk).update(group_chat_id=chat.pk)
+
+            member_user_ids = list(
+                CohortMember.objects.filter(cohort_id=locked_cohort.pk).values_list(
+                    "enrollment__student_profile__user_id", flat=True
+                )
+            )
+
+        cls.add_participants(chat, member_user_ids)
+        cohort.group_chat_id = chat.pk
+        return chat
+
+    @classmethod
+    def ensure_delivery_format_chat(cls, delivery_format: "object") -> ChatRoom | None:
+        """Ensure the shared chat for self-paced and scheduled formats exists."""
+        from apps.courses.models import CourseDeliveryFormat
+        from apps.enrollments.models import Enrollment
+
+        if delivery_format.format_type not in {
+            CourseDeliveryFormat.FormatType.SELF_PACED,
+            CourseDeliveryFormat.FormatType.SCHEDULED,
+        }:
+            return None
+
+        with transaction.atomic():
+            locked_format = (
+                CourseDeliveryFormat.objects.select_for_update()
+                .select_related("course__teacher_profile__user")
+                .get(pk=delivery_format.pk)
+            )
+            if locked_format.group_chat_id:
+                chat = ChatRoom.objects.get(pk=locked_format.group_chat_id)
+            else:
+                chat = cls.create_group_chat(
+                    created_by=locked_format.course.teacher_profile.user,
+                    title=cls._delivery_format_chat_title(locked_format),
+                    participant_ids=[],
+                )
+                CourseDeliveryFormat.objects.filter(pk=locked_format.pk).update(
+                    group_chat_id=chat.pk
+                )
+
+            student_user_ids = list(
+                Enrollment.objects.with_active_access()
+                .filter(delivery_format_id=locked_format.pk)
+                .values_list("student_profile__user_id", flat=True)
+            )
+
+        cls.add_participants(chat, student_user_ids)
+        delivery_format.group_chat_id = chat.pk
         return chat
 
     @staticmethod
@@ -306,7 +400,13 @@ class ChatService:
         return message
 
     @staticmethod
-    def create_official_warning_message(target, report, moderator_note: str = ""):
+    def create_official_warning_message(
+        target,
+        report,
+        moderator_note: str = "",
+        *,
+        warning_context: str = "chat",
+    ):
         chat, _ = ChatRoom.objects.get_or_create(
             direct_key=f"school_admin_{target.pk}",
             defaults={
@@ -341,17 +441,36 @@ class ChatService:
         note_section = (
             f"\n\nModerator's note:\n{moderator_note.strip()}" if moderator_note.strip() else ""
         )
+        if warning_context == "account":
+            reviewed_activity = (
+                "The School Administration has reviewed a complaint concerning your account "
+                "and determined that the reported activity does not comply with our platform "
+                "standards."
+            )
+            consequence = (
+                "Repeated violations may result in temporary or permanent restriction of access "
+                "to the platform."
+            )
+        else:
+            reviewed_activity = (
+                "The School Administration has reviewed a report concerning your recent activity "
+                "in the platform chat and determined that the reported message does not comply "
+                "with our standards of respectful and appropriate communication."
+            )
+            consequence = (
+                "Repeated violations may result in temporary or permanent restriction of access "
+                "to chat features."
+            )
+
         warning_text = (
             "OFFICIAL WARNING FROM THE SCHOOL ADMINISTRATION\n\n"
-            "The School Administration has reviewed a report concerning your recent activity "
-            "in the platform chat and determined that the reported message does not comply with "
-            "our standards of respectful and appropriate communication.\n\n"
+            f"{reviewed_activity}\n\n"
             f"Reason: {report.get_reason_display()}"
             f"{note_section}\n\n"
             "Please refrain from repeating this behavior. All users are expected to communicate "
             "respectfully and must not post abusive, threatening, discriminatory, misleading, "
-            "unsolicited, or otherwise inappropriate content. Repeated violations may result in "
-            "temporary or permanent restriction of access to chat features.\n\n"
+            "unsolicited, or otherwise inappropriate content. "
+            f"{consequence}\n\n"
             "If you believe this warning was issued in error, please contact the School "
             "Administration through the support channel.\n\n"
             "This is an automated read-only notification. Replies are not accepted."

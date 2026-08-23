@@ -5,6 +5,8 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 
+from .payment import Payment
+
 
 class Order(models.Model):
     class StatusChoices(models.TextChoices):
@@ -62,11 +64,17 @@ class Order(models.Model):
 
     @property
     def paid_amount(self) -> Decimal:
-        return (
-            self.payments.filter(status="succeeded")
-            .aggregate(total=Sum("amount"))
-            .get("total")
-            or Decimal("0.00")
+        """Total of the succeeded payments. Sums `payments.all()` in Python
+        rather than aggregating in the DB so that a caller which prefetched
+        them (the list endpoints) spends no query per order. Read-side only:
+        `sync_status_from_payments` deliberately does not use this."""
+        return sum(
+            (
+                payment.amount
+                for payment in self.payments.all()
+                if payment.status == Payment.StatusChoices.SUCCEEDED
+            ),
+            Decimal("0.00"),
         )
 
     @property
@@ -79,7 +87,16 @@ class Order(models.Model):
         return self.status == self.StatusChoices.PAID
 
     def sync_status_from_payments(self) -> None:
-        paid_amount = self.paid_amount
+        # Aggregates in the DB instead of reusing `paid_amount`: this runs on
+        # the payment provider callback path path immediately after a payment row was written,
+        # so it has to read committed state and never a `payments` prefetch
+        # cache the calling instance might already be holding.
+        paid_amount = (
+            self.payments.filter(status=Payment.StatusChoices.SUCCEEDED)
+            .aggregate(total=Sum("amount"))
+            .get("total")
+            or Decimal("0.00")
+        )
         if paid_amount >= self.total_amount:
             self.status = self.StatusChoices.PAID
             self.completed_at = timezone.now()

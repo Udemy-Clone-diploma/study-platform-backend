@@ -1,10 +1,11 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.utils.timezone import now as tz_now
+from django.utils import timezone
 
 from apps.cart.models import CartItem
-from apps.courses.models import Course, CourseDeliveryFormat, PricingPlan
+from apps.courses.models import Cohort, Course, CourseDeliveryFormat, PricingPlan
+from apps.courses.services import DeliveryFormatService
 from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
@@ -101,7 +102,7 @@ class EnrollmentService:
             delivery_format
             and delivery_format.enrollment_deadline
             and request_user.role != User.RoleChoices.ADMINISTRATOR
-            and delivery_format.enrollment_deadline < tz_now().date()
+            and delivery_format.enrollment_deadline < timezone.localdate()
         ):
             raise CourseNotEnrollableError("Enrollment for this format has closed.")
 
@@ -221,8 +222,43 @@ class EnrollmentService:
             raise FreeEnrollmentUnavailableError("This course is not available for free enrollment.")
         delivery_format = plan.delivery_format
 
-        if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP and cohort_id is None:
-            raise FreeEnrollmentUnavailableError("Select a group to join before enrolling.")
+        if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP:
+            if not DeliveryFormatService.accepts_enrollment_on(
+                delivery_format,
+                timezone.localdate(),
+            ):
+                raise FreeEnrollmentUnavailableError(
+                    "Enrollment for this group format has closed."
+                )
+            if cohort_id is None:
+                raise FreeEnrollmentUnavailableError("Select a group to join before enrolling.")
+            cohort = Cohort.objects.select_for_update().filter(
+                id=cohort_id,
+                course=course,
+            ).first()
+            if cohort is None or (
+                cohort.delivery_format_id is not None
+                and cohort.delivery_format_id != delivery_format.id
+            ):
+                raise FreeEnrollmentUnavailableError(
+                    "The selected group does not belong to this format."
+                )
+            if not cohort.is_enrollment_open:
+                raise FreeEnrollmentUnavailableError(
+                    "The selected group is closed for enrollment."
+                )
+            if (
+                cohort.enrollment_deadline is not None
+                and cohort.enrollment_deadline < timezone.localdate()
+            ):
+                raise FreeEnrollmentUnavailableError(
+                    "Enrollment for the selected group has closed."
+                )
+            if (
+                cohort.group_size is not None
+                and cohort.members.count() >= cohort.group_size
+            ):
+                raise FreeEnrollmentUnavailableError("The selected group is full.")
         if delivery_format.format_type == CourseDeliveryFormat.FormatType.INDIVIDUAL and not schedule_slot_ids:
             raise FreeEnrollmentUnavailableError("Select your session times before enrolling.")
 
@@ -281,11 +317,72 @@ class EnrollmentService:
         enrollment.revoke()
 
     @staticmethod
-    def student_has_course_access(student_profile: StudentProfile, course: Course) -> bool:
-        return Enrollment.objects.with_active_access().filter(
-            student_profile=student_profile,
-            course=course,
-        ).exists()
+    def _has_overdue_installment(order_id: int | None) -> bool:
+        if order_id is None:
+            return False
+
+        from apps.payments.models import Order, PaymentInstallment
+
+        today = timezone.localdate()
+        return (
+            PaymentInstallment.objects.filter(
+                order_id=order_id,
+                due_date__lt=today,
+                status__in=[
+                    PaymentInstallment.StatusChoices.PENDING,
+                    PaymentInstallment.StatusChoices.FAILED,
+                ],
+                order__payment_type=Order.PaymentTypeChoices.INSTALLMENTS,
+            )
+            .exclude(
+                order__status__in=[
+                    Order.StatusChoices.CANCELED,
+                    Order.StatusChoices.REFUNDED,
+                ],
+            )
+            .exists()
+        )
+
+    @classmethod
+    def _sync_overdue_status(cls, enrollment: Enrollment) -> Enrollment:
+        """Lazily suspend access the moment it's checked, if an installment
+        payment on this enrollment's order is overdue. There's no scheduler
+        involved -- the check runs exactly when a student tries to open the
+        course, so there's never a window where access is overdue but not yet
+        blocked (the trade-off a periodic job would have)."""
+        if enrollment.access_status != Enrollment.AccessStatusChoices.ACTIVE:
+            return enrollment
+        if not cls._has_overdue_installment(enrollment.order_id):
+            return enrollment
+
+        enrollment.suspend()
+
+        from apps.notifications.models import Notification
+        from apps.notifications.services import NotificationService
+
+        NotificationService.create(
+            recipient=enrollment.student_profile.user,
+            type=Notification.TypeChoices.PAYMENT_OVERDUE,
+            title="Course access suspended",
+            body=(
+                f"Access to '{enrollment.course.title}' is paused: an installment "
+                "payment is overdue. Pay the outstanding amount to restore access."
+            ),
+            link_url="/student-dashboard/payment?tab=plans",
+            payload={"course_slug": enrollment.course.slug, "order_id": enrollment.order_id},
+        )
+        return enrollment
+
+    @classmethod
+    def student_has_course_access(cls, student_profile: StudentProfile, course: Course) -> bool:
+        enrollment = Enrollment.objects.select_related(
+            "student_profile__user", "course",
+        ).filter(student_profile=student_profile, course=course).first()
+        if enrollment is None:
+            return False
+
+        enrollment = cls._sync_overdue_status(enrollment)
+        return enrollment.has_active_access
 
     @classmethod
     def is_enrolled(cls, user, course: Course) -> bool:
@@ -303,3 +400,26 @@ class EnrollmentService:
         except StudentProfile.DoesNotExist:
             return False
         return cls.student_has_course_access(student_profile, course)
+
+    @classmethod
+    def get_access_status(cls, user, course: Course) -> str | None:
+        """The raw `Enrollment.access_status` for this user/course, or None if
+        no enrollment row exists at all. Unlike `is_enrolled` (which is False
+        for any non-active status), this lets callers distinguish "never
+        enrolled" from "suspended for an overdue installment" etc."""
+        if not user or not user.is_authenticated:
+            return None
+        if user.role != User.RoleChoices.STUDENT:
+            return None
+        try:
+            student_profile = user.student_profile
+        except StudentProfile.DoesNotExist:
+            return None
+        enrollment = Enrollment.objects.select_related(
+            "student_profile__user", "course",
+        ).filter(student_profile=student_profile, course=course).first()
+        if enrollment is None:
+            return None
+
+        enrollment = cls._sync_overdue_status(enrollment)
+        return enrollment.access_status

@@ -87,7 +87,7 @@ class CartItem(models.Model):
     @property
     def unit_price(self) -> Decimal:
         plan = self.selected_pricing_plan
-        return plan.price if plan else Decimal("0.00")
+        return plan.final_price if plan else Decimal("0.00")
 
     @property
     def currency(self) -> str | None:

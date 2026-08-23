@@ -9,6 +9,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = ["first_name", "last_name", "email", "avatar", "language", "instagram", "linkedin", "facebook", "behance"]
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():  # type: ignore
+        if User.all_objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():  # type: ignore
             raise serializers.ValidationError("A user with this email already exists.")
         return value

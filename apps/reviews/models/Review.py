@@ -41,6 +41,8 @@ class Review(models.Model):
     moderation_status = models.CharField(
         max_length=20, choices=ModerationStatusChoices.choices, blank=True, default="",
     )
+    moderation_assigned_at = models.DateTimeField(null=True, blank=True)
+    moderated_at = models.DateTimeField(null=True, blank=True)
     # Rejecting a reported review hides it (rather than hard-deleting) so the
     # moderation record/history stays intact.
     is_deleted = models.BooleanField(default=False)

@@ -13,7 +13,7 @@ class TopNEndpointsAreNotPaginatedTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         _, cls.teacher_profile = make_teacher()
-        Category.objects.create(name="A", slug="a")
+        Category.objects.create(name_en="A", slug="a")
 
     def test_new_courses_endpoint_returns_list(self):
         response = self.client.get(reverse("new-courses"))
@@ -54,7 +54,8 @@ class TopNLimitParamTests(APITestCase):
                 status=Course.StatusChoices.PUBLISHED,
             )
         for i in range(15):
-            Category.objects.create(name=f"Cat {i:02d}", slug=f"cat-{i:02d}")
+            Category.objects.create(name_en=f"Cat {i:02d}", slug=f"cat-{i:02d}", featured_order=i + 1
+            )
 
     def test_new_courses_default_limit(self):
         response = self.client.get(reverse("new-courses"))
@@ -148,7 +149,7 @@ class FeaturedCategoriesUrlTests(APITestCase):
 
     def test_old_url_no_longer_returns_featured_list(self):
         response = self.client.get("/api/v1/courses/categories/")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_new_url_works(self):
         response = self.client.get(reverse("categories-featured"))

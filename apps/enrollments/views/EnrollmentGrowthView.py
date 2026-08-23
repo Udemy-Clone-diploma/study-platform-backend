@@ -32,7 +32,12 @@ def _bucket_enrollment_counts(qs, period: str) -> tuple[list[dict], int]:
         for row in windowed.annotate(bucket=trunc).values("bucket").annotate(count=Count("id"))
     }
     points = [
-        {"label": label, "value": grouped.get(bucket, 0)}
+        {
+            "label": label,
+            "date": bucket.isoformat(),
+            "period": period,
+            "value": grouped.get(bucket, 0),
+        }
         for bucket, label in zip(buckets, labels)
     ]
     return points, sum(p["value"] for p in points)

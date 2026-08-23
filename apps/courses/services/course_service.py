@@ -1,7 +1,22 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, IntegerField, Min, OuterRef, Prefetch, Q, Subquery
+from django.db.models import (
+    Case,
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    IntegerField,
+    Min,
+    OuterRef,
+    Prefetch,
+    Q,
+    Subquery,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.text import slugify
@@ -27,11 +42,12 @@ from apps.courses.models import (
 )
 from apps.courses.models import CourseDeliveryFormat
 from apps.courses.serializers import (
-    CategorySerializer,
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
-    CourseListSerializer,
+    PublicCategorySerializer,
+    PublicCourseListSerializer,
 )
+from apps.courses.services.category_service import CategoryService
 from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
 from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.users.models import User
@@ -42,7 +58,7 @@ def _course_snapshot_kwargs(course: Course) -> dict:
         "course_slug": course.slug,
         "course_title": course.title,
         "course_image_url": course.image.url if course.image else None,
-        "course_category": course.category.name if course.category else "",
+        "course_category": course.category.name_en if course.category else "",
         "course_level": course.level,
     }
 
@@ -55,9 +71,29 @@ class CourseService:
             .order_by("price")
             .values("currency")[:1]
         )
-        return queryset.annotate(
-            min_price=Min("delivery_formats__pricing__price"),
+        queryset = queryset.annotate(
+            original_min_price=Min("delivery_formats__pricing__price"),
             min_currency=Subquery(cheapest_plan),
+        )
+        # original_min_price above is the raw catalog-cheapest plan price; discounts
+        # are a uniform course-level percent, so apply it here rather than per-plan.
+        # min_price (the discounted, actually-charged amount) is what price_min/
+        # price_max filtering and sorting operate on.
+        return queryset.annotate(
+            min_price=Case(
+                When(
+                    is_on_sale=True,
+                    discount_percent__isnull=False,
+                    then=ExpressionWrapper(
+                        F("original_min_price")
+                        * (Value(Decimal("100")) - F("discount_percent"))
+                        / Value(Decimal("100")),
+                        output_field=DecimalField(max_digits=10, decimal_places=2),
+                    ),
+                ),
+                default=F("original_min_price"),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            ),
         )
 
     @staticmethod
@@ -110,6 +146,18 @@ class CourseService:
         return Prefetch("delivery_formats", queryset=queryset)
 
     @staticmethod
+    def public_delivery_formats_prefetch() -> Prefetch:
+        queryset = CourseDeliveryFormat.objects.select_related("pricing").annotate(
+            annotated_enrolled_count=Count(
+                "enrollments",
+                filter=Q(
+                    enrollments__access_status=Enrollment.AccessStatusChoices.ACTIVE,
+                ),
+            ),
+        )
+        return Prefetch("delivery_formats", queryset=queryset)
+
+    @staticmethod
     def cohorts_prefetch() -> Prefetch:
         """Prefetch for Course.cohorts with members' enrollment/student/user chain
         select_related in one join, instead of three queries per cohort member
@@ -122,6 +170,15 @@ class CourseService:
             "cohorts",
             queryset=Cohort.objects.prefetch_related(
                 Prefetch("members", queryset=members_queryset),
+            ),
+        )
+
+    @staticmethod
+    def public_cohorts_prefetch() -> Prefetch:
+        return Prefetch(
+            "cohorts",
+            queryset=Cohort.objects.annotate(
+                annotated_members_count=Count("members"),
             ),
         )
 
@@ -440,6 +497,7 @@ class CourseService:
             with_certificate=course.with_certificate,
             certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            discount_percent=course.discount_percent,
             passing_score=course.passing_score,
             status=Course.StatusChoices.DRAFT,
             teacher_profile=teacher_profile,
@@ -538,6 +596,7 @@ class CourseService:
             with_certificate=course.with_certificate,
             certificate_description=course.certificate_description,
             is_on_sale=course.is_on_sale,
+            discount_percent=course.discount_percent,
             passing_score=course.passing_score,
             status=Course.StatusChoices.PENDING_EDIT,
             teacher_profile=course.teacher_profile,
@@ -752,25 +811,32 @@ class CourseService:
 
     @classmethod
     def get_enrolled_courses_queryset(cls, student_profile):
-        active_enrollments = Enrollment.objects.with_active_access().filter(
+        # with_visible_access (not with_active_access) so a suspended course --
+        # overdue installment -- stays listed instead of vanishing from "my
+        # courses"; enrollment_access_status lets the frontend show why.
+        visible_enrollments = Enrollment.objects.with_visible_access().filter(
             student_profile=student_profile,
         )
-        enrolled_at_subquery = active_enrollments.filter(
+        enrolled_at_subquery = visible_enrollments.filter(
             course_id=OuterRef("pk"),
         ).values("access_granted_at")[:1]
-        completed_subquery = active_enrollments.filter(
+        completed_subquery = visible_enrollments.filter(
             course_id=OuterRef("pk"),
         ).values("lessons_completed_count")[:1]
+        access_status_subquery = visible_enrollments.filter(
+            course_id=OuterRef("pk"),
+        ).values("access_status")[:1]
 
         queryset = (
             Course.objects.filter(
-                pk__in=active_enrollments.values_list("course_id", flat=True),
+                pk__in=visible_enrollments.values_list("course_id", flat=True),
             )
             .select_related("teacher_profile__user", "category")
             .prefetch_related("tags")
             .annotate(
                 enrolled_at=Subquery(enrolled_at_subquery),
                 enrollment_lessons_completed=Subquery(completed_subquery),
+                enrollment_access_status=Subquery(access_status_subquery),
             )
         )
         return cls.annotate_min_price(queryset)
@@ -781,10 +847,17 @@ class CourseService:
         limit: int = DEFAULT_NEW_COURSES_LIMIT,
         context: dict | None = None,
     ) -> list[dict]:
-        courses = cls.annotate_min_price(
+        queryset = (
             Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
-        ).order_by("-published_at")[:limit]
-        return CourseListSerializer(courses, many=True, context=context or {}).data
+            .select_related("teacher_profile__user", "category")
+            .prefetch_related("tags")
+        )
+        courses = cls.annotate_min_price(queryset).order_by("-published_at")[:limit]
+        return PublicCourseListSerializer(
+            courses,
+            many=True,
+            context=context or {},
+        ).data
 
     @classmethod
     def get_popular_courses(
@@ -796,15 +869,32 @@ class CourseService:
         # students_count, so a course that was hot last year doesn't crowd
         # out something gaining traction this month. rating_avg is the
         # tiebreaker for cold-start courses with zero recent enrollments.
-        queryset = Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
+        queryset = (
+            Course.objects.filter(status=Course.StatusChoices.PUBLISHED)
+            .select_related("teacher_profile__user", "category")
+            .prefetch_related("tags")
+        )
         queryset = cls.annotate_min_price(queryset)
         queryset = cls.annotate_recent_enrollments(queryset)
         courses = queryset.order_by(
             "-students_enrolled_last_30_days", "-rating_avg",
         )[:limit]
-        return CourseListSerializer(courses, many=True, context=context or {}).data
+        return PublicCourseListSerializer(
+            courses,
+            many=True,
+            context=context or {},
+        ).data
 
     @staticmethod
-    def get_categories(limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT) -> list[dict]:
-        categories = Category.objects.all()[:limit]
-        return CategorySerializer(categories, many=True).data
+    def get_categories(
+        limit: int = DEFAULT_FEATURED_CATEGORIES_LIMIT,
+        context: dict | None = None,
+    ) -> list[dict]:
+        categories = CategoryService.annotate_public_courses_count(
+            Category.objects.filter(featured_order__isnull=False)
+        ).order_by("featured_order", "name_en")[:limit]
+        return PublicCategorySerializer(
+            categories,
+            many=True,
+            context=context or {},
+        ).data

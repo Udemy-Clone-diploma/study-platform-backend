@@ -30,6 +30,7 @@ class ModeratorReviewSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         return [
             {
+                "reporter_id": r.reporter_id,
                 "reporter_name": r.reporter.get_full_name(),
                 "reporter_avatar": absolute_media_url(r.reporter.avatar, request),
                 "reason": r.reason,

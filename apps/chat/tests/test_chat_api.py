@@ -1,14 +1,28 @@
+import base64
+
 from asgiref.sync import async_to_sync
+from channels.db import database_sync_to_async
 from channels.testing import WebsocketCommunicator
+from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.chat.consumers import ONLINE_USER_CONNECTIONS
-from apps.chat.models import ChatParticipant, ChatRoom, ChatUserBlock, Message
+from apps.chat.consumers import ChatConsumer, ONLINE_USER_CONNECTIONS
+from apps.chat.models import (
+    ChatParticipant,
+    ChatRoom,
+    ChatUserBlock,
+    Message,
+    MessageAttachment,
+    MessageReport,
+)
 from apps.chat.services import ChatService
+from apps.notifications.models import Notification
+from apps.users.models import User
 from apps.users.tests._factories import make_user
 from config.asgi import application
 
@@ -32,6 +46,30 @@ class ChatApiTests(APITestCase):
         self.assertEqual(ChatRoom.objects.filter(type=ChatRoom.TypeChoices.DIRECT).count(), 1)
         self.assertEqual(ChatParticipant.objects.filter(chat_id=first.data["id"]).count(), 2)
 
+    def test_moderator_can_create_chat_and_send_message(self):
+        moderator = make_user(
+            role="moderator",
+            email="chat_writer_moderator@example.com",
+        )
+        self.client.force_authenticate(moderator)
+
+        created = self.client.post(
+            reverse("chats-direct"),
+            {"user_id": self.student.id},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        message = self.client.post(
+            reverse("chat-messages", args=[created.data["id"]]),
+            {"text": "Moderator can participate in chats."},
+            format="json",
+        )
+
+        self.assertEqual(message.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(message.data["sender"]["id"], moderator.pk)
+        self.assertEqual(message.data["text"], "Moderator can participate in chats.")
+
     def test_create_group_chat_and_list_only_user_chats(self):
         self.client.force_authenticate(self.student)
 
@@ -53,6 +91,93 @@ class ChatApiTests(APITestCase):
         other_list = self.client.get(reverse("chats-list"))
         self.assertEqual(other_list.status_code, status.HTTP_200_OK)
         self.assertEqual(other_list.data["results"], [])
+
+    @override_settings(
+        CHANNEL_LAYERS={"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+    )
+    def test_group_chat_can_be_created_and_updated_with_a_photo(self):
+        self.client.force_authenticate(self.student)
+        image = SimpleUploadedFile(
+            "group.png",
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            ),
+            content_type="image/png",
+        )
+
+        create_response = self.client.post(
+            reverse("chats-group"),
+            {
+                "title": "Photo group",
+                "participant_ids": [str(self.teacher.id)],
+                "image": image,
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(create_response.data["image_url"])
+        chat = ChatRoom.objects.get(pk=create_response.data["id"])
+        self.assertTrue(chat.image)
+
+        replacement = SimpleUploadedFile(
+            "replacement.png",
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            ),
+            content_type="image/png",
+        )
+        update_response = self.client.patch(
+            reverse("chats-detail", args=[chat.id]),
+            {"image": replacement},
+            format="multipart",
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        chat.refresh_from_db()
+        self.assertTrue(chat.image)
+
+    def test_chat_attachments_include_files_and_links_with_their_messages(self):
+        chat = ChatService.create_group_chat(self.student, "Shared files", [self.teacher.id])
+        message = Message.objects.create(
+            chat=chat,
+            sender=self.student,
+            text="Useful link: https://example.com/docs.",
+        )
+        MessageAttachment.objects.create(
+            message=message,
+            file=SimpleUploadedFile("guide.pdf", b"pdf content", content_type="application/pdf"),
+            file_type="application/pdf",
+            size=11,
+        )
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get(reverse("chat-attachments", args=[chat.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual({item["kind"] for item in response.data}, {"file", "link"})
+        self.assertTrue(all(item["message"]["id"] == message.id for item in response.data))
+
+    def test_multiple_message_attachments_can_be_uploaded_to_one_message(self):
+        chat = ChatService.create_group_chat(self.student, "Photo batch", [self.teacher.id])
+        self.client.force_authenticate(self.student)
+        message_response = self.client.post(
+            reverse("chat-messages", args=[chat.id]),
+            {"text": "Several photos", "message_type": "image"},
+            format="json",
+        )
+        self.assertEqual(message_response.status_code, status.HTTP_201_CREATED)
+        message_id = message_response.data["id"]
+
+        for name in ("first.png", "second.png", "third.webp"):
+            upload_response = self.client.post(
+                reverse("chat-message-attachments", args=[message_id]),
+                {"file": SimpleUploadedFile(name, b"image data", content_type="image/png")},
+                format="multipart",
+            )
+            self.assertEqual(upload_response.status_code, status.HTTP_201_CREATED)
+
+        self.assertEqual(MessageAttachment.objects.filter(message_id=message_id).count(), 3)
 
     def test_messages_are_visible_only_to_active_participants(self):
         chat, _ = ChatService.create_direct_chat(self.student, self.teacher)
@@ -235,6 +360,44 @@ class ChatApiTests(APITestCase):
         self.assertEqual(teacher_list.status_code, status.HTTP_200_OK)
         self.assertEqual(teacher_list.data["results"], [])
 
+    def test_chat_warning_uses_official_chat_and_email_without_notification(self):
+        moderator = make_user(
+            role=User.RoleChoices.MODERATOR,
+            email="chat_moderator@example.com",
+        )
+        chat, _ = ChatService.create_direct_chat(self.student, self.teacher)
+        message = Message.objects.create(
+            chat=chat,
+            sender=self.student,
+            text="Reported message",
+        )
+        report = MessageReport.objects.create(
+            message=message,
+            reporter=self.teacher,
+            reason=MessageReport.ReasonChoices.HARASSMENT,
+            message_text=message.text,
+        )
+
+        self.client.force_authenticate(moderator)
+        response = self.client.post(
+            reverse("moderator-chat-user-action", args=[self.student.pk]),
+            {
+                "action": "warning",
+                "report_id": report.pk,
+                "note": "Keep communication respectful.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(Notification.objects.filter(recipient=self.student).exists())
+        self.assertEqual(len(mail.outbox), 1)
+        official_chat = ChatRoom.objects.get(
+            direct_key=f"school_admin_{self.student.pk}"
+        )
+        self.assertTrue(official_chat.is_read_only)
+        self.assertIn("OFFICIAL WARNING", official_chat.last_message.text)
+
 
 @override_settings(ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"])
 class ChatWebSocketTests(TransactionTestCase):
@@ -312,11 +475,51 @@ class ChatWebSocketTests(TransactionTestCase):
             recipient_event = await self._receive_type(recipient, "message.created")
             self.assertEqual(sender_event["message"]["text"], "Live message")
             self.assertEqual(recipient_event["message"]["text"], "Live message")
+            self.assertNotIn("email", sender_event["message"]["sender"])
+            self.assertNotIn("email", recipient_event["message"]["sender"])
             self.assertTrue(await outsider.receive_nothing(timeout=0.2))
 
             await sender.disconnect()
             await recipient.disconnect()
             await outsider.disconnect()
+
+        async_to_sync(scenario)()
+
+    def test_websocket_typing_does_not_fall_back_to_email(self):
+        student_headers = self._headers_for(self.student)
+        teacher_headers = self._headers_for(self.teacher)
+
+        async def scenario():
+            student = WebsocketCommunicator(
+                application,
+                "/ws/chat/",
+                headers=student_headers,
+            )
+            teacher = WebsocketCommunicator(
+                application,
+                "/ws/chat/",
+                headers=teacher_headers,
+            )
+
+            self.assertTrue((await student.connect())[0])
+            await self._receive_type(student, "presence.snapshot")
+            self.assertTrue((await teacher.connect())[0])
+            await self._receive_type(teacher, "presence.snapshot")
+            await self._receive_type(student, "presence")
+
+            await student.send_json_to(
+                {
+                    "type": "typing.start",
+                    "payload": {"chat_id": self.chat.id},
+                }
+            )
+
+            event = await self._receive_type(teacher, "typing")
+            self.assertEqual(event["user"]["name"], "User")
+            self.assertNotIn(self.student.email, str(event))
+
+            await student.disconnect()
+            await teacher.disconnect()
 
         async_to_sync(scenario)()
 
@@ -377,5 +580,89 @@ class ChatWebSocketTests(TransactionTestCase):
             event = await self._receive_type(communicator, "error")
             self.assertEqual(event["code"], "forbidden")
             await communicator.disconnect()
+
+        async_to_sync(scenario)()
+
+    def test_open_websocket_closes_when_user_becomes_blocked(self):
+        headers = self._headers_for(self.student)
+
+        async def scenario():
+            communicator = WebsocketCommunicator(
+                application,
+                "/ws/chat/",
+                headers=headers,
+            )
+            self.assertTrue((await communicator.connect())[0])
+            await self._receive_type(communicator, "presence.snapshot")
+
+            await database_sync_to_async(
+                User.all_objects.filter(pk=self.student.pk).update
+            )(is_blocked=True)
+            await communicator.send_json_to({"type": "ping"})
+
+            close_event = await communicator.receive_output(timeout=2)
+            self.assertEqual(close_event["type"], "websocket.close")
+            self.assertEqual(close_event["code"], 4403)
+            await communicator.wait(timeout=2)
+
+        async_to_sync(scenario)()
+
+    def test_websocket_rejects_user_blocked_before_connect(self):
+        User.all_objects.filter(pk=self.student.pk).update(is_blocked=True)
+
+        async def scenario():
+            consumer_application = ChatConsumer.as_asgi()
+
+            async def authenticated_application(scope, receive, send):
+                scope = dict(scope)
+                scope["user"] = self.student
+                await consumer_application(scope, receive, send)
+
+            communicator = WebsocketCommunicator(
+                authenticated_application,
+                "/ws/chat/",
+            )
+            connected, code = await communicator.connect()
+            self.assertFalse(connected)
+            self.assertEqual(code, 4403)
+
+        async_to_sync(scenario)()
+
+    def test_open_websocket_closes_before_receiving_event_when_user_is_blocked(self):
+        student_headers = self._headers_for(self.student)
+        teacher_headers = self._headers_for(self.teacher)
+
+        async def scenario():
+            student = WebsocketCommunicator(
+                application,
+                "/ws/chat/",
+                headers=student_headers,
+            )
+            teacher = WebsocketCommunicator(
+                application,
+                "/ws/chat/",
+                headers=teacher_headers,
+            )
+            self.assertTrue((await student.connect())[0])
+            await self._receive_type(student, "presence.snapshot")
+            self.assertTrue((await teacher.connect())[0])
+            await self._receive_type(teacher, "presence.snapshot")
+            await self._receive_type(student, "presence")
+
+            await database_sync_to_async(
+                User.all_objects.filter(pk=self.student.pk).update
+            )(is_blocked=True)
+            await teacher.send_json_to(
+                {
+                    "type": "message.send",
+                    "payload": {"chat_id": self.chat.id, "text": "After block"},
+                }
+            )
+
+            close_event = await student.receive_output(timeout=2)
+            self.assertEqual(close_event["type"], "websocket.close")
+            self.assertEqual(close_event["code"], 4403)
+            await student.wait(timeout=2)
+            await teacher.disconnect()
 
         async_to_sync(scenario)()

@@ -1,18 +1,22 @@
 from decimal import Decimal
+from django.conf import settings
 
 from django.db import transaction
 from django.utils import timezone
 
 from apps.cart.models import CartItem
 from apps.cart.services import CartService
-from apps.courses.models import Course
+from apps.courses.models import Course, CourseDeliveryFormat
+from apps.courses.services import DeliveryFormatService
 from apps.enrollments.services import EnrollmentService
 from apps.payments.models import (
     Order,
     OrderItem,
     Payment,
+    PaymentAttempt,
     PaymentInstallment,
     PaymentItem,
+    TeacherPayoutAccount,
 )
 from apps.users.models import StudentProfile, User
 
@@ -50,7 +54,12 @@ class CheckoutService(PaymentBaseService):
         return list(queryset)
 
     @staticmethod
-    def _validate_cart_items(student_profile: StudentProfile, items: list[CartItem]) -> str:
+    def _validate_cart_items(
+        student_profile: StudentProfile,
+        items: list[CartItem],
+        *,
+        require_teacher_payout: bool = True,
+    ) -> str:
         if not items:
             raise PaymentError("Cart is empty.")
 
@@ -69,35 +78,82 @@ class CheckoutService(PaymentBaseService):
                 raise PaymentError(f"Course '{item.course.title}' is not available for purchase.")
             if EnrollmentService.student_has_course_access(student_profile, item.course):
                 raise PaymentError(f"Student already has access to '{item.course.title}'.")
+            if require_teacher_payout:
+                try:
+                    payout = item.course.teacher_profile.payout_account
+                except TeacherPayoutAccount.DoesNotExist:
+                    payout = None
+                if payout is None or not payout.is_active:
+                    raise PaymentError(
+                        "This course is temporarily unavailable for purchase because the instructor's payout account is not ready."
+                    )
 
+            delivery_format = item.selected_pricing_plan.delivery_format
+            if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP:
+                if not DeliveryFormatService.accepts_enrollment_on(
+                    delivery_format,
+                    timezone.localdate(),
+                ):
+                    raise PaymentError(
+                        f"Enrollment for group course '{item.course.title}' has closed."
+                    )
+                if item.cohort is not None and not item.cohort.is_enrollment_open:
+                    raise PaymentError(
+                        f"The selected group for '{item.course.title}' is closed."
+                    )
+                if (
+                    item.cohort is not None
+                    and item.cohort.enrollment_deadline is not None
+                    and item.cohort.enrollment_deadline < timezone.localdate()
+                ):
+                    raise PaymentError(
+                        f"Enrollment for the selected group in '{item.course.title}' has closed."
+                    )
+                if (
+                    item.cohort is not None
+                    and item.cohort.group_size is not None
+                    and item.cohort.members.count() >= item.cohort.group_size
+                ):
+                    raise PaymentError(
+                        f"The selected group for '{item.course.title}' is full."
+                    )
+
+        if len({item.course.teacher_profile_id for item in items}) != 1:
+            raise PaymentError("Courses from different instructors must be purchased separately.")
         return currencies.pop()
 
     @classmethod
-    def _delete_processing_payments_for_cart_items(
+    def _delete_processing_stripe_payments_for_cart_items(
         cls,
         *,
         student_profile: StudentProfile,
         items: list[CartItem],
     ) -> None:
         course_ids = [item.course_id for item in items]
+
         if not course_ids:
             return
 
         stale_payment_ids = list(
             Payment.objects.filter(
                 student_profile=student_profile,
+                payment_method=Payment.MethodChoices.STRIPE,
                 status=Payment.StatusChoices.PROCESSING,
                 items__course_id__in=course_ids,
             )
             .values_list("id", flat=True)
             .distinct()
         )
+
         if not stale_payment_ids:
             return
 
         stale_payment_ids = list(
             Payment.objects.select_for_update()
-            .filter(id__in=stale_payment_ids)
+            .filter(
+                id__in=stale_payment_ids,
+                payment_method=Payment.MethodChoices.STRIPE,
+            )
             .values_list("id", flat=True)
         )
 
@@ -108,7 +164,10 @@ class CheckoutService(PaymentBaseService):
             ).values_list("order_id", flat=True)
         )
 
-        Payment.objects.filter(id__in=stale_payment_ids).delete()
+        Payment.objects.filter(
+            id__in=stale_payment_ids,
+            payment_method=Payment.MethodChoices.STRIPE,
+        ).delete()
 
         if stale_order_ids:
             Order.objects.filter(
@@ -149,7 +208,9 @@ class CheckoutService(PaymentBaseService):
                 )
 
             configured_counts.add(plan.installment_count)
-            installment_amounts_by_item[item.id] = cls._decimal_money(plan.installment_amount)
+            # final_installment_amount applies the course's current discount (if any) --
+            # installment_amount alone would silently ignore an active sale.
+            installment_amounts_by_item[item.id] = cls._decimal_money(plan.final_installment_amount)
 
         if len(configured_counts) != 1:
             raise PaymentError("All cart items must use the same installment count.")
@@ -286,14 +347,23 @@ class CheckoutService(PaymentBaseService):
         *,
         order: Order,
         installment: PaymentInstallment | None = None,
+        payment_method: str = Payment.MethodChoices.STRIPE,
     ) -> Payment:
         amount = installment.amount if installment is not None else order.total_amount
+        teacher = order.items.select_related("course__teacher_profile").first().course.teacher_profile
+        commission = Decimal(str(getattr(settings, "PLATFORM_COMMISSION_PERCENT", "20.00")))
+        fee = cls._decimal_money(amount * commission / Decimal("100"))
         payment = Payment.objects.create(
             user=order.user,
             student_profile=order.student_profile,
             order=order,
             installment=installment,
             amount=amount,
+            gross_amount=amount,
+            platform_fee_amount=fee,
+            teacher_amount=amount - fee,
+            payment_method=payment_method,
+            teacher=teacher,
             currency=order.currency,
             status=Payment.StatusChoices.PENDING,
             description=cls._payment_description(order, installment),
@@ -354,6 +424,107 @@ class CheckoutService(PaymentBaseService):
             )
 
         return line_items
+    @classmethod
+    def _create_liqpay_attempt(
+        cls,
+        *,
+        payment: Payment,
+    ) -> PaymentAttempt:
+        attempt = PaymentAttempt.objects.create(
+            payment=payment,
+            provider=Payment.MethodChoices.LIQPAY,
+            status=Payment.StatusChoices.PENDING,
+        )
+
+        attempt.provider_order_id = (
+            f"nexo-payment-{payment.id}-attempt-{attempt.id}"
+        )
+        attempt.save(
+            update_fields=[
+                "provider_order_id",
+                "updated_at",
+            ]
+        )
+
+        return attempt
+    @classmethod
+    def _get_or_create_liqpay_attempt(
+        cls,
+        *,
+        payment: Payment,
+    ) -> PaymentAttempt:
+        if payment.status in {
+            Payment.StatusChoices.SUCCEEDED,
+            Payment.StatusChoices.REFUNDED,
+        }:
+            raise PaymentError(
+                "This payment cannot start another LiqPay checkout."
+            )
+
+        existing_attempt = (
+            payment.attempts.filter(
+                provider=Payment.MethodChoices.LIQPAY,
+                status__in=[
+                    Payment.StatusChoices.PENDING,
+                    Payment.StatusChoices.PROCESSING,
+                ],
+            )
+            .order_by("-created_at")
+            .first()
+        )
+
+        if existing_attempt is not None:
+            return existing_attempt
+
+        return cls._create_liqpay_attempt(
+            payment=payment,
+        )
+
+    @classmethod
+    def _start_liqpay_checkout(
+        cls,
+        *,
+        payment: Payment,
+        result_url: str | None = None,
+    ) -> tuple[Payment, PaymentAttempt, dict]:
+        server_url = str(
+            getattr(
+                settings,
+                "LIQPAY_SERVER_URL",
+                "",
+            )
+            or ""
+        ).strip()
+
+        attempt = cls._get_or_create_liqpay_attempt(
+            payment=payment,
+        )
+
+        checkout = cls._liqpay_build_checkout_data(
+            provider_order_id=attempt.provider_order_id,
+            amount=payment.amount,
+            currency=payment.currency,
+            description=payment.description or f"Payment #{payment.id}",
+            result_url=result_url,
+            server_url=server_url,
+        )
+        if attempt.status != Payment.StatusChoices.PROCESSING:
+            attempt.status = Payment.StatusChoices.PROCESSING
+            attempt.save(
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ]
+            )
+
+        payment.mark_as_processing(
+            checkout_url=checkout["checkout_url"],
+        )
+
+        if payment.installment_id:
+            payment.installment.mark_as_processing()
+
+        return payment, attempt, checkout
 
     @classmethod
     def _start_stripe_checkout(
@@ -404,7 +575,7 @@ class CheckoutService(PaymentBaseService):
             selected_cart_item_ids=selected_cart_item_ids,
         )
         currency = cls._validate_cart_items(student_profile, items)
-        cls._delete_processing_payments_for_cart_items(
+        cls._delete_processing_stripe_payments_for_cart_items(
             student_profile=student_profile,
             items=items,
         )
@@ -440,7 +611,7 @@ class CheckoutService(PaymentBaseService):
             selected_cart_item_ids=selected_cart_item_ids,
         )
         currency = cls._validate_cart_items(student_profile, items)
-        cls._delete_processing_payments_for_cart_items(
+        cls._delete_processing_stripe_payments_for_cart_items(
             student_profile=student_profile,
             items=items,
         )
@@ -512,9 +683,20 @@ class CheckoutService(PaymentBaseService):
         )
         order = installment.order
 
+        if installment.payments.filter(
+            status=Payment.StatusChoices.PROCESSING,
+            payment_method=Payment.MethodChoices.LIQPAY,
+        ).exists():
+            raise PaymentError(
+                "A LiqPay payment is already in progress for this installment."
+            )
+        
         existing_payment = installment.payments.filter(
             status=Payment.StatusChoices.PROCESSING,
-        ).exclude(checkout_url="").order_by("-created_at").first()
+            payment_method=Payment.MethodChoices.STRIPE,
+        ).exclude(checkout_url=""
+        ).order_by("-created_at").first()
+        
         if existing_payment is not None:
             return existing_payment
 
@@ -540,10 +722,21 @@ class CheckoutService(PaymentBaseService):
             order_id=order_id,
             installment_id=installment_id,
         )
-
+        if installment.payments.filter(
+            status=Payment.StatusChoices.PROCESSING,
+            payment_method=Payment.MethodChoices.LIQPAY,
+        ).exists():
+            raise PaymentError(
+                "A LiqPay payment is already in progress for this installment."
+            )
+        
         existing_payment = installment.payments.filter(
             status=Payment.StatusChoices.PROCESSING,
-        ).exclude(stripe_payment_intent_id="").order_by("-created_at").first()
+            payment_method=Payment.MethodChoices.STRIPE,
+        ).exclude(
+            stripe_payment_intent_id=""
+        ).order_by("-created_at").first()
+
         if existing_payment is not None:
             client_secret = cls._retrieve_stripe_payment_intent_client_secret(
                 existing_payment.stripe_payment_intent_id
@@ -555,3 +748,218 @@ class CheckoutService(PaymentBaseService):
             installment=installment,
         )
         return cls._start_stripe_payment_intent(payment=payment)
+
+    @classmethod
+    @transaction.atomic
+    def create_installment_liqpay_checkout(
+        cls,
+        *,
+        user: User,
+        order_id: int,
+        installment_id: int,
+        result_url: str | None = None,
+    ) -> tuple[Payment, PaymentAttempt, dict]:
+        student_profile = cls._student_profile_for_user(user)
+
+        installment = cls._get_payable_installment(
+            student_profile=student_profile,
+            order_id=order_id,
+            installment_id=installment_id,
+        )
+
+        order = installment.order
+
+        processing_payments = (
+            installment.payments
+            .select_for_update()
+            .filter(
+                status=Payment.StatusChoices.PROCESSING,
+            )
+            .order_by("-created_at")
+        )
+
+        existing_liqpay_payment = processing_payments.filter(
+            payment_method=Payment.MethodChoices.LIQPAY,
+        ).first()
+
+        if existing_liqpay_payment is not None:
+            return cls._start_liqpay_checkout(
+                payment=existing_liqpay_payment,
+                result_url=result_url,
+            )
+
+        if processing_payments.exists():
+            raise PaymentError(
+                "Another payment is already in progress "
+                "for this installment."
+            )
+
+        payment = cls._create_payment_for_order(
+            order=order,
+            installment=installment,
+            payment_method=Payment.MethodChoices.LIQPAY,
+        )
+
+        return cls._start_liqpay_checkout(
+            payment=payment,
+            result_url=result_url,
+        )
+
+
+    @classmethod
+    def _find_reusable_liqpay_payment_for_cart(
+        cls,
+        *,
+        student_profile: StudentProfile,
+        items: list[CartItem],
+        currency: str,
+        payment_type: str,
+        installments_count: int | None,
+    ) -> Payment | None:
+        course_ids = {item.course_id for item in items}
+        cart_item_ids = sorted(item.id for item in items)
+
+        if not course_ids:
+            return None
+
+        count, item_totals, installment_amounts = cls._resolve_checkout_amounts(
+            items=items,
+            payment_type=payment_type,
+            installments_count=installments_count,
+        )
+
+        expected_total = cls._decimal_money(
+            sum(item_totals.values(), Decimal("0.00"))
+        )
+
+        expected_payment_amount = (
+            installment_amounts[0]
+            if payment_type == Order.PaymentTypeChoices.INSTALLMENTS
+            else expected_total
+        )
+
+        candidate_ids = (
+            Payment.objects.filter(
+                student_profile=student_profile,
+                payment_method=Payment.MethodChoices.LIQPAY,
+                status=Payment.StatusChoices.PROCESSING,
+                items__course_id__in=course_ids,
+            )
+            .values_list("id", flat=True)
+            .distinct()
+        )
+
+        candidates = (
+            Payment.objects.select_for_update(of=("self",))
+            .filter(id__in=candidate_ids)
+            .select_related(
+                "order",
+                "installment",
+            )
+            .order_by("-created_at")
+        )
+
+        overlapping_payment_exists = False
+
+        for payment in candidates:
+            overlapping_payment_exists = True
+
+            if payment.order_id is None:
+                continue
+
+            order = payment.order
+
+            existing_cart_item_ids = sorted(
+                order.metadata.get("cart_item_ids", [])
+            )
+
+            if existing_cart_item_ids != cart_item_ids:
+                continue
+
+            if order.payment_type != payment_type:
+                continue
+
+            if order.installments_count != count:
+                continue
+
+            if order.currency != currency:
+                continue
+
+            if cls._decimal_money(order.total_amount) != expected_total:
+                continue
+
+            if cls._decimal_money(payment.amount) != cls._decimal_money(
+                expected_payment_amount
+            ):
+                continue
+
+            return payment
+
+        if overlapping_payment_exists:
+            raise PaymentError(
+                "A LiqPay payment is already in progress for one or more "
+                "selected courses. Complete the existing payment before "
+                "starting a different checkout."
+            )
+
+        return None
+
+    @classmethod
+    @transaction.atomic
+    def create_liqpay_checkout(
+        cls,
+        *,
+        user: User,
+        result_url: str | None = None,
+        selected_cart_item_ids: list[int] | None = None,
+        payment_type: str = Order.PaymentTypeChoices.FULL,
+        installments_count: int | None = None,
+    ) -> tuple[Payment, PaymentAttempt, dict]:
+        student_profile = cls._student_profile_for_user(user)
+
+        items = cls._cart_items_for_checkout(
+            student_profile,
+            selected_cart_item_ids=selected_cart_item_ids,
+        )
+
+        currency = cls._validate_cart_items(
+            student_profile,
+            items,
+            require_teacher_payout=False,
+        )
+
+        existing_payment = cls._find_reusable_liqpay_payment_for_cart(
+            student_profile=student_profile,
+            items=items,
+            currency=currency,
+            payment_type=payment_type,
+            installments_count=installments_count,
+        )
+
+        if existing_payment is not None:
+            return cls._start_liqpay_checkout(
+                payment=existing_payment,
+                result_url=result_url,
+            )
+
+        order, installments = cls._create_order_from_cart(
+            user=user,
+            student_profile=student_profile,
+            items=items,
+            currency=currency,
+            payment_type=payment_type,
+            installments_count=installments_count,
+        )
+
+        installment = installments[0] if installments else None
+
+        payment = cls._create_payment_for_order(
+            order=order,
+            installment=installment,
+            payment_method=Payment.MethodChoices.LIQPAY,
+        )
+
+        return cls._start_liqpay_checkout(
+            payment=payment,
+            result_url=result_url,
+        )

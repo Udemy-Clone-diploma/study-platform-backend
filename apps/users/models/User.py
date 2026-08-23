@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
 
 from apps.common.files import UUIDUploadTo
 
@@ -46,9 +47,13 @@ class User(AbstractUser):
     class LanguageChoices(models.TextChoices):
         ENGLISH = "en", "English"
         UKRAINIAN = "uk", "Ukrainian"
+        FRENCH = "fr", "French"
+        SPANISH = "es", "Spanish"
+        GERMAN = "de", "German"
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=RoleChoices.choices)
+    date_joined = models.DateTimeField(default=timezone.now, db_index=True)
     status = models.CharField(
         max_length=20,
         choices=StatusChoices.choices,
@@ -71,6 +76,11 @@ class User(AbstractUser):
 
     objects = ActiveUserManager()
     all_objects = UserManager()
+
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.lower()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.email

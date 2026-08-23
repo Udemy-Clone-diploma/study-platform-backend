@@ -30,6 +30,66 @@ class CheckoutSessionSerializer(serializers.Serializer):
     order_id = serializers.IntegerField(read_only=True)
     installment_id = serializers.IntegerField(read_only=True, allow_null=True)
 
+class LiqPayCheckoutCreateSerializer(serializers.Serializer):
+    selected_cart_item_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+        required=False,
+    )
+    payment_type = serializers.ChoiceField(
+        choices=Order.PaymentTypeChoices.choices,
+        default=Order.PaymentTypeChoices.FULL,
+        required=False,
+    )
+    installments_count = serializers.IntegerField(
+        min_value=2,
+        max_value=24,
+        required=False,
+    )
+
+
+class LiqPayCheckoutSerializer(serializers.Serializer):
+    checkout_url = serializers.URLField(read_only=True)
+    data = serializers.CharField(read_only=True)
+    signature = serializers.CharField(read_only=True)
+    provider_order_id = serializers.CharField(read_only=True)
+    payment_id = serializers.IntegerField(read_only=True)
+    order_id = serializers.IntegerField(read_only=True)
+    installment_id = serializers.IntegerField(
+        read_only=True,
+        allow_null=True,
+    )
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+    )
+    currency = serializers.CharField(read_only=True)
+
+class LiqPayStatusSyncSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField(
+        min_value=1,
+    )
+
+
+class LiqPayStatusSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField(
+        read_only=True,
+    )
+    order_id = serializers.IntegerField(
+        read_only=True,
+        allow_null=True,
+    )
+    installment_id = serializers.IntegerField(
+        read_only=True,
+        allow_null=True,
+    )
+    payment_status = serializers.CharField(
+        read_only=True,
+    )
+    provider_status = serializers.CharField(
+        read_only=True,
+    )
 
 class PaymentIntentCreateSerializer(CheckoutSessionCreateSerializer):
     pass

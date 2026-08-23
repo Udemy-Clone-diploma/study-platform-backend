@@ -88,6 +88,52 @@ class NotificationService:
         return notification
 
     @classmethod
+    def create_mandatory(
+        cls,
+        *,
+        recipient,
+        type: str,
+        title: str,
+        body: str,
+        link_url: str | None = None,
+        actor=None,
+        payload: dict | None = None,
+    ) -> Notification:
+        """Create an in-app row and transactional email regardless of preferences."""
+        notification = Notification.objects.create(
+            recipient=recipient,
+            type=type,
+            title=title,
+            body=body,
+            link_url=link_url,
+            actor=actor,
+            payload=payload or {},
+        )
+        _dispatch_email(
+            email=recipient.email,
+            title=title,
+            body=body,
+            link_url=link_url,
+        )
+        return notification
+
+    @staticmethod
+    def send_email_only(
+        *,
+        recipient,
+        title: str,
+        body: str,
+        link_url: str | None = None,
+    ) -> None:
+        """Send a transactional email without creating an in-app notification."""
+        _dispatch_email(
+            email=recipient.email,
+            title=title,
+            body=body,
+            link_url=link_url,
+        )
+
+    @classmethod
     def fan_out(
         cls,
         *,

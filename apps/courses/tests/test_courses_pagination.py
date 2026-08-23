@@ -108,7 +108,7 @@ class CategoryPaginationTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         for i in range(25):
-            Category.objects.create(name=f"Category {i:02d}", slug=f"cat-{i:02d}")
+            Category.objects.create(name_en=f"Category {i:02d}", slug=f"cat-{i:02d}")
 
     def test_categories_list_is_paginated(self):
         response = self.client.get(reverse("categories-list"))
