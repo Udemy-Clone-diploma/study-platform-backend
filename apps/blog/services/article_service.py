@@ -2,7 +2,11 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.blog.exceptions import ArticleAlreadyAssignedError, ArticleNotAssignedToModeratorError, BlogError
+from apps.blog.exceptions import (
+    ArticleAlreadyAssignedError,
+    ArticleNotAssignedToModeratorError,
+    BlogError,
+)
 from apps.blog.models import Article, ArticleModerationSnapshot
 from apps.common.files import duplicate_file_field
 from apps.users.models import User

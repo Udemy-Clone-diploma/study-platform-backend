@@ -42,11 +42,11 @@ def compute_pending_edit_changed_fields(pending_edit) -> list[str]:
     return changed
 
 
-def _merge_row(Model, live_parent_lookup: dict, source_id, **kwargs):
+def _merge_row(model, live_parent_lookup: dict, source_id, **kwargs):
     """Update-in-place (and undelete) the live row referenced by source_id, or
     create a brand-new live row if there's no source (new-since-clone content)."""
     if source_id:
-        obj = Model.all_objects.filter(id=source_id, **live_parent_lookup).first()
+        obj = model.all_objects.filter(id=source_id, **live_parent_lookup).first()
         if obj:
             for k, v in kwargs.items():
                 setattr(obj, k, v)
@@ -59,7 +59,7 @@ def _merge_row(Model, live_parent_lookup: dict, source_id, **kwargs):
             # already has, for every single merged item, on every approval.
             obj.save(update_fields=[*kwargs.keys(), "is_deleted", "updated_at"])
             return obj
-    return Model.objects.create(**live_parent_lookup, **kwargs)
+    return model.objects.create(**live_parent_lookup, **kwargs)
 
 
 def _merge_document(live_lesson, draft_doc) -> LessonDocument:

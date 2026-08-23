@@ -8,10 +8,10 @@ from apps.common.files import UUIDUploadTo, file_content_hash
 from apps.common.managers import ActiveManager
 from apps.users.models import ModeratorProfile, TeacherProfile
 
-COURSE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "svg"]
-
 from .Category import Category
 from .Tag import Tag
+
+COURSE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "svg"]
 
 
 class Course(models.Model):

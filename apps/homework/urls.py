@@ -1,16 +1,16 @@
 from django.urls import path
 
 from apps.homework.views import (
-    HomeworkAssignmentCloseView,
     HomeworkAssignmentAttachmentDetailView,
     HomeworkAssignmentAttachmentView,
+    HomeworkAssignmentCloseView,
     HomeworkAssignmentDetailView,
     HomeworkAssignmentListCreateView,
     HomeworkAssignmentPublishView,
     HomeworkAvailableRecipientsView,
     HomeworkGrowthView,
-    HomeworkSubmissionReviewView,
     HomeworkSubmissionRetrieveView,
+    HomeworkSubmissionReviewView,
     StudentHomeworkListView,
     StudentHomeworkSubmissionAttachmentDetailView,
     StudentHomeworkSubmissionAttachmentView,

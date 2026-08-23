@@ -6,7 +6,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.reviews.exceptions import ReviewAlreadyAssignedError, ReviewNotAssignedToModeratorError, ReviewsError
+from apps.reviews.exceptions import (
+    ReviewAlreadyAssignedError,
+    ReviewNotAssignedToModeratorError,
+    ReviewsError,
+)
 from apps.reviews.models import Review
 from apps.reviews.serializers import ModeratorReviewSerializer
 from apps.reviews.services import ReviewService

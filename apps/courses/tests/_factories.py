@@ -20,18 +20,18 @@ def make_category(name="Development", slug="development", **overrides):
     return Category.objects.create(name_en=name, slug=slug, **overrides)
 
 
-COURSE_DEFAULTS = dict(
-    short_description="Short",
-    full_description="Full",
-    level=Course.LevelChoices.BEGINNER,
-    language=Course.LanguageChoices.ENGLISH,
-    mode=Course.ModeChoices.SELF_LEARNING,
-    delivery_type=Course.DeliveryTypeChoices.SELF_PACED,
-    course_type=Course.CourseTypeChoices.KNOWLEDGE,
-    duration_hours=10,
-    lessons_count=0,
-    status=Course.StatusChoices.PUBLISHED,
-)
+COURSE_DEFAULTS = {
+    "short_description": "Short",
+    "full_description": "Full",
+    "level": Course.LevelChoices.BEGINNER,
+    "language": Course.LanguageChoices.ENGLISH,
+    "mode": Course.ModeChoices.SELF_LEARNING,
+    "delivery_type": Course.DeliveryTypeChoices.SELF_PACED,
+    "course_type": Course.CourseTypeChoices.KNOWLEDGE,
+    "duration_hours": 10,
+    "lessons_count": 0,
+    "status": Course.StatusChoices.PUBLISHED,
+}
 
 
 def make_course(teacher_profile, *, title="Course", slug="course", **overrides):

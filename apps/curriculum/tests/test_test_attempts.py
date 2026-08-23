@@ -6,7 +6,6 @@ from rest_framework.test import APITestCase
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_teacher
 from apps.curriculum.models import Test, TestAttempt
-from apps.users.models import User
 
 from ._factories import (
     all_correct_answers,

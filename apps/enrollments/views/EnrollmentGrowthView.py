@@ -38,7 +38,7 @@ def _bucket_enrollment_counts(qs, period: str) -> tuple[list[dict], int]:
             "period": period,
             "value": grouped.get(bucket, 0),
         }
-        for bucket, label in zip(buckets, labels)
+        for bucket, label in zip(buckets, labels, strict=True)
     ]
     return points, sum(p["value"] for p in points)
 

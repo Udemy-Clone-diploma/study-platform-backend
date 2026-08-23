@@ -6,7 +6,6 @@ from django.utils import timezone
 from apps.cart.models import CartItem
 from apps.courses.models import Cohort, Course, CourseDeliveryFormat, PricingPlan
 from apps.courses.services import DeliveryFormatService
-from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
     DuplicateEnrollmentError,
@@ -16,6 +15,7 @@ from apps.enrollments.exceptions import (
     StudentProfileRequiredError,
 )
 from apps.enrollments.models import Enrollment
+from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.users.models import StudentProfile, User
 
 
@@ -152,10 +152,10 @@ class EnrollmentService:
                 pk=slot_id,
                 delivery_format__course=enrollment.course,
             )
-        except ScheduleSlot.DoesNotExist:
+        except ScheduleSlot.DoesNotExist as exc:
             raise SlotNotAvailableError(
                 "The requested schedule slot does not exist or does not belong to this course."
-            )
+            ) from exc
 
         ScheduleService.book_slot(slot, enrollment)
 

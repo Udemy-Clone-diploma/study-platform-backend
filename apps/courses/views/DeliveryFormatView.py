@@ -5,7 +5,10 @@ from rest_framework.response import Response
 
 from apps.courses.exceptions import DuplicateDeliveryFormatError
 from apps.courses.models import CourseDeliveryFormat
-from apps.courses.serializers import CourseDeliveryFormatSerializer, CourseDeliveryFormatWriteSerializer
+from apps.courses.serializers import (
+    CourseDeliveryFormatSerializer,
+    CourseDeliveryFormatWriteSerializer,
+)
 from apps.courses.services import DeliveryFormatService
 
 from ._course_scoped import (

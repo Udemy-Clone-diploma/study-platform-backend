@@ -2,7 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.courses.models import Category, Course
+from apps.courses.models import Category
 
 from ._factories import make_category, make_course, make_teacher
 

@@ -5,9 +5,10 @@ from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.courses.models import Course
 from apps.common.cache import invalidate_cache_on_commit
+from apps.courses.models import Course
 from apps.curriculum.models import Lesson, LessonItem, Test, TestAttempt
+from apps.enrollments.cache import invalidate_course_progress_for_user
 from apps.enrollments.exceptions import (
     ActiveEnrollmentRequiredError,
     CourseAlreadyCompletedError,
@@ -18,7 +19,6 @@ from apps.enrollments.exceptions import (
     MandatoryTestNotPassedError,
 )
 from apps.enrollments.models import CourseCompletion, Enrollment, LessonCompletion
-from apps.enrollments.cache import invalidate_course_progress_for_user
 from apps.users.models import StudentProfile, User
 
 logger = logging.getLogger(__name__)
@@ -385,9 +385,8 @@ class ProgressService:
 
     @classmethod
     def _attach_certificate(cls, completion: CourseCompletion, course: Course, user: User) -> None:
-        from apps.enrollments.services.certificate_service import CertificateService
-
         from apps.certificates.services import CertificateRegistryService
+        from apps.enrollments.services.certificate_service import CertificateService
 
         try:
             pdf_bytes, thumbnail_bytes = CertificateService.render_certificate_assets(

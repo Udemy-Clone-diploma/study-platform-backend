@@ -7,8 +7,6 @@ from django.core.cache import cache
 from django.test import SimpleTestCase, override_settings
 from redis.exceptions import ConnectionError
 
-from config import settings as base_settings
-
 from apps.common.cache import (
     MAX_CACHE_KEY_LENGTH,
     build_cache_key,
@@ -20,7 +18,7 @@ from apps.common.cache import (
     cache_set,
     jittered_cache_timeout,
 )
-
+from config import settings as base_settings
 
 TEST_CACHES = {
     "default": {

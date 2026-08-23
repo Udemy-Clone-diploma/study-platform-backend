@@ -8,7 +8,6 @@ from django.dispatch import receiver
 
 from apps.common.cache import invalidate_cache_on_commit
 from apps.courses.cache import (
-    invalidate_public_categories,
     invalidate_public_courses,
     invalidate_public_courses_and_categories,
 )

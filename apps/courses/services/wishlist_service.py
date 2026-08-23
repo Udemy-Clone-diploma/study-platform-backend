@@ -20,8 +20,8 @@ class WishlistService:
                 slug=slug,
                 status=Course.StatusChoices.PUBLISHED,
             )
-        except Course.DoesNotExist:
-            raise CourseNotFoundError(slug)
+        except Course.DoesNotExist as exc:
+            raise CourseNotFoundError(slug) from exc
 
         wishlist = student_profile.wishlisted_courses
         if wishlist.filter(pk=course.pk).exists():

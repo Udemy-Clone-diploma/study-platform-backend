@@ -5,13 +5,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.exceptions import InvalidLimitError
 from apps.common.cache import cache_get_or_set, jittered_cache_timeout
+from apps.common.exceptions import InvalidLimitError
 from apps.common.limits import parse_limit
+from apps.users.cache import public_top_teachers_cache_key
 from apps.users.constants import DEFAULT_TOP_TEACHERS_LIMIT
 from apps.users.serializers import TopTeacherSerializer
 from apps.users.services.user_service import UserService
-from apps.users.cache import public_top_teachers_cache_key
 
 
 class TopTeachersView(APIView):

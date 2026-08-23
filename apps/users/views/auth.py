@@ -15,7 +15,6 @@ from apps.users.exceptions import (
     EmailNotVerifiedError,
     GoogleAuthError,
     InvalidTokenError,
-    ProfileNotAvailableError,
 )
 from apps.users.messages import EmailMessages
 from apps.users.models import User

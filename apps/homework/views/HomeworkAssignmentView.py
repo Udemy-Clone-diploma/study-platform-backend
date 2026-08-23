@@ -29,7 +29,6 @@ from apps.homework.serializers import (
     HomeworkAvailableRecipientSerializer,
     HomeworkFileUploadSerializer,
     HomeworkPublishSerializer,
-    HomeworkSubmissionAttachmentSerializer,
     HomeworkSubmissionReviewSerializer,
     HomeworkSubmissionSerializer,
     HomeworkSubmissionWriteSerializer,
@@ -593,7 +592,7 @@ def _bucket_scores(qs, period: str) -> tuple[list[dict], float]:
             "period": period,
             "value": round(grouped.get(bucket, 0) or 0, 1),
         }
-        for bucket, label in zip(buckets, labels)
+        for bucket, label in zip(buckets, labels, strict=True)
     ]
     overall = windowed.aggregate(avg=Avg("score"))["avg"]
     return points, round(overall, 1) if overall else 0

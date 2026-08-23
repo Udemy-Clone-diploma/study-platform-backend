@@ -2,7 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.users.models import StudentProfile, TeacherProfile, ModeratorProfile
+from apps.users.models import ModeratorProfile, StudentProfile, TeacherProfile
 
 from ._factories import make_user
 

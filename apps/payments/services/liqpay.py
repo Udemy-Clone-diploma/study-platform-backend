@@ -10,9 +10,11 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from apps.payments.models import Payment, PaymentAttempt, TeacherPayout
+
 from .base import PaymentBaseService
 from .exceptions import PaymentError
-from apps.payments.models import Payment, PaymentAttempt, TeacherPayout
+
 
 class LiqPayService(PaymentBaseService):
     @staticmethod
@@ -64,10 +66,7 @@ class LiqPayService(PaymentBaseService):
 
     @staticmethod
     def _liqpay_api_url() -> str:
-        return getattr(
-            settings,
-            "LIQPAY_API_URL",
-        )
+        return settings.LIQPAY_API_URL
     
     @staticmethod
     def _liqpay_checkout_url() -> str:

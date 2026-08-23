@@ -6,8 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.models import Course
 from apps.common.cache import cache_get_or_set, jittered_cache_timeout
+from apps.courses.models import Course
 from apps.enrollments.cache import course_progress_cache_key
 from apps.enrollments.exceptions import ActiveEnrollmentRequiredError
 from apps.enrollments.serializers import CourseProgressSerializer

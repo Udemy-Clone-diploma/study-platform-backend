@@ -1,17 +1,17 @@
+import json
 from decimal import Decimal
+from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import urlencode
-from io import BytesIO
-import json
+
 import stripe
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
-from django.test import override_settings
 
-from apps.users.models import User
 from apps.cart.models import Cart, CartItem
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_pricing_plan, make_teacher
@@ -26,13 +26,13 @@ from apps.payments.models import (
     PaymentAttempt,
     PaymentInstallment,
     PaymentItem,
-    TeacherPayoutAccount,
-    WebhookEvent,
     Refund,
     TeacherLedgerEntry,
     TeacherPayout,
+    TeacherPayoutAccount,
     TeacherPayoutDestination,
     TeacherPayoutItem,
+    WebhookEvent,
 )
 from apps.payments.services import (
     PaymentError,
@@ -43,6 +43,8 @@ from apps.payments.services.liqpay import LiqPayService
 from apps.payments.services.teacher_finance import (
     TeacherFinanceService,
 )
+from apps.users.models import User
+
 
 class TeacherFinanceTests(APITestCase):
     def setUp(self):
@@ -1964,7 +1966,7 @@ class TeacherFinanceTests(APITestCase):
     ):
         payments = []
 
-        for index in range(2):
+        for _ in range(2):
             payment = Payment.objects.create(
                 user=self.student_user,
                 student_profile=self.student_profile,

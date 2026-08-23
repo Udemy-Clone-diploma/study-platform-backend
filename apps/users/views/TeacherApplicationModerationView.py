@@ -8,7 +8,10 @@ from apps.users.exceptions import ApplicationAlreadyDecidedError
 from apps.users.filters import TeacherApplicationFilter
 from apps.users.models import TeacherApplication
 from apps.users.permissions import IsAdminOrModerator
-from apps.users.serializers import TeacherApplicationDecisionSerializer, TeacherApplicationSerializer
+from apps.users.serializers import (
+    TeacherApplicationDecisionSerializer,
+    TeacherApplicationSerializer,
+)
 from apps.users.services.teacher_application_service import TeacherApplicationService
 
 

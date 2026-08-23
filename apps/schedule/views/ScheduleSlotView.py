@@ -1,5 +1,6 @@
-from datetime import datetime, timezone as dt_timezone
+from datetime import UTC, datetime
 
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers, status
 from rest_framework.exceptions import NotFound
@@ -8,17 +9,18 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.db.models import Q
-
-from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
-from apps.schedule.models import CohortSchedule, PersonalEvent, EventInvitation, ScheduleSlot, Session
-from apps.schedule.serializers import ScheduleSlotSerializer, ScheduleSlotRescheduleSerializer, ScheduleSlotWriteSerializer
-from apps.schedule.services import ScheduleService, ScheduleNotificationService
 from apps.courses.models import CourseDeliveryFormat
-from apps.enrollments.models import Enrollment
-from apps.users.models import User
-
 from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.enrollments.models import Enrollment
+from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
+from apps.schedule.models import EventInvitation, PersonalEvent, ScheduleSlot
+from apps.schedule.serializers import (
+    ScheduleSlotRescheduleSerializer,
+    ScheduleSlotSerializer,
+    ScheduleSlotWriteSerializer,
+)
+from apps.schedule.services import ScheduleNotificationService, ScheduleService
+from apps.users.models import User
 
 
 class _EnrollmentPeriodSerializer(serializers.Serializer):
@@ -34,16 +36,16 @@ def _get_delivery_format(view, slug: str, format_id: int) -> CourseDeliveryForma
             course=course,
             format_type=CourseDeliveryFormat.FormatType.INDIVIDUAL,
         )
-    except CourseDeliveryFormat.DoesNotExist:
-        raise NotFound("Individual delivery format not found.")
+    except CourseDeliveryFormat.DoesNotExist as exc:
+        raise NotFound("Individual delivery format not found.") from exc
 
 
 def _get_slot(view, slug: str, format_id: int, slot_id: int) -> ScheduleSlot:
     fmt = _get_delivery_format(view, slug, format_id)
     try:
         return ScheduleSlot.objects.get(pk=slot_id, delivery_format=fmt)
-    except ScheduleSlot.DoesNotExist:
-        raise NotFound("Schedule slot not found.")
+    except ScheduleSlot.DoesNotExist as exc:
+        raise NotFound("Schedule slot not found.") from exc
 
 
 @extend_schema(tags=["Schedule"])
@@ -295,12 +297,12 @@ class EnrollmentPeriodView(APIView):
         update_fields = []
         if "access_granted_at" in data:
             d = data["access_granted_at"]
-            enrollment.access_granted_at = datetime(d.year, d.month, d.day, tzinfo=dt_timezone.utc)
+            enrollment.access_granted_at = datetime(d.year, d.month, d.day, tzinfo=UTC)
             update_fields.append("access_granted_at")
         if "access_until" in data:
             d = data["access_until"]
             enrollment.access_until = (
-                datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=dt_timezone.utc)
+                datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=UTC)
                 if d else None
             )
             update_fields.append("access_until")

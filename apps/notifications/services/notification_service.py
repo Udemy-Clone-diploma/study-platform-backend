@@ -16,12 +16,12 @@ def _dispatch_email(**kwargs) -> None:
     `.delay()` itself opens a connection to the broker synchronously, so a slow
     or unreachable broker can stall the request for as long as the client library
     takes to give up (observed several seconds per call on this stack, regardless
-    of configured timeouts) -- unacceptable when fanning out to a whole cohort in
+    of configured timeouts), unacceptable when fanning out to a whole cohort in
     one request. Doing it on a daemon thread bounds the request to the time it
     takes to start a thread, not to connect to the broker.
 
-    Under CELERY_TASK_ALWAYS_EAGER (tests) there is no broker involved -- the task
-    body just runs inline -- so dispatch synchronously there instead: tests assert
+    Under CELERY_TASK_ALWAYS_EAGER (tests) there is no broker involved: the task
+    body just runs inline, so dispatch synchronously there instead: tests assert
     on `mail.outbox` immediately after calling into this service, and a background
     thread would race that assertion.
     """

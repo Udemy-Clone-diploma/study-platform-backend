@@ -283,7 +283,7 @@ class CheckoutService(PaymentBaseService):
                 for item in items
             ]
         )
-        for order_item, cart_item in zip(created_order_items, items):
+        for order_item, cart_item in zip(created_order_items, items, strict=True):
             slot_ids = list(cart_item.schedule_slots.values_list("id", flat=True))
             if slot_ids:
                 order_item.schedule_slots.set(slot_ids)
@@ -336,7 +336,7 @@ class CheckoutService(PaymentBaseService):
                 for item in order_items
             ]
         )
-        for payment_item, order_item in zip(created_payment_items, order_items):
+        for payment_item, order_item in zip(created_payment_items, order_items, strict=True):
             slot_ids = list(order_item.schedule_slots.values_list("id", flat=True))
             if slot_ids:
                 payment_item.schedule_slots.set(slot_ids)

@@ -202,7 +202,7 @@ class Command(BaseCommand):
 
         for category in categories:
             topics = BLOG_TOPICS.get(category.slug, [])
-            for i, (title, subtitle) in enumerate(topics):
+            for title, subtitle in topics:
                 slug = slugify(title)
                 author = random.choice(authors)
                 story_paragraphs = STUDENT_STORY_BODIES.get(slug)

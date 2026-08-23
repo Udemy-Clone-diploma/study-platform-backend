@@ -14,7 +14,11 @@ from apps.blog.cache import (
     public_article_detail_cache_key,
     public_article_list_cache_key,
 )
-from apps.blog.exceptions import ArticleAlreadyAssignedError, ArticleNotAssignedToModeratorError, BlogError
+from apps.blog.exceptions import (
+    ArticleAlreadyAssignedError,
+    ArticleNotAssignedToModeratorError,
+    BlogError,
+)
 from apps.blog.models import Article
 from apps.blog.permissions import CanCreateArticle, CanManageArticle
 from apps.blog.serializers import (

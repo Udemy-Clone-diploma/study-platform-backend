@@ -4,7 +4,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.courses.exceptions import CoursesError
-from apps.courses.serializers import CourseDetailSerializer
 from apps.courses.services.course_service import CourseService
 from apps.courses.views._course_scoped import _get_dict, _moderator_profile, get_course_for_request
 from apps.users.permissions import IsAdminOrModerator

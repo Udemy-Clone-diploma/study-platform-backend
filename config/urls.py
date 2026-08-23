@@ -5,18 +5,17 @@ from pathlib import Path
 from urllib.parse import quote
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.urls import include, path, re_path
 from django.utils._os import safe_join
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import RedirectView
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django.views.static import serve
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from apps.payments.views import StripeWebhookView
 from apps.common.cache import cache_is_available
+from apps.payments.views import StripeWebhookView
 
 
 def health(request):

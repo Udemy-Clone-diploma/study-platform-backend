@@ -5,10 +5,14 @@ from rest_framework.views import APIView
 
 from apps.courses.exceptions import CoursesError
 from apps.courses.models import ApprovedCourseRecord, RejectedCourseRecord
-from apps.courses.serializers import ApprovedCourseRecordSerializer, RejectedCourseRecordSerializer, RejectedCourseSerializer
+from apps.courses.serializers import (
+    ApprovedCourseRecordSerializer,
+    RejectedCourseRecordSerializer,
+    RejectedCourseSerializer,
+)
 from apps.courses.services import CourseService
 from apps.courses.views._course_scoped import get_course_for_request
-from apps.users.permissions import IsAdminOrModerator, IsTeacher, IsTeacherOrAdmin
+from apps.users.permissions import IsAdminOrModerator, IsTeacherOrAdmin
 
 
 @extend_schema(tags=["Courses"], summary="List rejected courses for the current teacher")

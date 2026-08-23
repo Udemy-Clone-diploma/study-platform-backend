@@ -1,6 +1,14 @@
 from django.contrib import admin, messages
 
-from .models import Category, Cohort, Course, CourseDeliveryFormat, CoursePendingEdit, PricingPlan, Tag
+from .models import (
+    Category,
+    Cohort,
+    Course,
+    CourseDeliveryFormat,
+    CoursePendingEdit,
+    PricingPlan,
+    Tag,
+)
 
 
 class SoftDeleteAdminMixin:

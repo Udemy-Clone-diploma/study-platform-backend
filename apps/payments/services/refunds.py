@@ -388,8 +388,7 @@ class RefundService(StripeService):
                 "snapshot."
             ) from exc
 
-        payment = (
-            cls._mark_refund_succeeded(
+        cls._mark_refund_succeeded(
                 refund=refund,
                 payment=refund.payment,
                 successful_remaining_before=(
@@ -407,7 +406,6 @@ class RefundService(StripeService):
                     ),
                 },
             )
-        )
 
         refund.refresh_from_db()
 

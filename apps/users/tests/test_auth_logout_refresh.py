@@ -55,11 +55,11 @@ class AuthRefreshTests(APITestCase):
         self.assertIn("refresh", response.data)
 
     def test_refresh_includes_role_in_new_access_token(self):
-        from rest_framework_simplejwt.tokens import AccessToken as AT
+        from rest_framework_simplejwt.tokens import AccessToken
 
         response = self.client.post(self.url, {"refresh": self.refresh})
 
-        decoded = AT(response.data["access"])
+        decoded = AccessToken(response.data["access"])
         self.assertEqual(decoded["role"], self.user.role)
 
     def test_refresh_rotates_and_blacklists_old_refresh_token(self):

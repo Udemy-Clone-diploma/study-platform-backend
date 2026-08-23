@@ -5,8 +5,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.models import Course
 from apps.common.cache import cache_get_or_set, jittered_cache_timeout
+from apps.courses.models import Course
 from apps.curriculum.cache import lesson_detail_cache_key
 from apps.curriculum.models import Lesson
 from apps.curriculum.serializers import LessonSerializer

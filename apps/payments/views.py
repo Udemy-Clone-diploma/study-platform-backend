@@ -11,54 +11,53 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView
-from rest_framework.exceptions import ValidationError
 
 from apps.common.files import absolute_media_url
 from apps.courses.models import Cohort, Course
 from apps.payments.filters import PaymentFilter
 from apps.payments.models import (
-    Order, 
-    Payment, 
-    PaymentInstallment, 
-    TeacherPayoutAccount, 
-    TeacherPayout, 
-    TeacherLedgerEntry, 
+    Order,
+    Payment,
+    PaymentInstallment,
+    Refund,
+    TeacherLedgerEntry,
+    TeacherPayout,
     TeacherPayoutAccount,
     TeacherPayoutDestination,
-    Refund,
 )
+from apps.payments.permissions import IsFinanceOperator
 from apps.payments.serializers import (
     CheckoutSessionCreateSerializer,
     CheckoutSessionSerializer,
+    LiqPayCheckoutCreateSerializer,
+    LiqPayCheckoutSerializer,
+    LiqPayStatusSerializer,
+    LiqPayStatusSyncSerializer,
     OrderSerializer,
+    PaymentCategoryRevenueSerializer,
     PaymentIntentCreateSerializer,
     PaymentIntentSerializer,
     PaymentIntentStatusSerializer,
-    PaymentCategoryRevenueSerializer,
     PaymentIntentStatusSyncSerializer,
     PaymentSerializer,
     PaymentSummarySerializer,
     PaymentTimeseriesPointSerializer,
     RefundCreateSerializer,
-    LiqPayCheckoutCreateSerializer,
-    LiqPayCheckoutSerializer,
-    LiqPayStatusSyncSerializer,
-    LiqPayStatusSerializer,
-    TeacherBalanceSerializer,
-    TeacherLedgerEntrySerializer,
-    TeacherPayoutSerializer,
-    TeacherPayoutDestinationSerializer,
     StaffPayoutCreateSerializer,
     StaffTeacherPayoutSerializer,
+    TeacherBalanceSerializer,
+    TeacherLedgerEntrySerializer,
+    TeacherPayoutDestinationSerializer,
+    TeacherPayoutSerializer,
 )
 from apps.payments.services import PaymentError, PaymentService, RefundError
-from apps.users.models import User, TeacherProfile
+from apps.users.models import TeacherProfile, User
 from apps.users.permissions import IsAdmin, IsStudent, IsTeacher
-from apps.payments.permissions import IsFinanceOperator
 
 logger = logging.getLogger(__name__)
 
@@ -1106,90 +1105,6 @@ class PaymentViewSet(
                 "currency": payment.currency,
             },
             status=status.HTTP_201_CREATED,
-        )
-
-    @extend_schema(
-        request=LiqPayStatusSyncSerializer,
-        responses={200: LiqPayStatusSerializer},
-        summary="Sync LiqPay payment status",
-    )
-    @action(
-        detail=False,
-        methods=["post"],
-        url_path="liqpay/status/sync",
-        url_name="liqpay-status-sync",
-    )
-    def sync_liqpay_status(
-        self,
-        request,
-        *args,
-        **kwargs,
-    ):
-        serializer = LiqPayStatusSyncSerializer(
-            data=request.data
-        )
-        serializer.is_valid(raise_exception=True)
-
-        payment = (
-            self.get_queryset()
-            .filter(
-                pk=serializer.validated_data["payment_id"],
-                payment_method=Payment.MethodChoices.LIQPAY,
-            )
-            .first()
-        )
-
-        if payment is None:
-            return Response(
-                {
-                    "detail": "LiqPay payment was not found."
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            payment, provider_status = (
-                PaymentService.sync_liqpay_payment_status(
-                    payment=payment,
-                )
-            )
-
-        except PaymentError as exc:
-            return Response(
-                {"detail": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        except ImproperlyConfigured as exc:
-            return Response(
-                {"detail": str(exc)},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
-        except Exception:
-            logger.exception(
-                "Could not sync LiqPay payment status."
-            )
-            return Response(
-                {
-                    "detail": (
-                        "Could not sync LiqPay payment status."
-                    )
-                },
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        payment.refresh_from_db()
-
-        return Response(
-            {
-                "payment_id": payment.id,
-                "order_id": payment.order_id,
-                "installment_id": payment.installment_id,
-                "payment_status": payment.status,
-                "provider_status": provider_status,
-            },
-            status=status.HTTP_200_OK,
         )
 
     @extend_schema(

@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,8 +11,12 @@ from rest_framework.views import APIView
 from apps.enrollments.models import Enrollment
 from apps.homework.models import HomeworkAssignment
 from apps.schedule.models import (
-    CohortSchedule, EventInvitation, PersonalEvent, ScheduleSlot,
-    Session, TeacherUnavailability,
+    CohortSchedule,
+    EventInvitation,
+    PersonalEvent,
+    ScheduleSlot,
+    Session,
+    TeacherUnavailability,
 )
 from apps.schedule.serializers import TeacherUnavailabilitySerializer
 from apps.schedule.services import ScheduleNotificationService
@@ -564,7 +568,8 @@ class PersonalEventView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        from datetime import date as _date, time as _time
+        from datetime import date as _date
+        from datetime import time as _time
         data = request.data
         required = ("title", "date", "start_time", "end_time")
         missing = [f for f in required if not data.get(f)]
@@ -612,7 +617,8 @@ class PersonalEventDetailView(APIView):
             return None
 
     def patch(self, request, pk: int):
-        from datetime import date as _date, time as _time
+        from datetime import date as _date
+        from datetime import time as _time
         ev = self._get_event(pk, request.user)
         if not ev:
             return Response({"detail": "Not found"}, status=404)
@@ -839,7 +845,7 @@ class ExtraSessionView(APIView):
         if missing:
             return Response({"detail": f"Missing fields: {', '.join(missing)}"}, status=400)
 
-        from apps.courses.models import Course, Cohort
+        from apps.courses.models import Cohort, Course
         from apps.users.models import StudentProfile
 
         try:

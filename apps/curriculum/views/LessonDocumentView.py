@@ -1,4 +1,3 @@
-import re
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema

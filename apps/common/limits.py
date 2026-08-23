@@ -10,8 +10,8 @@ def parse_limit(request: Request, default: int) -> int:
         return default
     try:
         value = int(raw)
-    except (TypeError, ValueError):
-        raise InvalidLimitError("limit must be a positive integer")
+    except (TypeError, ValueError) as exc:
+        raise InvalidLimitError("limit must be a positive integer") from exc
     if value <= 0:
         raise InvalidLimitError("limit must be a positive integer")
     return min(value, MAX_TOP_N_LIMIT)

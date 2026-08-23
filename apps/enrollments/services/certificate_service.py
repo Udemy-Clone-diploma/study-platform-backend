@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 from django.utils import timezone
@@ -50,7 +50,7 @@ COURSE_TYPE_WORD = {
 }
 
 
-@lru_cache(maxsize=None)
+@cache
 def _font(bold: bool, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(FONT_BOLD_PATH if bold else FONT_REGULAR_PATH, size)
 
@@ -154,7 +154,7 @@ class CertificateService:
         pixels = row.load()
         for x in range(w):
             t = x / (w - 1)
-            for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
+            for (t0, c0), (t1, c1) in zip(stops, stops[1:], strict=False):
                 if t0 <= t <= t1:
                     frac = 0 if t1 == t0 else (t - t0) / (t1 - t0)
                     color = tuple(
@@ -166,7 +166,7 @@ class CertificateService:
         return canvas
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @cache
     def _prepared_sprite(path: Path, w: int, h: int, angle: float) -> Image.Image | None:
         """Decode + resize + rotate a static decorative asset once; every render reuses it."""
         if not path.exists():

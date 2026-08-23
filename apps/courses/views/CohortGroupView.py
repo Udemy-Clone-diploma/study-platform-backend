@@ -1,15 +1,21 @@
+from datetime import timedelta
+
+from django.db.models import Avg
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Avg
-from django.utils import timezone
-from datetime import timedelta
 
+from apps.common.files import absolute_media_url
 from apps.courses.models import Cohort, CohortMember
-from apps.courses.serializers.CohortGroupSerializer import CohortMemberSerializer, EnrolledStudentSerializer
+from apps.courses.serializers.CohortGroupSerializer import (
+    CohortMemberSerializer,
+    EnrolledStudentSerializer,
+)
+from apps.curriculum.models import TestAttempt
 from apps.enrollments.exceptions import (
     CourseAlreadyCompletedError,
     CourseCompletionNotFoundError,
@@ -18,8 +24,6 @@ from apps.enrollments.exceptions import (
 from apps.enrollments.models import CourseCompletion, Enrollment
 from apps.enrollments.serializers import CourseCompletionSerializer
 from apps.enrollments.services import ProgressService
-from apps.common.files import absolute_media_url
-from apps.curriculum.models import TestAttempt
 from apps.homework.models import HomeworkSubmission
 from apps.schedule.models import Attendance
 

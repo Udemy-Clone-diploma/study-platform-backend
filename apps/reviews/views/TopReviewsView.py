@@ -8,8 +8,8 @@ from rest_framework.views import APIView
 from apps.common.cache import cache_get_or_set, jittered_cache_timeout
 from apps.common.exceptions import InvalidLimitError
 from apps.common.limits import parse_limit
-from apps.reviews.constants import DEFAULT_TOP_REVIEWS_LIMIT
 from apps.reviews.cache import top_reviews_cache_key
+from apps.reviews.constants import DEFAULT_TOP_REVIEWS_LIMIT
 from apps.reviews.serializers import TopReviewSerializer
 from apps.reviews.services import ReviewService
 

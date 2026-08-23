@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -8,9 +9,12 @@ from apps.courses.exceptions import PendingEditLockedError
 from apps.courses.models import Course, CoursePendingEdit
 from apps.courses.serializers import CoursePendingEditReadSerializer
 from apps.courses.services.pending_edit_service import PendingEditService
-from apps.courses.views._course_scoped import _get_dict, _moderator_profile, ensure_can_modify_course, get_course_for_request
-from rest_framework.permissions import IsAuthenticated
-from apps.users.models import User
+from apps.courses.views._course_scoped import (
+    _get_dict,
+    _moderator_profile,
+    ensure_can_modify_course,
+    get_course_for_request,
+)
 from apps.users.permissions import IsAdminOrModerator, IsTeacherOrAdmin
 
 
@@ -37,8 +41,8 @@ def _get_published_course_read(view, slug: str) -> Course:
 def _get_pending_edit(course: Course) -> CoursePendingEdit:
     try:
         return course.pending_edit
-    except CoursePendingEdit.DoesNotExist:
-        raise NotFound("No pending edit found for this course.")
+    except CoursePendingEdit.DoesNotExist as exc:
+        raise NotFound("No pending edit found for this course.") from exc
 
 
 @extend_schema(tags=["Course Pending Edit"])

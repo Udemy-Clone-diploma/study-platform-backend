@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Q
 
+from apps.courses.models import Cohort, CourseDeliveryFormat
 from apps.schedule.exceptions import (
     InvalidScheduleTimeError,
     SlotAlreadyBookedError,
@@ -17,7 +18,6 @@ from apps.schedule.models import (
     Session,
     TeacherUnavailability,
 )
-from apps.courses.models import Cohort, CourseDeliveryFormat
 from apps.users.models import TeacherProfile
 
 
@@ -44,8 +44,8 @@ class ScheduleService:
         overlap = cls._time_overlap_filter(start_time, end_time)
         day_q = Q(day_of_week=day_of_week)
 
-        _INACTIVE_OVERRIDE = [ScheduleOverride.Status.CANCELLED, ScheduleOverride.Status.RESCHEDULED]
-        _INACTIVE_SESSION  = [Session.Status.CANCELLED, Session.Status.RESCHEDULED]
+        inactive_override = [ScheduleOverride.Status.CANCELLED, ScheduleOverride.Status.RESCHEDULED]
+        inactive_session  = [Session.Status.CANCELLED, Session.Status.RESCHEDULED]
 
         slot_qs = ScheduleSlot.objects.filter(
             day_q & overlap,
@@ -63,12 +63,12 @@ class ScheduleService:
                     ScheduleOverride.objects.filter(
                         slot=slot,
                         original_date=specific_date,
-                        status__in=_INACTIVE_OVERRIDE,
+                        status__in=inactive_override,
                     ).exists()
                     or Session.objects.filter(
                         slot=slot,
                         date=specific_date,
-                        status__in=_INACTIVE_SESSION,
+                        status__in=inactive_session,
                     ).exists()
                 )
                 if not already_handled:
@@ -92,12 +92,12 @@ class ScheduleService:
                     ScheduleOverride.objects.filter(
                         schedule=schedule,
                         original_date=specific_date,
-                        status__in=_INACTIVE_OVERRIDE,
+                        status__in=inactive_override,
                     ).exists()
                     or Session.objects.filter(
                         schedule=schedule,
                         date=specific_date,
-                        status__in=_INACTIVE_SESSION,
+                        status__in=inactive_session,
                     ).exists()
                 )
                 if not already_handled:
@@ -164,8 +164,9 @@ class ScheduleService:
         cohort_start_date=None,
         cohort_duration_months: int | None = None,
     ) -> dict:
-        from datetime import date as _date, timedelta
         import calendar as _cal
+        from datetime import date as _date
+        from datetime import timedelta
 
         overlap = cls._time_overlap_filter(start_time, end_time)
         day_q = Q(day_of_week=day_of_week)

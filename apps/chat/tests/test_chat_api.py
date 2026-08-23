@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.chat.consumers import ChatConsumer, ONLINE_USER_CONNECTIONS
+from apps.chat.consumers import ONLINE_USER_CONNECTIONS, ChatConsumer
 from apps.chat.models import (
     ChatParticipant,
     ChatRoom,

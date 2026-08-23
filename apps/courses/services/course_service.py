@@ -21,13 +21,13 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.text import slugify
 
+from apps.common.files import duplicate_file_field
 from apps.courses.constants import (
     DEFAULT_FEATURED_CATEGORIES_LIMIT,
     DEFAULT_NEW_COURSES_LIMIT,
     DEFAULT_POPULAR_COURSES_LIMIT,
     POPULARITY_WINDOW_DAYS,
 )
-from apps.common.files import duplicate_file_field
 from apps.courses.exceptions import CoursesError
 from apps.courses.models import (
     ApprovedCourseRecord,
@@ -35,12 +35,12 @@ from apps.courses.models import (
     Cohort,
     CohortMember,
     Course,
+    CourseDeliveryFormat,
     CoursePendingEdit,
     ModerationReview,
     PricingPlan,
     RejectedCourseRecord,
 )
-from apps.courses.models import CourseDeliveryFormat
 from apps.courses.serializers import (
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
@@ -49,7 +49,7 @@ from apps.courses.serializers import (
 )
 from apps.courses.services.category_service import CategoryService
 from apps.curriculum.models import Lesson, LessonDocument, LessonItem, Module, Question, Test
-from apps.enrollments.models import CourseCompletion, Enrollment
+from apps.enrollments.models import Enrollment
 from apps.users.models import User
 
 
@@ -788,8 +788,8 @@ class CourseService:
         if course.status == Course.StatusChoices.PUBLISHED:
             try:
                 pending_edit = course.pending_edit
-            except CoursePendingEdit.DoesNotExist:
-                raise CoursesError("This published course has no pending edit to assign.")
+            except CoursePendingEdit.DoesNotExist as exc:
+                raise CoursesError("This published course has no pending edit to assign.") from exc
             if pending_edit.status != CoursePendingEdit.StatusChoices.PENDING:
                 raise CoursesError("The pending edit is not submitted for moderation yet.")
             if pending_edit.moderator_profile_id is not None:

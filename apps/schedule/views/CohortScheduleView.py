@@ -7,28 +7,27 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
 from apps.courses.models import Cohort, CohortMember
+from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
 from apps.schedule.models import CohortSchedule
 from apps.schedule.serializers import CohortScheduleSerializer, CohortScheduleWriteSerializer
-from apps.schedule.services import ScheduleService, ScheduleNotificationService
-
-from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.schedule.services import ScheduleNotificationService, ScheduleService
 
 
 def _get_cohort(view, slug: str, cohort_id: int) -> Cohort:
     course = get_course_for_request(view, slug)
     try:
         return Cohort.objects.get(pk=cohort_id, course=course)
-    except Cohort.DoesNotExist:
-        raise NotFound("Cohort not found.")
+    except Cohort.DoesNotExist as exc:
+        raise NotFound("Cohort not found.") from exc
 
 
 def _get_cohort_schedule(cohort: Cohort, schedule_id: int) -> CohortSchedule:
     try:
         return CohortSchedule.objects.get(pk=schedule_id, cohort=cohort)
-    except CohortSchedule.DoesNotExist:
-        raise NotFound("Cohort schedule not found.")
+    except CohortSchedule.DoesNotExist as exc:
+        raise NotFound("Cohort schedule not found.") from exc
 
 
 @extend_schema(tags=["Schedule"])

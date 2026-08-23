@@ -8,8 +8,8 @@ from rest_framework.views import APIView
 from apps.common.cache import cache_get_or_set, jittered_cache_timeout
 from apps.common.exceptions import InvalidLimitError
 from apps.common.limits import parse_limit
-from apps.courses.constants import DEFAULT_POPULAR_COURSES_LIMIT
 from apps.courses.cache import public_popular_courses_cache_key
+from apps.courses.constants import DEFAULT_POPULAR_COURSES_LIMIT
 from apps.courses.serializers import PublicCourseListSerializer
 from apps.courses.services.course_service import CourseService
 

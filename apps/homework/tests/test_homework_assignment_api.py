@@ -7,8 +7,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.courses.tests._factories import make_course, make_teacher
 from apps.courses.models import Cohort, CohortMember, CourseDeliveryFormat
+from apps.courses.tests._factories import make_course, make_teacher
 from apps.curriculum.models import Lesson, Module, Question, Test, TestAttempt
 from apps.enrollments.models import Enrollment
 from apps.enrollments.tests._factories import make_student

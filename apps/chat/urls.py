@@ -12,8 +12,8 @@ from apps.chat.views import (
     ChatReadView,
     ChatRoomViewSet,
     MessageReportCreateView,
-    ModeratorMessageReportListView,
     ModeratorChatUserActionView,
+    ModeratorMessageReportListView,
 )
 
 router = DefaultRouter()

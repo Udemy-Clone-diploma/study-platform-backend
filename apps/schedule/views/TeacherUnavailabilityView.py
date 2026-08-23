@@ -7,7 +7,10 @@ from rest_framework.views import APIView
 
 from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
 from apps.schedule.models import TeacherUnavailability
-from apps.schedule.serializers import TeacherUnavailabilitySerializer, TeacherUnavailabilityWriteSerializer
+from apps.schedule.serializers import (
+    TeacherUnavailabilitySerializer,
+    TeacherUnavailabilityWriteSerializer,
+)
 from apps.schedule.services import ScheduleService
 from apps.users.models import TeacherProfile, User
 
@@ -17,8 +20,8 @@ def _get_teacher_profile(user) -> TeacherProfile:
         raise PermissionDenied("Only teachers can manage unavailability blocks.")
     try:
         return user.teacher_profile
-    except TeacherProfile.DoesNotExist:
-        raise PermissionDenied("Teacher profile not found.")
+    except TeacherProfile.DoesNotExist as exc:
+        raise PermissionDenied("Teacher profile not found.") from exc
 
 
 @extend_schema(tags=["Schedule"])
@@ -64,8 +67,8 @@ class TeacherUnavailabilityDetailView(APIView):
         teacher = _get_teacher_profile(user)
         try:
             return TeacherUnavailability.objects.get(pk=block_id, teacher_profile=teacher)
-        except TeacherUnavailability.DoesNotExist:
-            raise NotFound("Unavailability block not found.")
+        except TeacherUnavailability.DoesNotExist as exc:
+            raise NotFound("Unavailability block not found.") from exc
 
     def get(self, request, block_id):
         block = self._get_block(request.user, block_id)

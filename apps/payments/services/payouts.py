@@ -5,8 +5,9 @@ from django.db import transaction
 
 from apps.payments.models import TeacherPayoutAccount
 
-from .stripe import StripeService
 from .exceptions import PaymentError
+from .stripe import StripeService
+
 
 class PayoutService(StripeService):
     @staticmethod

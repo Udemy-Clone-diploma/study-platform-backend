@@ -165,12 +165,12 @@ class CourseDetailIncludesModulesAndLessonsTests(APITestCase):
         response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         intro = next(m for m in response.data["modules"] if m["title"] == "Intro")
-        titles = [l["title"] for l in intro["lessons"]]
+        titles = [lesson["title"] for lesson in intro["lessons"]]
         self.assertEqual(titles, ["Hello", "Setup"])
 
     def test_lesson_payload_includes_duration(self):
         response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         intro = next(m for m in response.data["modules"] if m["title"] == "Intro")
-        durations = [l["duration_minutes"] for l in intro["lessons"]]
+        durations = [lesson["duration_minutes"] for lesson in intro["lessons"]]
         self.assertEqual(durations, [10, 15])
