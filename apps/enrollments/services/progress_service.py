@@ -460,7 +460,8 @@ class ProgressService:
         # (see teacher_complete_course), so the lesson-progress check below
         # can never pass for them.
         if CourseCompletion.objects.filter(
-            student_profile=enrollment.student_profile, course=course,
+            student_profile=enrollment.student_profile,
+            course=course,
         ).exists():
             return True
         if course.lessons_count <= 0:

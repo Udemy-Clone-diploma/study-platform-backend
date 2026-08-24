@@ -69,7 +69,8 @@ class ReviewService:
         # afterward. Only students who *haven't* finished need currently-active
         # access and the lesson-progress threshold below.
         completed = CourseCompletion.objects.filter(
-            student_profile=student_profile, course=course,
+            student_profile=student_profile,
+            course=course,
         ).exists()
 
         if not completed:

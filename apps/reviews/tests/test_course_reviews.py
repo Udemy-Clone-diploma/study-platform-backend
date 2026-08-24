@@ -204,7 +204,8 @@ class CourseReviewsWriteTests(APITestCase):
         )
         self.assertEqual(no_lesson_course.lessons_count, 0)
         enrollment = Enrollment.objects.create(
-            student_profile=self.student_profile, course=no_lesson_course,
+            student_profile=self.student_profile,
+            course=no_lesson_course,
         )
         CourseCompletion.objects.create(
             student_profile=self.student_profile,
@@ -249,7 +250,10 @@ class MyCourseReviewTests(APITestCase):
 
     def test_returns_own_review(self):
         Review.objects.create(
-            course=self.course, student=self.student_user, rating=4, text="Mine",
+            course=self.course,
+            student=self.student_user,
+            rating=4,
+            text="Mine",
         )
         other_user, _ = make_student(email="mine_other@example.com")
         Review.objects.create(course=self.course, student=other_user, rating=1, text="Not mine")
