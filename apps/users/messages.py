@@ -11,7 +11,9 @@ class EmailMessages:
 
     TEACHER_INVITATION_INVALID = "Invalid or expired invitation link"
     TEACHER_INVITATION_SUCCESS = "Account activated successfully"
-    TEACHER_INVITATION_RESEND_SUCCESS = "If a pending invitation exists for this email, it has been resent"
+    TEACHER_INVITATION_RESEND_SUCCESS = (
+        "If a pending invitation exists for this email, it has been resent"
+    )
 
 
 class TeacherApplicationMessages:

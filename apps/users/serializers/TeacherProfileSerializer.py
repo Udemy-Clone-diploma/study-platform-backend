@@ -8,8 +8,14 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherProfile
         fields = [
-            "id", "bio", "experience", "specialization", "rating",
-            "years_experience", "partnerships_count", "signature",
+            "id",
+            "bio",
+            "experience",
+            "specialization",
+            "rating",
+            "years_experience",
+            "partnerships_count",
+            "signature",
         ]
         read_only_fields = ["rating"]
 

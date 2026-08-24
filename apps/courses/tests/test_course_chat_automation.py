@@ -11,17 +11,13 @@ from ._factories import make_course, make_teacher
 
 class CourseChatAutomationTests(APITestCase):
     def setUp(self):
-        self.teacher, self.teacher_profile = make_teacher(
-            email="course_chat_teacher@example.com"
-        )
+        self.teacher, self.teacher_profile = make_teacher(email="course_chat_teacher@example.com")
         self.course = make_course(
             self.teacher_profile,
             slug="course-chat-automation",
             status=Course.StatusChoices.PUBLISHED,
         )
-        self.student, self.student_profile = make_student(
-            email="course_chat_student@example.com"
-        )
+        self.student, self.student_profile = make_student(email="course_chat_student@example.com")
 
     def test_cohort_creation_creates_teacher_owned_chat_and_members_join_it(self):
         cohort = Cohort.objects.create(

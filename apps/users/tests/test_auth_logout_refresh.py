@@ -19,9 +19,7 @@ class AuthLogoutTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
 
         self.client.force_authenticate(user=None)
-        refresh_response = self.client.post(
-            reverse("auth-refresh"), {"refresh": self.refresh}
-        )
+        refresh_response = self.client.post(reverse("auth-refresh"), {"refresh": self.refresh})
         self.assertEqual(refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_logout_unauthenticated_returns_401(self):
@@ -55,11 +53,11 @@ class AuthRefreshTests(APITestCase):
         self.assertIn("refresh", response.data)
 
     def test_refresh_includes_role_in_new_access_token(self):
-        from rest_framework_simplejwt.tokens import AccessToken as AT
+        from rest_framework_simplejwt.tokens import AccessToken
 
         response = self.client.post(self.url, {"refresh": self.refresh})
 
-        decoded = AT(response.data["access"])
+        decoded = AccessToken(response.data["access"])
         self.assertEqual(decoded["role"], self.user.role)
 
     def test_refresh_rotates_and_blacklists_old_refresh_token(self):

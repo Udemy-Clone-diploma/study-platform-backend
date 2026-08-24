@@ -8,8 +8,8 @@ from apps.payments.models import (
     PaymentInstallment,
     PaymentItem,
     Refund,
-    WebhookEvent,
     TeacherPayoutAccount,
+    WebhookEvent,
 )
 
 admin.site.register(TeacherPayoutAccount)

@@ -22,7 +22,8 @@ class NoteView(generics.GenericAPIView):
         note = NoteService.get_note(request.user, lesson)
         if note is None:
             return Response(
-                {"detail": "Note not found."}, status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Note not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(NoteSerializer(note).data)
 
@@ -32,7 +33,9 @@ class NoteView(generics.GenericAPIView):
         serializer = NoteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         note = NoteService.upsert_note(
-            request.user, lesson, serializer.validated_data["content"],
+            request.user,
+            lesson,
+            serializer.validated_data["content"],
         )
         return Response(NoteSerializer(note).data)
 
@@ -48,7 +51,5 @@ class NoteView(generics.GenericAPIView):
         if lesson is None:
             raise NotFound("Lesson not found.")
         if not EnrollmentService.is_enrolled(self.request.user, course):
-            raise PermissionDenied(
-                "You must be enrolled in this course to use notes."
-            )
+            raise PermissionDenied("You must be enrolled in this course to use notes.")
         return lesson

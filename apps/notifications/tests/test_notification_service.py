@@ -120,9 +120,7 @@ class NotificationServiceFanOutTests(APITestCase):
 
 class SendNotificationEmailTests(APITestCase):
     def test_appends_frontend_url_when_link_present(self):
-        send_notification_email(
-            email="x@example.com", title="T", body="Body", link_url="/go"
-        )
+        send_notification_email(email="x@example.com", title="T", body="Body", link_url="/go")
 
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
@@ -132,8 +130,6 @@ class SendNotificationEmailTests(APITestCase):
         self.assertIn("/go", message.body)
 
     def test_body_unchanged_when_no_link(self):
-        send_notification_email(
-            email="x@example.com", title="T", body="Body", link_url=None
-        )
+        send_notification_email(email="x@example.com", title="T", body="Body", link_url=None)
 
         self.assertEqual(mail.outbox[0].body, "Body")

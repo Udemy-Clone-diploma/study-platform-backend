@@ -103,23 +103,15 @@ class UserReportService:
 
     @classmethod
     def get_unassigned_queryset(cls, actor: User) -> QuerySet[UserReport]:
-        queryset = (
-            cls._base_queryset()
-            .filter(
-                Q(
-                    status=UserReport.StatusChoices.PENDING,
-                    assigned_moderator__isnull=True,
-                )
-                | (
-                    Q(status=UserReport.StatusChoices.IN_REVIEW)
-                    & cls._unavailable_assignment_query()
-                )
+        queryset = cls._base_queryset().filter(
+            Q(
+                status=UserReport.StatusChoices.PENDING,
+                assigned_moderator__isnull=True,
             )
+            | (Q(status=UserReport.StatusChoices.IN_REVIEW) & cls._unavailable_assignment_query())
         )
         if actor.role == User.RoleChoices.MODERATOR:
-            queryset = queryset.exclude(
-                Q(reporter=actor) | Q(reported_user=actor)
-            )
+            queryset = queryset.exclude(Q(reporter=actor) | Q(reported_user=actor))
         return queryset.order_by("created_at", "id")
 
     @classmethod
@@ -175,9 +167,7 @@ class UserReportService:
             and cls._has_unavailable_assignment(report)
         )
         if not is_pending and not is_orphaned:
-            raise UserReportConflictError(
-                "This report is no longer available to claim."
-            )
+            raise UserReportConflictError("This report is no longer available to claim.")
 
         previous_status = report.status
         report.status = UserReport.StatusChoices.IN_REVIEW
@@ -197,11 +187,7 @@ class UserReportService:
             action=UserReportAction.ActionChoices.CLAIMED,
             previous_status=previous_status,
             new_status=report.status,
-            note=(
-                "Reassigned from an unavailable moderator."
-                if is_orphaned
-                else ""
-            ),
+            note=("Reassigned from an unavailable moderator." if is_orphaned else ""),
         )
         return report
 
@@ -216,9 +202,7 @@ class UserReportService:
         note: str,
     ) -> UserReport:
         if actor.role != User.RoleChoices.MODERATOR:
-            raise UserReportPermissionError(
-                "Only moderators can use this report action."
-            )
+            raise UserReportPermissionError("Only moderators can use this report action.")
 
         audit_action = cls.MODERATOR_ACTIONS[action]
         locked_target = None
@@ -230,9 +214,7 @@ class UserReportService:
         moderator_profile = UserService.ensure_profile(actor)
 
         if report.assigned_moderator_id != moderator_profile.id:
-            raise UserReportConflictError(
-                "Only the assigned moderator can act on this report."
-            )
+            raise UserReportConflictError("Only the assigned moderator can act on this report.")
 
         if cls._is_idempotent(report, actor, audit_action):
             return report
@@ -308,9 +290,7 @@ class UserReportService:
         note: str,
     ) -> UserReport:
         if actor.role != User.RoleChoices.ADMINISTRATOR:
-            raise UserReportPermissionError(
-                "Only administrators can use this report action."
-            )
+            raise UserReportPermissionError("Only administrators can use this report action.")
 
         audit_action = cls.ADMIN_ACTIONS[action]
         locked_target = None
@@ -350,9 +330,7 @@ class UserReportService:
             return report
 
         if report.status != UserReport.StatusChoices.ESCALATED:
-            raise UserReportConflictError(
-                "Administrators can only act on escalated reports."
-            )
+            raise UserReportConflictError("Administrators can only act on escalated reports.")
 
         if action == "warning":
             cls._resolve_report(

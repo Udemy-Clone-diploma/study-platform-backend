@@ -14,9 +14,7 @@ class EnrollmentApiTests(APITestCase):
         self.teacher_user, self.teacher_profile = make_teacher(
             email="owner_enrollments@example.com"
         )
-        _, self.other_teacher_profile = make_teacher(
-            email="other_enrollments@example.com"
-        )
+        _, self.other_teacher_profile = make_teacher(email="other_enrollments@example.com")
         self.course = make_course(
             self.teacher_profile,
             title="Published Course",
@@ -35,9 +33,7 @@ class EnrollmentApiTests(APITestCase):
             slug="draft-course",
             status=Course.StatusChoices.DRAFT,
         )
-        self.student_user, self.student_profile = make_student(
-            email="api_student@example.com"
-        )
+        self.student_user, self.student_profile = make_student(email="api_student@example.com")
         _, self.other_student_profile = make_student(email="other_student@example.com")
         self.admin = User.objects.create_user(
             email="enrollments_admin@example.com",
@@ -123,7 +119,8 @@ class EnrollmentApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertFalse(
             Enrollment.objects.filter(
-                student_profile=self.student_profile, course=self.course,
+                student_profile=self.student_profile,
+                course=self.course,
             ).exists()
         )
 
@@ -144,9 +141,7 @@ class EnrollmentApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         enrollment = Enrollment.objects.get(pk=response.data["id"])
         self.assertEqual(enrollment.delivery_format_id, plan.delivery_format_id)
-        self.assertTrue(
-            CohortMember.objects.filter(cohort=cohort, enrollment=enrollment).exists()
-        )
+        self.assertTrue(CohortMember.objects.filter(cohort=cohort, enrollment=enrollment).exists())
 
     def test_free_enrollment_rejects_paid_course(self):
         make_pricing_plan(self.course, price="10.00")

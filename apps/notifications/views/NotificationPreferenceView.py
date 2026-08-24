@@ -25,7 +25,5 @@ class NotificationPreferenceView(APIView):
     def patch(self, request):
         serializer = NotificationPreferenceUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        overrides = NotificationService.update_preferences(
-            request.user, serializer.validated_data
-        )
+        overrides = NotificationService.update_preferences(request.user, serializer.validated_data)
         return Response(effective_preferences(overrides))

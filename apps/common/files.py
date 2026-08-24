@@ -29,7 +29,7 @@ def file_content_hash(field_file) -> str | None:
 
 def duplicate_file_field(source_field, target_field) -> None:
     """Physically copy a FileField's bytes onto another instance's field, under a
-    freshly generated storage path """
+    freshly generated storage path"""
     if not source_field:
         return
     if not source_field.storage.exists(source_field.name):

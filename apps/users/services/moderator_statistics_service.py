@@ -57,13 +57,9 @@ class ModeratorStatisticsService:
             profile=profile,
             since=previous_start,
         )
-        current_events = [
-            event for event in events if current_start <= event["occurred_at"] <= now
-        ]
+        current_events = [event for event in events if current_start <= event["occurred_at"] <= now]
         previous_events = [
-            event
-            for event in events
-            if previous_start <= event["occurred_at"] < current_start
+            event for event in events if previous_start <= event["occurred_at"] < current_start
         ]
 
         current_blocked = cls._outcome_count(current_events, "blocked")
@@ -312,9 +308,7 @@ class ModeratorStatisticsService:
         for offset in range(cls.PERIOD_DAYS):
             day = start_date + timedelta(days=offset)
             day_events = [
-                event
-                for event in events
-                if timezone.localtime(event["occurred_at"]).date() == day
+                event for event in events if timezone.localtime(event["occurred_at"]).date() == day
             ]
             rows.append(
                 {
@@ -337,11 +331,7 @@ class ModeratorStatisticsService:
                 "label": label,
                 "count": sum(event["source"] == key for event in events),
                 "percent": (
-                    round(
-                        100
-                        * sum(event["source"] == key for event in events)
-                        / total
-                    )
+                    round(100 * sum(event["source"] == key for event in events) / total)
                     if total
                     else 0
                 ),
@@ -355,18 +345,14 @@ class ModeratorStatisticsService:
 
     @staticmethod
     def _reversal_rate(events: list[ModerationEvent]) -> float:
-        decisions = sum(
-            event["restrictive"] or event["reversal"] for event in events
-        )
+        decisions = sum(event["restrictive"] or event["reversal"] for event in events)
         reversals = sum(event["reversal"] for event in events)
         return round(100 * reversals / decisions, 1) if decisions else 0.0
 
     @staticmethod
     def _average_review_hours(events: list[ModerationEvent]) -> float | None:
         durations = [
-            event["duration_seconds"]
-            for event in events
-            if event["duration_seconds"] is not None
+            event["duration_seconds"] for event in events if event["duration_seconds"] is not None
         ]
         if not durations:
             return None

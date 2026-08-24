@@ -28,7 +28,8 @@ class TestAttemptView(generics.GenericAPIView):
     def get(self, request, slug: str, test_id: int):
         test, student_profile = self._resolve(request, slug, test_id)
         attempts = TestAttempt.objects.filter(
-            student_profile=student_profile, test=test,
+            student_profile=student_profile,
+            test=test,
         )
         page = self.paginate_queryset(attempts)
         serializer = self.get_serializer(page, many=True)
@@ -41,7 +42,9 @@ class TestAttemptView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         try:
             result = TestAttemptService.submit(
-                student_profile, test, serializer.validated_data["answers"],
+                student_profile,
+                test,
+                serializer.validated_data["answers"],
             )
         except TestNotAttemptableError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
@@ -56,9 +59,7 @@ class TestAttemptView(generics.GenericAPIView):
             raise NotFound("Test not found.")
         student_profile = self._enrolled_student_profile(request.user, course)
         if student_profile is None:
-            raise PermissionDenied(
-                "You must be enrolled in this course to take its tests."
-            )
+            raise PermissionDenied("You must be enrolled in this course to take its tests.")
         return test, student_profile
 
     @staticmethod

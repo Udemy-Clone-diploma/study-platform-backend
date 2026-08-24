@@ -32,7 +32,8 @@ class LessonItemViewSet(viewsets.GenericViewSet):
     def create(self, request, *args, **kwargs):
         lesson = self._get_lesson(request, kwargs)
         serializer = LessonItemCreateUpdateSerializer(
-            data=request.data, context={"request": request, "lesson": lesson},
+            data=request.data,
+            context={"request": request, "lesson": lesson},
         )
         serializer.is_valid(raise_exception=True)
         try:
@@ -48,7 +49,9 @@ class LessonItemViewSet(viewsets.GenericViewSet):
         lesson = self._get_lesson(request, kwargs)
         item = get_object_or_404(LessonItem, pk=kwargs["pk"], lesson=lesson)
         serializer = LessonItemCreateUpdateSerializer(
-            item, data=request.data, partial=True,
+            item,
+            data=request.data,
+            partial=True,
             context={"request": request, "lesson": lesson},
         )
         serializer.is_valid(raise_exception=True)

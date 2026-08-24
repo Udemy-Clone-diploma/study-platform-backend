@@ -7,7 +7,10 @@ from rest_framework.views import APIView
 
 from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
 from apps.schedule.models import TeacherUnavailability
-from apps.schedule.serializers import TeacherUnavailabilitySerializer, TeacherUnavailabilityWriteSerializer
+from apps.schedule.serializers import (
+    TeacherUnavailabilitySerializer,
+    TeacherUnavailabilityWriteSerializer,
+)
 from apps.schedule.services import ScheduleService
 from apps.users.models import TeacherProfile, User
 
@@ -17,8 +20,8 @@ def _get_teacher_profile(user) -> TeacherProfile:
         raise PermissionDenied("Only teachers can manage unavailability blocks.")
     try:
         return user.teacher_profile
-    except TeacherProfile.DoesNotExist:
-        raise PermissionDenied("Teacher profile not found.")
+    except TeacherProfile.DoesNotExist as exc:
+        raise PermissionDenied("Teacher profile not found.") from exc
 
 
 @extend_schema(tags=["Schedule"])
@@ -27,11 +30,12 @@ class TeacherUnavailabilityListCreateView(APIView):
     GET  – list the authenticated teacher's unavailability blocks.
     POST – add a new block (teacher / admin only).
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         teacher = _get_teacher_profile(request.user)
-        blocks  = TeacherUnavailability.objects.filter(teacher_profile=teacher)
+        blocks = TeacherUnavailability.objects.filter(teacher_profile=teacher)
         return Response(TeacherUnavailabilitySerializer(blocks, many=True).data)
 
     def post(self, request):
@@ -58,14 +62,15 @@ class TeacherUnavailabilityDetailView(APIView):
     PATCH  – update.
     DELETE – remove.
     """
+
     permission_classes = [IsAuthenticated]
 
     def _get_block(self, user, block_id: int) -> TeacherUnavailability:
         teacher = _get_teacher_profile(user)
         try:
             return TeacherUnavailability.objects.get(pk=block_id, teacher_profile=teacher)
-        except TeacherUnavailability.DoesNotExist:
-            raise NotFound("Unavailability block not found.")
+        except TeacherUnavailability.DoesNotExist as exc:
+            raise NotFound("Unavailability block not found.") from exc
 
     def get(self, request, block_id):
         block = self._get_block(request.user, block_id)

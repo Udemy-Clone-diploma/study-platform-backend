@@ -10,7 +10,7 @@ from apps.enrollments.models import CourseCompletion
 
 @extend_schema(tags=["Notes"])
 class NoteListView(generics.ListAPIView):
-    """GET /notes/ — every lesson note the current user has written, across all courses."""
+    """GET /notes/: every lesson note the current user has written, across all courses."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = NoteListItemSerializer
@@ -30,7 +30,9 @@ class NoteListView(generics.ListAPIView):
             ).values_list("course_id", flat=True)
         )
         serializer = self.get_serializer(
-            target, many=True, context={**self.get_serializer_context(), "completed_course_ids": completed_course_ids},
+            target,
+            many=True,
+            context={**self.get_serializer_context(), "completed_course_ids": completed_course_ids},
         )
         if page is not None:
             return self.get_paginated_response(serializer.data)

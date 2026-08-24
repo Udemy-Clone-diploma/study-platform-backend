@@ -28,8 +28,6 @@ class AdminUserProfileView(APIView):
             request.user.role == User.RoleChoices.MODERATOR
             and user.role == User.RoleChoices.ADMINISTRATOR
         ):
-            return Response(
-                PublicUserSerializer(user, context={"request": request}).data
-            )
+            return Response(PublicUserSerializer(user, context={"request": request}).data)
 
         return Response(AdminProfileService.build(user, request))

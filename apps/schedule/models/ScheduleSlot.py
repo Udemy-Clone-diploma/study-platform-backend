@@ -16,13 +16,13 @@ class ScheduleSlot(models.Model):
     """
 
     class DayOfWeek(models.IntegerChoices):
-        MONDAY    = 0, "Monday"
-        TUESDAY   = 1, "Tuesday"
+        MONDAY = 0, "Monday"
+        TUESDAY = 1, "Tuesday"
         WEDNESDAY = 2, "Wednesday"
-        THURSDAY  = 3, "Thursday"
-        FRIDAY    = 4, "Friday"
-        SATURDAY  = 5, "Saturday"
-        SUNDAY    = 6, "Sunday"
+        THURSDAY = 3, "Thursday"
+        FRIDAY = 4, "Friday"
+        SATURDAY = 5, "Saturday"
+        SUNDAY = 6, "Sunday"
 
     delivery_format = models.ForeignKey(
         "courses.CourseDeliveryFormat",
@@ -30,8 +30,8 @@ class ScheduleSlot(models.Model):
         related_name="schedule_slots",
     )
     day_of_week = models.PositiveSmallIntegerField(choices=DayOfWeek.choices)
-    start_time  = models.TimeField()
-    end_time    = models.TimeField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
 
     booked_by = models.ForeignKey(
         "enrollments.Enrollment",
@@ -45,11 +45,11 @@ class ScheduleSlot(models.Model):
         choices=DayOfWeek.choices, null=True, blank=True
     )
     original_start_time = models.TimeField(null=True, blank=True)
-    original_end_time   = models.TimeField(null=True, blank=True)
-    is_rescheduled      = models.BooleanField(default=False)
+    original_end_time = models.TimeField(null=True, blank=True)
+    is_rescheduled = models.BooleanField(default=False)
 
-    created_at  = models.DateTimeField(auto_now_add=True)
-    updated_at  = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "schedule_slots"
@@ -68,7 +68,7 @@ class ScheduleSlot(models.Model):
             try:
                 old = ScheduleSlot.objects.get(pk=self.pk)
                 time_changed = old.start_time != self.start_time or old.end_time != self.end_time
-                day_changed  = old.day_of_week != self.day_of_week
+                day_changed = old.day_of_week != self.day_of_week
             except ScheduleSlot.DoesNotExist:
                 time_changed = day_changed = False
         else:
@@ -78,6 +78,7 @@ class ScheduleSlot(models.Model):
 
         if time_changed or day_changed:
             from apps.schedule.models.Session import Session
+
             today = date.today()
             future = Session.objects.filter(
                 slot=self,

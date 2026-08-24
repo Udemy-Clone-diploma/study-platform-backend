@@ -52,7 +52,13 @@ python manage.py seed
 
 **API URL prefix**: All app endpoints mount under `/api/v1/` (see `config/urls.py`). Docs (`/api/docs/`) and schema (`/api/schema/`) are siblings, not under `/api/v1/`.
 
-**Module layout**: One public class per file. `models/`, `views/`, `serializers/`, and `services/` are packages: `apps/<app>/models/<ModelName>.py`, etc., re-exported from `__init__.py`. Exceptions: choice classes nested inside their owner model, manager classes paired with their model.
+**Module layout**: One public class per file, re-exported from the package's `__init__.py`. Exceptions: choice classes nested inside their owner model, manager classes paired with their model.
+
+**File naming**: two conventions, split by package, do not mix them within one package.
+- `models/`, `views/`, `serializers/`: PascalCase, file named after the class it holds (`apps/courses/models/Course.py`). This is a deliberate departure from PEP 8, so ruff's `N999` (`invalid-module-name`) is silenced for these three directories in `pyproject.toml`.
+- `services/`: snake_case per PEP 8 (`apps/courses/services/course_service.py`). `N999` stays ON here, so a stray PascalCase service fails CI.
+
+Known deviations, do not treat as precedent: `apps/payments/` is snake_case throughout (all 18 modules, written that way from the start), and `apps/cart/` is flat rather than packaged. Both stay as they are; new apps follow the split above.
 
 **Service layer pattern**: Business logic lives in `services/` within each app (e.g., `AuthService`, `CourseService`), not in views. Views are thin and delegate to services.
 

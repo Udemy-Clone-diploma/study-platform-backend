@@ -153,10 +153,7 @@ class TeacherPayout(models.Model):
         ]
 
     def __str__(self):
-        return (
-            f"Teacher payout {self.id}: "
-            f"{self.amount} {self.currency}"
-        )
+        return f"Teacher payout {self.id}: {self.amount} {self.currency}"
 
     def mark_as_processing(
         self,
@@ -194,21 +191,13 @@ class TeacherPayout(models.Model):
 
         if provider_payment_id:
             self.provider_payment_id = provider_payment_id
-            update_fields.append(
-                "provider_payment_id"
-            )
+            update_fields.append("provider_payment_id")
 
         if provider_transaction_id:
-            self.provider_transaction_id = (
-                provider_transaction_id
-            )
-            update_fields.append(
-                "provider_transaction_id"
-            )
+            self.provider_transaction_id = provider_transaction_id
+            update_fields.append("provider_transaction_id")
 
-        self.save(
-            update_fields=update_fields
-        )
+        self.save(update_fields=update_fields)
 
     def mark_as_failed(
         self,
@@ -360,11 +349,7 @@ class TeacherLedgerEntry(models.Model):
         ]
 
     def __str__(self):
-        return (
-            f"{self.teacher_id} "
-            f"{self.entry_type}: "
-            f"{self.amount} {self.currency}"
-        )
+        return f"{self.teacher_id} {self.entry_type}: {self.amount} {self.currency}"
 
     def post(self) -> None:
         if self.status == self.StatusChoices.POSTED:
@@ -439,8 +424,4 @@ class TeacherPayoutItem(models.Model):
         ]
 
     def __str__(self):
-        return (
-            f"Payout {self.payout_id} / "
-            f"payment {self.payment_id}: "
-            f"{self.amount} {self.currency}"
-        )
+        return f"Payout {self.payout_id} / payment {self.payment_id}: {self.amount} {self.currency}"

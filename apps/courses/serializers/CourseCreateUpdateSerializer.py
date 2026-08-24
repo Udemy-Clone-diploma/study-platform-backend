@@ -5,9 +5,9 @@ from apps.courses.models import Category, Course, Tag
 from apps.users.models import User
 
 # Status transitions a course owner (teacher) may trigger directly via this
-# serializer (i.e. via a plain PATCH). Anything else — becoming PUBLISHED,
+# serializer (i.e. via a plain PATCH). Anything else, becoming PUBLISHED,
 # REJECTED, NEEDS_REVISION, or the internal-only PENDING_EDIT shadow-draft
-# status — only happens through the moderation service methods
+# status, only happens through the moderation service methods
 # (approve_course/reject_course/restore_rejected_course/clone_for_pending_edit),
 # which set the field directly on the model and never go through this serializer.
 _TEACHER_ALLOWED_STATUS_TRANSITIONS = {
@@ -40,12 +40,27 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = [
-            "image", "title", "subtitle", "short_description", "full_description",
-            "teacher_profile", "category_id",
-            "level", "language", "mode", "delivery_type", "course_type",
-            "duration_hours", "lessons_count",
-            "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
-            "passing_score", "status", "tag_ids",
+            "image",
+            "title",
+            "subtitle",
+            "short_description",
+            "full_description",
+            "teacher_profile",
+            "category_id",
+            "level",
+            "language",
+            "mode",
+            "delivery_type",
+            "course_type",
+            "duration_hours",
+            "lessons_count",
+            "with_certificate",
+            "certificate_description",
+            "is_on_sale",
+            "discount_percent",
+            "passing_score",
+            "status",
+            "tag_ids",
         ]
         read_only_fields = ["lessons_count", "duration_hours"]
 
@@ -61,7 +76,9 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
 
         request = self.context.get("request")
         is_admin = bool(
-            request and request.user and request.user.is_authenticated
+            request
+            and request.user
+            and request.user.is_authenticated
             and request.user.role == User.RoleChoices.ADMINISTRATOR
         )
         if is_admin:
@@ -93,8 +110,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "delivery_type": (
-                        "For self_learning courses, delivery_type must be "
-                        "self_paced or scheduled."
+                        "For self_learning courses, delivery_type must be self_paced or scheduled."
                     )
                 }
             )
@@ -106,8 +122,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "delivery_type": (
-                        "For with_teacher courses, delivery_type must be "
-                        "individual or group."
+                        "For with_teacher courses, delivery_type must be individual or group."
                     )
                 }
             )
@@ -116,7 +131,9 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             self.instance and self.instance.with_certificate
         ):
             teacher_profile = attrs.get("teacher_profile") or getattr(
-                self.instance, "teacher_profile", None,
+                self.instance,
+                "teacher_profile",
+                None,
             )
             if teacher_profile and not teacher_profile.signature:
                 raise serializers.ValidationError(
@@ -145,7 +162,8 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
         is_on_sale = attrs.get("is_on_sale", getattr(self.instance, "is_on_sale", False))
         if is_on_sale:
             discount_percent = attrs.get(
-                "discount_percent", getattr(self.instance, "discount_percent", None),
+                "discount_percent",
+                getattr(self.instance, "discount_percent", None),
             )
             if not discount_percent:
                 raise serializers.ValidationError(

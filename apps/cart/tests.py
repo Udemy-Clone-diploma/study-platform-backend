@@ -116,9 +116,7 @@ class CartApiTests(APITestCase):
             pricing_plan=self.second_course_plan,
         )
 
-        response = self.client.delete(
-            reverse("cart-remove-item", args=[self.course.pk])
-        )
+        response = self.client.delete(reverse("cart-remove-item", args=[self.course.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["items_count"], 1)

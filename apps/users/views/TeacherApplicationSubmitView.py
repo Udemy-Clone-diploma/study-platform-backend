@@ -12,13 +12,15 @@ from apps.users.services.teacher_application_service import TeacherApplicationSe
 
 @extend_schema(tags=["Users"])
 class TeacherApplicationSubmitView(APIView):
-    """POST /teacher-applications/submit/ — public submission of a teacher application."""
+    """POST /teacher-applications/submit/: public submission of a teacher application."""
 
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "teacher_application"
 
-    @extend_schema(request=TeacherApplicationCreateSerializer, responses={201: TeacherApplicationSerializer})
+    @extend_schema(
+        request=TeacherApplicationCreateSerializer, responses={201: TeacherApplicationSerializer}
+    )
     def post(self, request):
         serializer = TeacherApplicationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -31,7 +33,7 @@ class TeacherApplicationSubmitView(APIView):
 
 @extend_schema(tags=["Users"])
 class TeacherApplicationEmailCheckView(APIView):
-    """GET /teacher-applications/check-email/?email=... — lets the public form validate
+    """GET /teacher-applications/check-email/ lets the public form validate
 
     the email as soon as the applicant enters it, instead of only at final submit."""
 

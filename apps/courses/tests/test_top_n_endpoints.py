@@ -54,7 +54,8 @@ class TopNLimitParamTests(APITestCase):
                 status=Course.StatusChoices.PUBLISHED,
             )
         for i in range(15):
-            Category.objects.create(name_en=f"Cat {i:02d}", slug=f"cat-{i:02d}", featured_order=i + 1
+            Category.objects.create(
+                name_en=f"Cat {i:02d}", slug=f"cat-{i:02d}", featured_order=i + 1
             )
 
     def test_new_courses_default_limit(self):
@@ -96,12 +97,8 @@ class TopNLimitParamTests(APITestCase):
     def test_invalid_limit_returns_400(self):
         for bad_value in ("abc", "0", "-3", "1.5"):
             with self.subTest(value=bad_value):
-                response = self.client.get(
-                    reverse("new-courses"), {"limit": bad_value}
-                )
-                self.assertEqual(
-                    response.status_code, status.HTTP_400_BAD_REQUEST
-                )
+                response = self.client.get(reverse("new-courses"), {"limit": bad_value})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
                 self.assertIn("limit", response.data)
 
 

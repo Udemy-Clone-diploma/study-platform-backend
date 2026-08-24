@@ -37,9 +37,7 @@ def remember_previous_lesson(sender, instance, **kwargs):
         instance._previous_cache_lesson_id = None
         return
     instance._previous_cache_lesson_id = (
-        sender.objects.filter(pk=instance.pk)
-        .values_list("lesson_id", flat=True)
-        .first()
+        sender.objects.filter(pk=instance.pk).values_list("lesson_id", flat=True).first()
     )
 
 

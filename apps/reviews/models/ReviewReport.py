@@ -23,7 +23,8 @@ class ReviewReport(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["review", "reporter"], name="unique_report_per_user_review",
+                fields=["review", "reporter"],
+                name="unique_report_per_user_review",
             ),
         ]
 

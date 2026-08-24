@@ -6,7 +6,7 @@ from apps.common.managers import ActiveManager
 class BlogCategory(models.Model):
     """Blog categories (initial 8 seeded via migration), shown as section blocks on /blog.
     Only administrators may create/edit/delete them (see apps.blog.permissions.IsAdmin usage
-    in ArticleViews) -- teachers/moderators just assign an existing one to their articles."""
+    in ArticleViews), teachers/moderators just assign an existing one to their articles."""
 
     # name_en is the canonical/stable identifier (slug generation, uniqueness checks);
     # the other locales are optional and fall back to it when blank (apps.common.i18n).

@@ -16,9 +16,11 @@ class StudentCompletionsView(generics.ListAPIView):
     serializer_class = CourseCompletionSerializer
 
     def get_queryset(self):
-        qs = CourseCompletion.objects.filter(
-            student_profile=self.request.user.student_profile
-        ).select_related("course").prefetch_related("certificates")
+        qs = (
+            CourseCompletion.objects.filter(student_profile=self.request.user.student_profile)
+            .select_related("course")
+            .prefetch_related("certificates")
+        )
         if self.request.query_params.get("with_certificate") == "true":
             # Filtered on the file, not the older certificate_url text column:
             # the file is what the download actually serves, so a row with only

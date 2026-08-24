@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -8,9 +9,12 @@ from apps.courses.exceptions import PendingEditLockedError
 from apps.courses.models import Course, CoursePendingEdit
 from apps.courses.serializers import CoursePendingEditReadSerializer
 from apps.courses.services.pending_edit_service import PendingEditService
-from apps.courses.views._course_scoped import _get_dict, _moderator_profile, ensure_can_modify_course, get_course_for_request
-from rest_framework.permissions import IsAuthenticated
-from apps.users.models import User
+from apps.courses.views._course_scoped import (
+    _get_dict,
+    _moderator_profile,
+    ensure_can_modify_course,
+    get_course_for_request,
+)
 from apps.users.permissions import IsAdminOrModerator, IsTeacherOrAdmin
 
 
@@ -37,17 +41,17 @@ def _get_published_course_read(view, slug: str) -> Course:
 def _get_pending_edit(course: Course) -> CoursePendingEdit:
     try:
         return course.pending_edit
-    except CoursePendingEdit.DoesNotExist:
-        raise NotFound("No pending edit found for this course.")
+    except CoursePendingEdit.DoesNotExist as exc:
+        raise NotFound("No pending edit found for this course.") from exc
 
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditView(APIView):
     """
-    GET  /courses/{slug}/pending-edit/  — read (or auto-create) the pending edit;
+    GET  /courses/{slug}/pending-edit/: read (or auto-create) the pending edit;
          resolves to a hidden draft_course whose slug the teacher edits directly
          via the normal course/module/lesson/etc. CRUD endpoints.
-    DELETE /courses/{slug}/pending-edit/ — discard all changes (course stays published).
+    DELETE /courses/{slug}/pending-edit/: discard all changes (course stays published).
     """
 
     permission_classes = [IsTeacherOrAdmin]
@@ -75,7 +79,7 @@ class CoursePendingEditView(APIView):
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditSubmitView(APIView):
-    """POST /courses/{slug}/pending-edit/submit/ — submit for moderation."""
+    """POST /courses/{slug}/pending-edit/submit/: submit for moderation."""
 
     permission_classes = [IsTeacherOrAdmin]
 
@@ -88,14 +92,12 @@ class CoursePendingEditSubmitView(APIView):
         except PendingEditLockedError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
-        return Response(
-            CoursePendingEditReadSerializer(updated, context={"request": request}).data
-        )
+        return Response(CoursePendingEditReadSerializer(updated, context={"request": request}).data)
 
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditWithdrawView(APIView):
-    """POST /courses/{slug}/pending-edit/withdraw/ — pull back from moderation (edits kept)."""
+    """POST /courses/{slug}/pending-edit/withdraw/: pull back from moderation (edits kept)."""
 
     permission_classes = [IsTeacherOrAdmin]
 
@@ -108,14 +110,12 @@ class CoursePendingEditWithdrawView(APIView):
         except PendingEditLockedError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
-        return Response(
-            CoursePendingEditReadSerializer(updated, context={"request": request}).data
-        )
+        return Response(CoursePendingEditReadSerializer(updated, context={"request": request}).data)
 
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditApproveView(APIView):
-    """POST /courses/{slug}/pending-edit/approve/ — apply changes to live course (moderator only)."""
+    """POST /courses/{slug}/pending-edit/approve/: apply changes to live course (moderator only)."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -128,7 +128,7 @@ class CoursePendingEditApproveView(APIView):
 
 @extend_schema(tags=["Course Pending Edit"])
 class CoursePendingEditRejectView(APIView):
-    """POST /courses/{slug}/pending-edit/reject/ — return for revision with optional comment."""
+    """POST /courses/{slug}/pending-edit/reject/: return for revision with optional comment."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -148,6 +148,4 @@ class CoursePendingEditRejectView(APIView):
             final_action=request.data.get("final_action", ""),
             final_comment=request.data.get("final_comment", ""),
         )
-        return Response(
-            CoursePendingEditReadSerializer(updated, context={"request": request}).data
-        )
+        return Response(CoursePendingEditReadSerializer(updated, context={"request": request}).data)

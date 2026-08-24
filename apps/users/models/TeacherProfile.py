@@ -19,7 +19,9 @@ class TeacherProfile(models.Model):
     experience = models.TextField(blank=True)
     specialization = models.CharField(max_length=150, blank=True)
     signature = models.ImageField(
-        upload_to=UUIDUploadTo("teacher_signatures"), null=True, blank=True,
+        upload_to=UUIDUploadTo("teacher_signatures"),
+        null=True,
+        blank=True,
     )
     years_experience = models.PositiveSmallIntegerField(null=True, blank=True)
     partnerships_count = models.PositiveSmallIntegerField(null=True, blank=True)

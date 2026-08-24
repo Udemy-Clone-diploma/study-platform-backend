@@ -35,9 +35,7 @@ def _render_message(body: str, link_url: str | None) -> str:
 
 
 @shared_task(**_EMAIL_RETRY)
-def send_notification_email(
-    *, email: str, title: str, body: str, link_url: str | None
-) -> None:
+def send_notification_email(*, email: str, title: str, body: str, link_url: str | None) -> None:
     """Send one notification email (single-recipient `create` path)."""
     send_mail(
         subject=title,
@@ -54,9 +52,7 @@ def send_notification_emails(
     """Send the same notification email to many recipients over one SMTP
     connection. One envelope per recipient so addresses are not disclosed."""
     message = _render_message(body, link_url)
-    send_mass_mail(
-        [(title, message, settings.DEFAULT_FROM_EMAIL, [email]) for email in emails]
-    )
+    send_mass_mail([(title, message, settings.DEFAULT_FROM_EMAIL, [email]) for email in emails])
 
 
 @shared_task
@@ -70,9 +66,7 @@ def fan_out_new_lesson(lesson_id: int) -> None:
     # Imported here to avoid a circular import: the service imports this module.
     from apps.notifications.services import NotificationService
 
-    lesson = (
-        Lesson.objects.select_related("module__course").filter(id=lesson_id).first()
-    )
+    lesson = Lesson.objects.select_related("module__course").filter(id=lesson_id).first()
     if lesson is None:
         return
 

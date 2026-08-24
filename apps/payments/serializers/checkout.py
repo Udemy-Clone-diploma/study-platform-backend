@@ -30,6 +30,7 @@ class CheckoutSessionSerializer(serializers.Serializer):
     order_id = serializers.IntegerField(read_only=True)
     installment_id = serializers.IntegerField(read_only=True, allow_null=True)
 
+
 class LiqPayCheckoutCreateSerializer(serializers.Serializer):
     selected_cart_item_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
@@ -66,6 +67,7 @@ class LiqPayCheckoutSerializer(serializers.Serializer):
     )
     currency = serializers.CharField(read_only=True)
 
+
 class LiqPayStatusSyncSerializer(serializers.Serializer):
     payment_id = serializers.IntegerField(
         min_value=1,
@@ -90,6 +92,7 @@ class LiqPayStatusSerializer(serializers.Serializer):
     provider_status = serializers.CharField(
         read_only=True,
     )
+
 
 class PaymentIntentCreateSerializer(CheckoutSessionCreateSerializer):
     pass

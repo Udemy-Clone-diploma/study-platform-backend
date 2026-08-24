@@ -14,14 +14,18 @@ class CanCreateArticle(BasePermission):
             user
             and user.is_authenticated
             and user.role
-            in (User.RoleChoices.TEACHER, User.RoleChoices.MODERATOR, User.RoleChoices.ADMINISTRATOR)
+            in (
+                User.RoleChoices.TEACHER,
+                User.RoleChoices.MODERATOR,
+                User.RoleChoices.ADMINISTRATOR,
+            )
         )
 
 
 class CanManageArticle(BasePermission):
     """Moderators/admins can manage any article; teachers only their own.
 
-    This is a coarse "may touch this object at all" gate -- the finer status
+    This is a coarse "may touch this object at all" gate, the finer status
     transition rules (e.g. an author can't edit a published article without
     withdrawing it first) live in ArticleService and raise BlogError (-> 409).
     """

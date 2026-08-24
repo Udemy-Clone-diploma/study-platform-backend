@@ -18,7 +18,7 @@ from apps.users.permissions import IsAdmin
 
 @extend_schema(tags=["Blog"])
 class BlogCategoryListCreateView(ListCreateAPIView):
-    """GET /blog/categories/ — public list. POST — administrator-only: add a new category block."""
+    """GET /blog/categories/: public list. POST: administrator-only, adds a category block."""
 
     pagination_class = None
 
@@ -26,7 +26,11 @@ class BlogCategoryListCreateView(ListCreateAPIView):
         return BlogCategoryService.annotate_articles_count(BlogCategory.objects.all())
 
     def get_serializer_class(self):
-        return BlogCategoryCreateUpdateSerializer if self.request.method == "POST" else BlogCategorySerializer
+        return (
+            BlogCategoryCreateUpdateSerializer
+            if self.request.method == "POST"
+            else BlogCategorySerializer
+        )
 
     def get_permissions(self):
         return [IsAdmin()] if self.request.method == "POST" else [AllowAny()]
@@ -53,7 +57,7 @@ class BlogCategoryListCreateView(ListCreateAPIView):
 
 @extend_schema(tags=["Blog"])
 class BlogCategoryDetailView(APIView):
-    """GET/PATCH/DELETE /blog/categories/{slug}/ — administrator-only.
+    """GET/PATCH/DELETE /blog/categories/{slug}/: administrator-only.
     GET returns every locale field (not just the resolved one) so the admin
     edit form can populate all of them, unlike the public list endpoint."""
 

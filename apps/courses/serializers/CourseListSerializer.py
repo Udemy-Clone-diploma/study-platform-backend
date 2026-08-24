@@ -11,7 +11,8 @@ class CourseListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     teacher_name = serializers.CharField(
-        source="teacher_profile.user.get_full_name", read_only=True,
+        source="teacher_profile.user.get_full_name",
+        read_only=True,
     )
     image = serializers.SerializerMethodField()
     price = serializers.DecimalField(
@@ -29,22 +30,47 @@ class CourseListSerializer(serializers.ModelSerializer):
 
     pending_edit_status = serializers.SerializerMethodField()
     moderator_id = serializers.IntegerField(
-        source="moderator_profile_id", read_only=True, allow_null=True,
+        source="moderator_profile_id",
+        read_only=True,
+        allow_null=True,
     )
 
     class Meta:
         model = Course
         fields = [
-            "id", "image", "title", "subtitle", "short_description", "slug",
-            "teacher_name", "category",
-            "level", "language", "mode", "delivery_type", "course_type",
-            "price", "original_price", "currency", "duration_hours", "lessons_count",
-            "with_certificate", "is_on_sale", "discount_percent",
-            "rating_avg", "rating_count", "students_count",
-            "students_enrolled_last_30_days", "status",
-            "published_at", "created_at", "tags", "enrolled_at",
+            "id",
+            "image",
+            "title",
+            "subtitle",
+            "short_description",
+            "slug",
+            "teacher_name",
+            "category",
+            "level",
+            "language",
+            "mode",
+            "delivery_type",
+            "course_type",
+            "price",
+            "original_price",
+            "currency",
+            "duration_hours",
+            "lessons_count",
+            "with_certificate",
+            "is_on_sale",
+            "discount_percent",
+            "rating_avg",
+            "rating_count",
+            "students_count",
+            "students_enrolled_last_30_days",
+            "status",
+            "published_at",
+            "created_at",
+            "tags",
+            "enrolled_at",
             "enrollment_access_status",
-            "pending_edit_status", "moderator_id",
+            "pending_edit_status",
+            "moderator_id",
         ]
 
     def get_image(self, obj) -> str | None:

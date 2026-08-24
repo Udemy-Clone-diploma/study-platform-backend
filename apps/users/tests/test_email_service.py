@@ -20,7 +20,9 @@ class ResolveEmailLocaleTests(TestCase):
 
 class VerificationEmailContentTests(TestCase):
     def test_renders_in_users_language(self):
-        user = make_user(role="student", email="olena@example.com", language="uk", first_name="Олена")
+        user = make_user(
+            role="student", email="olena@example.com", language="uk", first_name="Олена"
+        )
 
         EmailService.send_verification_email(user)
 
@@ -65,7 +67,9 @@ class PasswordResetEmailContentTests(TestCase):
 
 class TeacherInvitationEmailContentTests(TestCase):
     def test_has_no_expiry_note_and_uses_language(self):
-        user = make_user(role="teacher", email="teach@example.com", language="fr", first_name="Marie")
+        user = make_user(
+            role="teacher", email="teach@example.com", language="fr", first_name="Marie"
+        )
 
         EmailService.send_teacher_invitation_email(user)
 

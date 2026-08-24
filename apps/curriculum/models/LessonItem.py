@@ -32,12 +32,12 @@ class LessonItem(models.Model):
     )
     video_url = models.URLField(blank=True, null=True)
     original_video_name = models.CharField(max_length=255, blank=True, default="")
-    # Cached MD5 of `video`'s bytes -- computed on save so the moderator-diff view
+    # Cached MD5 of `video`'s bytes, computed on save so the moderator-diff view
     # can compare content without re-reading and re-hashing the full file on every request.
     video_hash = models.CharField(max_length=32, blank=True, default="")
     duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
 
-    # TEST (at most one per lesson — enforced in service layer)
+    # TEST (at most one per lesson, enforced in service layer)
     test = models.ForeignKey(
         Test,
         on_delete=models.SET_NULL,
@@ -88,7 +88,9 @@ class LessonItem(models.Model):
         # Skip recompute when the caller already supplied video_hash explicitly
         # (cloning/merging copies it straight from the source item, since a
         # byte-identical duplicate always has the same hash).
-        recompute = update_fields is None or ("video" in update_fields and "video_hash" not in update_fields)
+        recompute = update_fields is None or (
+            "video" in update_fields and "video_hash" not in update_fields
+        )
         if recompute:
             self.video_hash = file_content_hash(self.video) or ""
             if update_fields is not None:

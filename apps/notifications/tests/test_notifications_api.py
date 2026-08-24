@@ -119,9 +119,7 @@ class NotificationUpdateDeleteTests(APITestCase):
         notification = make_notification(self.user)
 
         self.client.force_authenticate(user=self.user)
-        response = self.client.delete(
-            reverse("notifications-detail", args=[notification.id])
-        )
+        response = self.client.delete(reverse("notifications-detail", args=[notification.id]))
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Notification.objects.filter(id=notification.id).exists())
@@ -130,9 +128,7 @@ class NotificationUpdateDeleteTests(APITestCase):
         notification = make_notification(self.other)
 
         self.client.force_authenticate(user=self.user)
-        response = self.client.delete(
-            reverse("notifications-detail", args=[notification.id])
-        )
+        response = self.client.delete(reverse("notifications-detail", args=[notification.id]))
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertTrue(Notification.objects.filter(id=notification.id).exists())
@@ -178,9 +174,7 @@ class NotificationMarkAllReadTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["updated"], 2)
-        self.assertEqual(
-            Notification.objects.filter(recipient=self.user, is_read=False).count(), 0
-        )
+        self.assertEqual(Notification.objects.filter(recipient=self.user, is_read=False).count(), 0)
         other_unread.refresh_from_db()
         self.assertFalse(other_unread.is_read)
 

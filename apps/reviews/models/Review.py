@@ -39,7 +39,10 @@ class Review(models.Model):
         related_name="moderated_reviews",
     )
     moderation_status = models.CharField(
-        max_length=20, choices=ModerationStatusChoices.choices, blank=True, default="",
+        max_length=20,
+        choices=ModerationStatusChoices.choices,
+        blank=True,
+        default="",
     )
     moderation_assigned_at = models.DateTimeField(null=True, blank=True)
     moderated_at = models.DateTimeField(null=True, blank=True)
@@ -55,7 +58,8 @@ class Review(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["course", "student"], name="unique_review_per_student_course",
+                fields=["course", "student"],
+                name="unique_review_per_student_course",
             ),
         ]
 

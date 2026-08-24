@@ -8,7 +8,6 @@ from django.dispatch import receiver
 
 from apps.common.cache import invalidate_cache_on_commit
 from apps.courses.cache import (
-    invalidate_public_categories,
     invalidate_public_courses,
     invalidate_public_courses_and_categories,
 )
@@ -74,11 +73,7 @@ def public_course_relation_changed(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Enrollment)
 def enrollment_changed(sender, instance, created, update_fields, **kwargs):
-    if (
-        created
-        or update_fields is None
-        or PUBLIC_ENROLLMENT_FIELDS.intersection(update_fields)
-    ):
+    if created or update_fields is None or PUBLIC_ENROLLMENT_FIELDS.intersection(update_fields):
         invalidate_cache_on_commit(invalidate_public_courses)
 
 
@@ -98,9 +93,7 @@ def remember_previous_user_role(sender, instance, **kwargs):
         instance._previous_cache_role = None
         return
     instance._previous_cache_role = (
-        sender.objects.filter(pk=instance.pk)
-        .values_list("role", flat=True)
-        .first()
+        sender.objects.filter(pk=instance.pk).values_list("role", flat=True).first()
     )
 
 
@@ -108,8 +101,7 @@ def remember_previous_user_role(sender, instance, **kwargs):
 def teacher_user_changed(sender, instance, **kwargs):
     if (
         instance.role == User.RoleChoices.TEACHER
-        or getattr(instance, "_previous_cache_role", None)
-        == User.RoleChoices.TEACHER
+        or getattr(instance, "_previous_cache_role", None) == User.RoleChoices.TEACHER
     ):
         invalidate_cache_on_commit(invalidate_public_courses)
 

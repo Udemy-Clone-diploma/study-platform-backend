@@ -37,9 +37,7 @@ class PublicUserProfileView(RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         target_user_id = kwargs[self.lookup_url_kwarg]
-        if request.user.pk == target_user_id or not self._shares_active_chat(
-            target_user_id
-        ):
+        if request.user.pk == target_user_id or not self._shares_active_chat(target_user_id):
             return super().retrieve(request, *args, **kwargs)
 
         key = public_user_profile_cache_key(request, target_user_id)

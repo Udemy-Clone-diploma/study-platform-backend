@@ -15,7 +15,7 @@ class MaterialDocumentSerializer(serializers.Serializer):
 class MaterialsLessonSerializer(serializers.Serializer):
     lesson_id = serializers.IntegerField(source="id")
     lesson_title = serializers.CharField(source="title")
-    # Most recent material upload date, not the lesson's own created_at --
+    # Most recent material upload date, not the lesson's own created_at:
     # lessons are typically authored in one batch, so their own timestamp
     # says nothing about when materials were actually added to them.
     lesson_date = serializers.SerializerMethodField()

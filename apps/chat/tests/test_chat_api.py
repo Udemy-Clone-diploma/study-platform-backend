@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.chat.consumers import ChatConsumer, ONLINE_USER_CONNECTIONS
+from apps.chat.consumers import ONLINE_USER_CONNECTIONS, ChatConsumer
 from apps.chat.models import (
     ChatParticipant,
     ChatRoom,
@@ -235,7 +235,9 @@ class ChatApiTests(APITestCase):
         )
         self.assertEqual(allowed_response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(
-            ChatParticipant.objects.filter(chat=chat, user=self.other, left_at__isnull=True).exists()
+            ChatParticipant.objects.filter(
+                chat=chat, user=self.other, left_at__isnull=True
+            ).exists()
         )
 
     def test_only_sender_can_edit_and_delete_message(self):
@@ -275,9 +277,7 @@ class ChatApiTests(APITestCase):
         )
         self.assertEqual(mute_response.status_code, status.HTTP_200_OK)
         self.assertTrue(mute_response.data["is_muted"])
-        self.assertTrue(
-            ChatParticipant.objects.get(chat=chat, user=self.student).is_muted
-        )
+        self.assertTrue(ChatParticipant.objects.get(chat=chat, user=self.student).is_muted)
 
         block_response = self.client.patch(
             reverse("chats-block", args=[chat.id]),
@@ -351,9 +351,7 @@ class ChatApiTests(APITestCase):
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
         chat.refresh_from_db()
         self.assertTrue(chat.is_deleted)
-        self.assertFalse(
-            ChatParticipant.objects.filter(chat=chat, left_at__isnull=True).exists()
-        )
+        self.assertFalse(ChatParticipant.objects.filter(chat=chat, left_at__isnull=True).exists())
 
         self.client.force_authenticate(self.teacher)
         teacher_list = self.client.get(reverse("chats-list"))
@@ -392,9 +390,7 @@ class ChatApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertFalse(Notification.objects.filter(recipient=self.student).exists())
         self.assertEqual(len(mail.outbox), 1)
-        official_chat = ChatRoom.objects.get(
-            direct_key=f"school_admin_{self.student.pk}"
-        )
+        official_chat = ChatRoom.objects.get(direct_key=f"school_admin_{self.student.pk}")
         self.assertTrue(official_chat.is_read_only)
         self.assertIn("OFFICIAL WARNING", official_chat.last_message.text)
 
@@ -595,9 +591,9 @@ class ChatWebSocketTests(TransactionTestCase):
             self.assertTrue((await communicator.connect())[0])
             await self._receive_type(communicator, "presence.snapshot")
 
-            await database_sync_to_async(
-                User.all_objects.filter(pk=self.student.pk).update
-            )(is_blocked=True)
+            await database_sync_to_async(User.all_objects.filter(pk=self.student.pk).update)(
+                is_blocked=True
+            )
             await communicator.send_json_to({"type": "ping"})
 
             close_event = await communicator.receive_output(timeout=2)
@@ -649,9 +645,9 @@ class ChatWebSocketTests(TransactionTestCase):
             await self._receive_type(teacher, "presence.snapshot")
             await self._receive_type(student, "presence")
 
-            await database_sync_to_async(
-                User.all_objects.filter(pk=self.student.pk).update
-            )(is_blocked=True)
+            await database_sync_to_async(User.all_objects.filter(pk=self.student.pk).update)(
+                is_blocked=True
+            )
             await teacher.send_json_to(
                 {
                     "type": "message.send",

@@ -58,9 +58,7 @@ class UserService:
             .exists()
         )
         if not has_other_active_admin:
-            raise LastAdministratorError(
-                "Cannot remove the last active administrator."
-            )
+            raise LastAdministratorError("Cannot remove the last active administrator.")
 
     @staticmethod
     def ensure_profile(user: User):
@@ -73,14 +71,8 @@ class UserService:
         profile_model = PROFILE_MODELS.get(user.role)
         if profile_model is None:
             return None
-        defaults = (
-            {"level": "junior"}
-            if user.role == User.RoleChoices.MODERATOR
-            else {}
-        )
-        profile, _ = profile_model.objects.get_or_create(
-            user=user, defaults=defaults
-        )
+        defaults = {"level": "junior"} if user.role == User.RoleChoices.MODERATOR else {}
+        profile, _ = profile_model.objects.get_or_create(user=user, defaults=defaults)
         return profile
 
     @staticmethod
@@ -90,9 +82,7 @@ class UserService:
         profile_model = PROFILE_MODELS.get(user.role)
 
         if not serializer_class or not profile_model:
-            raise ProfileNotAvailableError(
-                "Profile is not available for this role."
-            )
+            raise ProfileNotAvailableError("Profile is not available for this role.")
 
         profile, _ = profile_model.objects.get_or_create(user=user)
 

@@ -34,9 +34,7 @@ class CourseCreatePermissionTests(APITestCase):
         return data
 
     def test_anonymous_cannot_create(self):
-        response = self.client.post(
-            reverse("courses-list"), self._payload(), format="json"
-        )
+        response = self.client.post(reverse("courses-list"), self._payload(), format="json")
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -46,9 +44,7 @@ class CourseCreatePermissionTests(APITestCase):
         )
         self.client.force_authenticate(user=student)
 
-        response = self.client.post(
-            reverse("courses-list"), self._payload(), format="json"
-        )
+        response = self.client.post(reverse("courses-list"), self._payload(), format="json")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -58,9 +54,7 @@ class CourseCreatePermissionTests(APITestCase):
         )
         self.client.force_authenticate(user=moderator)
 
-        response = self.client.post(
-            reverse("courses-list"), self._payload(), format="json"
-        )
+        response = self.client.post(reverse("courses-list"), self._payload(), format="json")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -166,18 +160,14 @@ class CourseUpdateDeletePermissionTests(APITestCase):
     def test_other_teacher_cannot_delete(self):
         self.client.force_authenticate(user=self.other_teacher_profile.user)
 
-        response = self.client.delete(
-            reverse("courses-detail", args=[self.course.slug])
-        )
+        response = self.client.delete(reverse("courses-detail", args=[self.course.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_owner_can_delete(self):
         self.client.force_authenticate(user=self.owner_profile.user)
 
-        response = self.client.delete(
-            reverse("courses-detail", args=[self.course.slug])
-        )
+        response = self.client.delete(reverse("courses-detail", args=[self.course.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 

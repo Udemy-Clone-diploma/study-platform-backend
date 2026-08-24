@@ -25,7 +25,16 @@ class MessageAttachmentInline(admin.TabularInline):
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
-    list_display = ["id", "type", "title", "created_by", "last_message", "is_read_only", "is_deleted", "updated_at"]
+    list_display = [
+        "id",
+        "type",
+        "title",
+        "created_by",
+        "last_message",
+        "is_read_only",
+        "is_deleted",
+        "updated_at",
+    ]
     list_filter = ["type", "is_read_only", "is_deleted"]
     search_fields = ["title", "direct_key", "participants__user__email"]
     autocomplete_fields = ["created_by", "last_message"]

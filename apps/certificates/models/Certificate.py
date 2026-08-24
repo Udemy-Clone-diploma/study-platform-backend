@@ -14,7 +14,7 @@ class Certificate(models.Model):
     Split out of `CourseCompletion` because it outlives it: it can be issued by
     hand with no completion behind it, re-issued after a correction, and
     revoked, and a third party has to be able to verify it long afterwards.
-    Deliberately has no delete endpoint -- it records something asserted to an
+    Deliberately has no delete endpoint, it records something asserted to an
     employer, so the registry must still answer for it years later.
     """
 
@@ -127,10 +127,14 @@ class Certificate(models.Model):
     # Populated only when this row rendered its own PDF (manual issue, re-issue).
     # Certificates issued for a completion read the file that completion stores.
     certificate_file = models.FileField(
-        upload_to=UUIDUploadTo("certificates"), null=True, blank=True,
+        upload_to=UUIDUploadTo("certificates"),
+        null=True,
+        blank=True,
     )
     certificate_thumbnail = models.ImageField(
-        upload_to=UUIDUploadTo("certificates/thumbnails"), null=True, blank=True,
+        upload_to=UUIDUploadTo("certificates/thumbnails"),
+        null=True,
+        blank=True,
     )
 
     is_deleted = models.BooleanField(default=False)

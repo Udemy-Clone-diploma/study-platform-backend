@@ -11,54 +11,53 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView
-from rest_framework.exceptions import ValidationError
 
 from apps.common.files import absolute_media_url
 from apps.courses.models import Cohort, Course
 from apps.payments.filters import PaymentFilter
 from apps.payments.models import (
-    Order, 
-    Payment, 
-    PaymentInstallment, 
-    TeacherPayoutAccount, 
-    TeacherPayout, 
-    TeacherLedgerEntry, 
+    Order,
+    Payment,
+    PaymentInstallment,
+    Refund,
+    TeacherLedgerEntry,
+    TeacherPayout,
     TeacherPayoutAccount,
     TeacherPayoutDestination,
-    Refund,
 )
+from apps.payments.permissions import IsFinanceOperator
 from apps.payments.serializers import (
     CheckoutSessionCreateSerializer,
     CheckoutSessionSerializer,
+    LiqPayCheckoutCreateSerializer,
+    LiqPayCheckoutSerializer,
+    LiqPayStatusSerializer,
+    LiqPayStatusSyncSerializer,
     OrderSerializer,
+    PaymentCategoryRevenueSerializer,
     PaymentIntentCreateSerializer,
     PaymentIntentSerializer,
     PaymentIntentStatusSerializer,
-    PaymentCategoryRevenueSerializer,
     PaymentIntentStatusSyncSerializer,
     PaymentSerializer,
     PaymentSummarySerializer,
     PaymentTimeseriesPointSerializer,
     RefundCreateSerializer,
-    LiqPayCheckoutCreateSerializer,
-    LiqPayCheckoutSerializer,
-    LiqPayStatusSyncSerializer,
-    LiqPayStatusSerializer,
-    TeacherBalanceSerializer,
-    TeacherLedgerEntrySerializer,
-    TeacherPayoutSerializer,
-    TeacherPayoutDestinationSerializer,
     StaffPayoutCreateSerializer,
     StaffTeacherPayoutSerializer,
+    TeacherBalanceSerializer,
+    TeacherLedgerEntrySerializer,
+    TeacherPayoutDestinationSerializer,
+    TeacherPayoutSerializer,
 )
 from apps.payments.services import PaymentError, PaymentService, RefundError
-from apps.users.models import User, TeacherProfile
+from apps.users.models import TeacherProfile, User
 from apps.users.permissions import IsAdmin, IsStudent, IsTeacher
-from apps.payments.permissions import IsFinanceOperator
 
 logger = logging.getLogger(__name__)
 
@@ -70,41 +69,32 @@ def _teacher_finance_currency(
     *,
     default: str = "",
 ) -> str:
-    currency = str(
-        request.query_params.get(
-            "currency",
-            default,
+    currency = (
+        str(
+            request.query_params.get(
+                "currency",
+                default,
+            )
+            or ""
         )
-        or ""
-    ).strip().upper()
+        .strip()
+        .upper()
+    )
 
-    if (
-        currency
-        and currency
-        != TEACHER_FINANCE_CURRENCY
-    ):
-        raise ValidationError(
-            {
-                "currency": (
-                    "Unsupported currency."
-                )
-            }
-        )
+    if currency and currency != TEACHER_FINANCE_CURRENCY:
+        raise ValidationError({"currency": ("Unsupported currency.")})
 
     return currency
 
+
 @extend_schema(tags=["Teacher finance"])
-class TeacherPayoutDestinationViewSet(
-    viewsets.ModelViewSet
-):
+class TeacherPayoutDestinationViewSet(viewsets.ModelViewSet):
     permission_classes = [
         IsAuthenticated,
         IsTeacher,
     ]
 
-    serializer_class = (
-        TeacherPayoutDestinationSerializer
-    )
+    serializer_class = TeacherPayoutDestinationSerializer
 
     http_method_names = [
         "get",
@@ -116,19 +106,11 @@ class TeacherPayoutDestinationViewSet(
     ]
 
     def get_queryset(self):
-        return (
-            TeacherPayoutDestination.objects
-            .filter(
-                teacher=(
-                    self.request
-                    .user
-                    .teacher_profile
-                )
-            )
-            .order_by(
-                "-is_default",
-                "-created_at",
-            )
+        return TeacherPayoutDestination.objects.filter(
+            teacher=(self.request.user.teacher_profile)
+        ).order_by(
+            "-is_default",
+            "-created_at",
         )
 
     def perform_destroy(
@@ -136,15 +118,9 @@ class TeacherPayoutDestinationViewSet(
         instance,
     ):
         with transaction.atomic():
-            instance = (
-                TeacherPayoutDestination.objects
-                .select_for_update()
-                .get(pk=instance.pk)
-            )
+            instance = TeacherPayoutDestination.objects.select_for_update().get(pk=instance.pk)
 
-            was_default = (
-                instance.is_default
-            )
+            was_default = instance.is_default
 
             instance.is_active = False
             instance.is_default = False
@@ -161,8 +137,7 @@ class TeacherPayoutDestinationViewSet(
                 return
 
             replacement = (
-                TeacherPayoutDestination.objects
-                .select_for_update()
+                TeacherPayoutDestination.objects.select_for_update()
                 .filter(
                     teacher=instance.teacher,
                     provider=instance.provider,
@@ -183,6 +158,7 @@ class TeacherPayoutDestinationViewSet(
                     ]
                 )
 
+
 @extend_schema(tags=["Teacher finance"])
 class TeacherFinanceBalanceView(APIView):
     permission_classes = [
@@ -201,11 +177,10 @@ class TeacherFinanceBalanceView(APIView):
             currency=currency,
         )
 
-        serializer = TeacherBalanceSerializer(
-            balance
-        )
+        serializer = TeacherBalanceSerializer(balance)
 
         return Response(serializer.data)
+
 
 @extend_schema(tags=["Staff finance"])
 class StaffTeacherBalanceView(APIView):
@@ -220,27 +195,24 @@ class StaffTeacherBalanceView(APIView):
         teacher_id: int,
     ):
         teacher = get_object_or_404(
-            TeacherProfile.objects
-            .select_related("user"),
+            TeacherProfile.objects.select_related("user"),
             pk=teacher_id,
         )
 
-        currency = str(
-            request.query_params.get(
-                "currency",
-                TEACHER_FINANCE_CURRENCY,
+        currency = (
+            str(
+                request.query_params.get(
+                    "currency",
+                    TEACHER_FINANCE_CURRENCY,
+                )
+                or TEACHER_FINANCE_CURRENCY
             )
-            or TEACHER_FINANCE_CURRENCY
-        ).strip().upper()
+            .strip()
+            .upper()
+        )
 
         if currency != TEACHER_FINANCE_CURRENCY:
-            raise ValidationError(
-                {
-                    "currency": (
-                        "Unsupported currency."
-                    )
-                }
-            )
+            raise ValidationError({"currency": ("Unsupported currency.")})
 
         result = PaymentService.balance(
             teacher=teacher,
@@ -248,15 +220,11 @@ class StaffTeacherBalanceView(APIView):
         )
 
         balance_data = TeacherBalanceSerializer(result).data
-        destinations = (
-            TeacherPayoutDestination.objects
-            .filter(
-                teacher=teacher,
-                provider="liqpay",
-                is_active=True,
-            )
-            .order_by("-is_default", "-created_at")
-        )
+        destinations = TeacherPayoutDestination.objects.filter(
+            teacher=teacher,
+            provider="liqpay",
+            is_active=True,
+        ).order_by("-is_default", "-created_at")
         balance_data["teacher"] = {
             "id": teacher.pk,
             "name": teacher.user.get_full_name() or teacher.user.email,
@@ -268,6 +236,7 @@ class StaffTeacherBalanceView(APIView):
         ).data
 
         return Response(balance_data)
+
 
 @extend_schema(tags=["Staff finance"])
 class StaffTeacherPayoutViewSet(
@@ -289,86 +258,58 @@ class StaffTeacherPayoutViewSet(
     ]
 
     def get_queryset(self):
-        queryset = (
-            TeacherPayout.objects
-            .select_related(
-                "teacher",
-                "teacher__user",
-                "destination",
-                "created_by",
-            )
-            .order_by(
-                "-created_at",
-                "-id",
-            )
+        queryset = TeacherPayout.objects.select_related(
+            "teacher",
+            "teacher__user",
+            "destination",
+            "created_by",
+        ).order_by(
+            "-created_at",
+            "-id",
         )
 
-        teacher_id = (
-            self.request
-            .query_params
-            .get("teacher")
+        teacher_id = self.request.query_params.get("teacher")
+
+        currency = (
+            str(
+                self.request.query_params.get(
+                    "currency",
+                    TEACHER_FINANCE_CURRENCY,
+                )
+                or TEACHER_FINANCE_CURRENCY
+            )
+            .strip()
+            .upper()
         )
 
-        currency = str(
-            self.request
-            .query_params
-            .get(
-                "currency",
-                TEACHER_FINANCE_CURRENCY,
+        payout_status = (
+            str(
+                self.request.query_params.get(
+                    "status",
+                    "",
+                )
+                or ""
             )
-            or TEACHER_FINANCE_CURRENCY
-        ).strip().upper()
-
-        payout_status = str(
-            self.request
-            .query_params
-            .get(
-                "status",
-                "",
-            )
-            or ""
-        ).strip().lower()
+            .strip()
+            .lower()
+        )
 
         if teacher_id:
-            queryset = queryset.filter(
-                teacher_id=teacher_id
-            )
+            queryset = queryset.filter(teacher_id=teacher_id)
 
         if currency:
             if currency != TEACHER_FINANCE_CURRENCY:
-                raise ValidationError(
-                    {
-                        "currency": (
-                            "Unsupported currency."
-                        )
-                    }
-                )
+                raise ValidationError({"currency": ("Unsupported currency.")})
 
-            queryset = queryset.filter(
-                currency=currency
-            )
+            queryset = queryset.filter(currency=currency)
 
         if payout_status:
-            valid_statuses = {
-                value
-                for value, _
-                in TeacherPayout
-                .StatusChoices
-                .choices
-            }
+            valid_statuses = {value for value, _ in TeacherPayout.StatusChoices.choices}
 
             if payout_status not in valid_statuses:
-                raise ValidationError(
-                    {
-                        "status": (
-                            "Unsupported payout status."
-                        )
-                    }
-                )
+                raise ValidationError({"status": ("Unsupported payout status.")})
 
-            queryset = queryset.filter(
-                status=payout_status
-            )
+            queryset = queryset.filter(status=payout_status)
 
         return queryset
 
@@ -384,27 +325,18 @@ class StaffTeacherPayoutViewSet(
         *args,
         **kwargs,
     ):
-        serializer = (
-            StaffPayoutCreateSerializer(
-                data=request.data
-            )
-        )
+        serializer = StaffPayoutCreateSerializer(data=request.data)
 
-        serializer.is_valid(
-            raise_exception=True
-        )
+        serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
 
         teacher = get_object_or_404(
-            TeacherProfile.objects
-            .select_related("user"),
+            TeacherProfile.objects.select_related("user"),
             pk=data["teacher_id"],
         )
 
-        destination_id = data.get(
-            "destination_id"
-        )
+        destination_id = data.get("destination_id")
 
         if destination_id:
             destination = get_object_or_404(
@@ -413,57 +345,34 @@ class StaffTeacherPayoutViewSet(
                 teacher=teacher,
             )
         else:
-            destination = (
-                TeacherPayoutDestination.objects
-                .filter(
-                    teacher=teacher,
-                    provider="liqpay",
-                    is_active=True,
-                    is_default=True,
-                )
-                .first()
-            )
+            destination = TeacherPayoutDestination.objects.filter(
+                teacher=teacher,
+                provider="liqpay",
+                is_active=True,
+                is_default=True,
+            ).first()
 
             if destination is None:
                 raise ValidationError(
-                    {
-                        "destination_id": (
-                            "Teacher has no active "
-                            "default payout destination."
-                        )
-                    }
+                    {"destination_id": ("Teacher has no active default payout destination.")}
                 )
 
-        existed_before = (
-            TeacherPayout.objects
-            .filter(
-                idempotency_key=(
-                    data["idempotency_key"]
-                )
-            )
-            .exists()
-        )
+        existed_before = TeacherPayout.objects.filter(
+            idempotency_key=(data["idempotency_key"])
+        ).exists()
 
         try:
-            payout = (
-                PaymentService.reserve_payout(
-                    teacher=teacher,
-                    destination=destination,
-                    amount=data["amount"],
-                    currency=data["currency"],
-                    idempotency_key=(
-                        data["idempotency_key"]
-                    ),
-                    created_by=request.user,
-                )
+            payout = PaymentService.reserve_payout(
+                teacher=teacher,
+                destination=destination,
+                amount=data["amount"],
+                currency=data["currency"],
+                idempotency_key=(data["idempotency_key"]),
+                created_by=request.user,
             )
 
         except PaymentError as exc:
-            raise ValidationError(
-                {
-                    "detail": str(exc)
-                }
-            ) from exc
+            raise ValidationError({"detail": str(exc)}) from exc
 
         output = StaffTeacherPayoutSerializer(
             payout,
@@ -474,11 +383,7 @@ class StaffTeacherPayoutViewSet(
 
         return Response(
             output.data,
-            status=(
-                status.HTTP_200_OK
-                if existed_before
-                else status.HTTP_201_CREATED
-            ),
+            status=(status.HTTP_200_OK if existed_before else status.HTTP_201_CREATED),
         )
 
     @action(
@@ -502,12 +407,9 @@ class StaffTeacherPayoutViewSet(
         ).strip()
 
         try:
-            payout = (
-                PaymentService
-                .execute_teacher_payout(
-                    payout=payout,
-                    client_ip=client_ip,
-                )
+            payout = PaymentService.execute_teacher_payout(
+                payout=payout,
+                client_ip=client_ip,
             )
 
         except PaymentError as exc:
@@ -516,41 +418,22 @@ class StaffTeacherPayoutViewSet(
             # Transport was ambiguous. Do NOT turn
             # this into a normal validation failure.
             if (
-                payout.status
-                == TeacherPayout
-                .StatusChoices
-                .PROCESSING
-                and payout.provider_status
-                == "request_uncertain"
+                payout.status == TeacherPayout.StatusChoices.PROCESSING
+                and payout.provider_status == "request_uncertain"
             ):
-                data = (
-                    StaffTeacherPayoutSerializer(
-                        payout
-                    ).data
-                )
+                data = StaffTeacherPayoutSerializer(payout).data
 
                 return Response(
                     {
                         "detail": str(exc),
                         "payout": data,
                     },
-                    status=(
-                        status
-                        .HTTP_502_BAD_GATEWAY
-                    ),
+                    status=(status.HTTP_502_BAD_GATEWAY),
                 )
 
-            raise ValidationError(
-                {
-                    "detail": str(exc)
-                }
-            ) from exc
+            raise ValidationError({"detail": str(exc)}) from exc
 
-        return Response(
-            StaffTeacherPayoutSerializer(
-                payout
-            ).data
-        )
+        return Response(StaffTeacherPayoutSerializer(payout).data)
 
     @action(
         detail=True,
@@ -565,12 +448,7 @@ class StaffTeacherPayoutViewSet(
         payout = self.get_object()
 
         try:
-            payout = (
-                PaymentService
-                .reconcile_teacher_payout(
-                    payout=payout
-                )
-            )
+            payout = PaymentService.reconcile_teacher_payout(payout=payout)
 
         except PaymentError as exc:
             payout.refresh_from_db()
@@ -578,23 +456,13 @@ class StaffTeacherPayoutViewSet(
             return Response(
                 {
                     "detail": str(exc),
-                    "payout": (
-                        StaffTeacherPayoutSerializer(
-                            payout
-                        ).data
-                    ),
+                    "payout": (StaffTeacherPayoutSerializer(payout).data),
                 },
-                status=(
-                    status
-                    .HTTP_502_BAD_GATEWAY
-                ),
+                status=(status.HTTP_502_BAD_GATEWAY),
             )
 
-        return Response(
-            StaffTeacherPayoutSerializer(
-                payout
-            ).data
-        )
+        return Response(StaffTeacherPayoutSerializer(payout).data)
+
 
 @extend_schema(tags=["Teacher finance"])
 class TeacherFinanceLedgerView(ListAPIView):
@@ -603,9 +471,7 @@ class TeacherFinanceLedgerView(ListAPIView):
         IsTeacher,
     ]
 
-    serializer_class = (
-        TeacherLedgerEntrySerializer
-    )
+    serializer_class = TeacherLedgerEntrySerializer
 
     def get_queryset(self):
         currency = _teacher_finance_currency(
@@ -613,26 +479,16 @@ class TeacherFinanceLedgerView(ListAPIView):
             default=TEACHER_FINANCE_CURRENCY,
         )
 
-        queryset = (
-            TeacherLedgerEntry.objects
-            .filter(
-                teacher=(
-                    self.request
-                    .user
-                    .teacher_profile
-                )
-            )
-            .select_related(
-                "payment",
-                "refund",
-                "payout",
-            )
+        queryset = TeacherLedgerEntry.objects.filter(
+            teacher=(self.request.user.teacher_profile)
+        ).select_related(
+            "payment",
+            "refund",
+            "payout",
         )
 
         if currency:
-            queryset = queryset.filter(
-                currency=currency
-            )
+            queryset = queryset.filter(currency=currency)
 
         return queryset.order_by(
             "-created_at",
@@ -641,9 +497,7 @@ class TeacherFinanceLedgerView(ListAPIView):
 
 
 @extend_schema(tags=["Teacher finance"])
-class TeacherFinancePayoutHistoryView(
-    ListAPIView
-):
+class TeacherFinancePayoutHistoryView(ListAPIView):
     permission_classes = [
         IsAuthenticated,
         IsTeacher,
@@ -657,30 +511,21 @@ class TeacherFinancePayoutHistoryView(
             default=TEACHER_FINANCE_CURRENCY,
         )
 
-        queryset = (
-            TeacherPayout.objects
-            .filter(
-                teacher=(
-                    self.request
-                    .user
-                    .teacher_profile
-                )
-            )
-            .select_related(
-                "destination",
-            )
+        queryset = TeacherPayout.objects.filter(
+            teacher=(self.request.user.teacher_profile)
+        ).select_related(
+            "destination",
         )
 
         if currency:
-            queryset = queryset.filter(
-                currency=currency
-            )
+            queryset = queryset.filter(currency=currency)
 
         return queryset.order_by(
             "-created_at",
             "-id",
         )
-    
+
+
 @extend_schema(tags=["Teacher payouts"])
 class TeacherPayoutStatusView(APIView):
     permission_classes = [IsAuthenticated, IsTeacher]
@@ -688,6 +533,7 @@ class TeacherPayoutStatusView(APIView):
     def get(self, request):
         payout = TeacherPayoutAccount.objects.filter(teacher=request.user.teacher_profile).first()
         return Response(PaymentService.safe_data(payout))
+
 
 @extend_schema(tags=["Teacher payouts"])
 class TeacherStripeFinanceView(APIView):
@@ -697,13 +543,7 @@ class TeacherStripeFinanceView(APIView):
     ]
 
     def get(self, request):
-        payout = (
-            TeacherPayoutAccount.objects
-            .filter(
-                teacher=request.user.teacher_profile
-            )
-            .first()
-        )
+        payout = TeacherPayoutAccount.objects.filter(teacher=request.user.teacher_profile).first()
 
         if payout is None:
             return Response(
@@ -716,12 +556,9 @@ class TeacherStripeFinanceView(APIView):
             )
 
         try:
-            result = (
-                PaymentService
-                .stripe_finance_overview(
-                    payout,
-                    limit=10,
-                )
+            result = PaymentService.stripe_finance_overview(
+                payout,
+                limit=10,
             )
         except PaymentError as exc:
             return Response(
@@ -730,6 +567,7 @@ class TeacherStripeFinanceView(APIView):
             )
 
         return Response(result)
+
 
 @extend_schema(tags=["Teacher payouts"])
 class TeacherPayoutOnboardingView(APIView):
@@ -743,7 +581,9 @@ class TeacherPayoutOnboardingView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:
             logger.exception("Could not start Stripe Connect onboarding.")
-            return Response({"detail": "Could not start payout setup."}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"detail": "Could not start payout setup."}, status=status.HTTP_502_BAD_GATEWAY
+            )
 
 
 @extend_schema(tags=["Teacher payouts"])
@@ -760,7 +600,9 @@ class TeacherPayoutRefreshView(APIView):
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:
             logger.exception("Could not refresh Stripe Connect account.")
-            return Response({"detail": "Could not refresh payout status."}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"detail": "Could not refresh payout status."}, status=status.HTTP_502_BAD_GATEWAY
+            )
 
 
 def _derive_order_status(order: Order) -> str:
@@ -784,17 +626,13 @@ def _derive_order_status(order: Order) -> str:
             refund.amount
             for payment in payments
             for refund in payment.refunds.all()
-            if refund.status
-            == Refund.StatusChoices.SUCCEEDED
+            if refund.status == Refund.StatusChoices.SUCCEEDED
         ),
         0,
     )
 
     if refunded_total > 0:
-        if (
-            captured_total > 0
-            and refunded_total >= captured_total
-        ):
+        if captured_total > 0 and refunded_total >= captured_total:
             return "refunded"
 
         return "partially_refunded"
@@ -802,15 +640,11 @@ def _derive_order_status(order: Order) -> str:
     if order.status == Order.StatusChoices.PAID:
         return "paid"
 
-    if (
-        order.payment_type
-        == Order.PaymentTypeChoices.INSTALLMENTS
-    ):
+    if order.payment_type == Order.PaymentTypeChoices.INSTALLMENTS:
         today = timezone.now().date()
 
         overdue = any(
-            installment.status
-            == PaymentInstallment.StatusChoices.PENDING
+            installment.status == PaymentInstallment.StatusChoices.PENDING
             and installment.due_date < today
             for installment in order.installments.all()
         )
@@ -836,25 +670,22 @@ class PaymentViewSet(
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        queryset = (
-            Payment.objects.select_related(
-                "user",
-                "student_profile__user",
-                "order",
-                "order__user",
-                "installment",
-            )
-            .prefetch_related(
-                "items",
-                "items__course",
-                "items__pricing_plan",
-                "order__items",
-                "order__items__course",
-                "order__items__pricing_plan",
-                "order__installments",
-                "order__payments",
-                "refunds",
-            )
+        queryset = Payment.objects.select_related(
+            "user",
+            "student_profile__user",
+            "order",
+            "order__user",
+            "installment",
+        ).prefetch_related(
+            "items",
+            "items__course",
+            "items__pricing_plan",
+            "order__items",
+            "order__items__course",
+            "order__items__pricing_plan",
+            "order__installments",
+            "order__payments",
+            "refunds",
         )
         user = self.request.user
         if user.role == User.RoleChoices.ADMINISTRATOR:
@@ -917,9 +748,7 @@ class PaymentViewSet(
     )
     @action(detail=False, methods=["get"], url_path="revenue-by-category")
     def revenue_by_category(self, request, *args, **kwargs):
-        rows = PaymentService.revenue_by_category(
-            self.filter_queryset(self.get_queryset())
-        )
+        rows = PaymentService.revenue_by_category(self.filter_queryset(self.get_queryset()))
         return Response(PaymentCategoryRevenueSerializer(rows, many=True).data)
 
     def _requested_window(self, request):
@@ -952,7 +781,7 @@ class PaymentViewSet(
     @extend_schema(
         request=RefundCreateSerializer,
         responses={200: PaymentSerializer},
-        summary="Refund a payment (administrators only)"
+        summary="Refund a payment (administrators only)",
     )
     @action(detail=True, methods=["post"], url_path="refund")
     def refund(self, request, *args, **kwargs):
@@ -1043,9 +872,9 @@ class PaymentViewSet(
         )
 
     @extend_schema(
-    request=LiqPayCheckoutCreateSerializer,
-    responses={201: LiqPayCheckoutSerializer},
-    summary="Create a LiqPay checkout for the current student's cart",
+        request=LiqPayCheckoutCreateSerializer,
+        responses={201: LiqPayCheckoutSerializer},
+        summary="Create a LiqPay checkout for the current student's cart",
     )
     @action(
         detail=False,
@@ -1054,26 +883,18 @@ class PaymentViewSet(
         url_name="liqpay-checkout",
     )
     def create_liqpay_checkout(self, request, *args, **kwargs):
-        serializer = LiqPayCheckoutCreateSerializer(
-            data=request.data
-        )
+        serializer = LiqPayCheckoutCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
-            payment, attempt, checkout = (
-                PaymentService.create_liqpay_checkout(
-                    user=request.user,
-                    selected_cart_item_ids=serializer.validated_data.get(
-                        "selected_cart_item_ids"
-                    ),
-                    payment_type=serializer.validated_data.get(
-                        "payment_type",
-                        Order.PaymentTypeChoices.FULL,
-                    ),
-                    installments_count=serializer.validated_data.get(
-                        "installments_count"
-                    ),
-                )
+            payment, attempt, checkout = PaymentService.create_liqpay_checkout(
+                user=request.user,
+                selected_cart_item_ids=serializer.validated_data.get("selected_cart_item_ids"),
+                payment_type=serializer.validated_data.get(
+                    "payment_type",
+                    Order.PaymentTypeChoices.FULL,
+                ),
+                installments_count=serializer.validated_data.get("installments_count"),
             )
         except PermissionDenied as exc:
             return Response(
@@ -1091,9 +912,7 @@ class PaymentViewSet(
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except Exception:
-            logger.exception(
-                "Could not create LiqPay checkout."
-            )
+            logger.exception("Could not create LiqPay checkout.")
             return Response(
                 {"detail": "Could not create LiqPay checkout."},
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -1131,9 +950,7 @@ class PaymentViewSet(
         *args,
         **kwargs,
     ):
-        serializer = LiqPayStatusSyncSerializer(
-            data=request.data
-        )
+        serializer = LiqPayStatusSyncSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         payment = (
@@ -1147,17 +964,13 @@ class PaymentViewSet(
 
         if payment is None:
             return Response(
-                {
-                    "detail": "LiqPay payment was not found."
-                },
+                {"detail": "LiqPay payment was not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         try:
-            payment, provider_status = (
-                PaymentService.sync_liqpay_payment_status(
-                    payment=payment,
-                )
+            payment, provider_status = PaymentService.sync_liqpay_payment_status(
+                payment=payment,
             )
 
         except PaymentError as exc:
@@ -1173,99 +986,9 @@ class PaymentViewSet(
             )
 
         except Exception:
-            logger.exception(
-                "Could not sync LiqPay payment status."
-            )
+            logger.exception("Could not sync LiqPay payment status.")
             return Response(
-                {
-                    "detail": (
-                        "Could not sync LiqPay payment status."
-                    )
-                },
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        payment.refresh_from_db()
-
-        return Response(
-            {
-                "payment_id": payment.id,
-                "order_id": payment.order_id,
-                "installment_id": payment.installment_id,
-                "payment_status": payment.status,
-                "provider_status": provider_status,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    @extend_schema(
-        request=LiqPayStatusSyncSerializer,
-        responses={200: LiqPayStatusSerializer},
-        summary="Sync LiqPay payment status",
-    )
-    @action(
-        detail=False,
-        methods=["post"],
-        url_path="liqpay/status/sync",
-        url_name="liqpay-status-sync",
-    )
-    def sync_liqpay_status(
-        self,
-        request,
-        *args,
-        **kwargs,
-    ):
-        serializer = LiqPayStatusSyncSerializer(
-            data=request.data
-        )
-        serializer.is_valid(raise_exception=True)
-
-        payment = (
-            self.get_queryset()
-            .filter(
-                pk=serializer.validated_data["payment_id"],
-                payment_method=Payment.MethodChoices.LIQPAY,
-            )
-            .first()
-        )
-
-        if payment is None:
-            return Response(
-                {
-                    "detail": "LiqPay payment was not found."
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            payment, provider_status = (
-                PaymentService.sync_liqpay_payment_status(
-                    payment=payment,
-                )
-            )
-
-        except PaymentError as exc:
-            return Response(
-                {"detail": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        except ImproperlyConfigured as exc:
-            return Response(
-                {"detail": str(exc)},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
-        except Exception:
-            logger.exception(
-                "Could not sync LiqPay payment status."
-            )
-            return Response(
-                {
-                    "detail": (
-                        "Could not sync LiqPay payment status."
-                    )
-                },
+                {"detail": ("Could not sync LiqPay payment status.")},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -1377,15 +1100,12 @@ class OrderViewSet(
     http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
-        queryset = (
-            Order.objects.select_related("user", "student_profile__user")
-            .prefetch_related(
-                "items",
-                "items__course",
-                "items__pricing_plan",
-                "installments",
-                "payments",
-            )
+        queryset = Order.objects.select_related("user", "student_profile__user").prefetch_related(
+            "items",
+            "items__course",
+            "items__pricing_plan",
+            "installments",
+            "payments",
         )
         user = self.request.user
         if user.role == User.RoleChoices.ADMINISTRATOR:
@@ -1498,10 +1218,11 @@ class OrderViewSet(
             },
             status=status.HTTP_201_CREATED,
         )
+
     @extend_schema(
-    request=None,
-    responses={201: LiqPayCheckoutSerializer},
-    summary="Create a LiqPay checkout for an order installment",
+        request=None,
+        responses={201: LiqPayCheckoutSerializer},
+        summary="Create a LiqPay checkout for an order installment",
     )
     @action(
         detail=True,
@@ -1519,12 +1240,10 @@ class OrderViewSet(
         order = self.get_object()
 
         try:
-            payment, attempt, checkout = (
-                PaymentService.create_installment_liqpay_checkout(
-                    user=request.user,
-                    order_id=order.id,
-                    installment_id=int(installment_id),
-                )
+            payment, attempt, checkout = PaymentService.create_installment_liqpay_checkout(
+                user=request.user,
+                order_id=order.id,
+                installment_id=int(installment_id),
             )
         except PermissionDenied as exc:
             return Response(
@@ -1542,15 +1261,9 @@ class OrderViewSet(
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except Exception:
-            logger.exception(
-                "Could not create LiqPay installment checkout."
-            )
+            logger.exception("Could not create LiqPay installment checkout.")
             return Response(
-                {
-                    "detail": (
-                        "Could not create LiqPay installment checkout."
-                    )
-                },
+                {"detail": ("Could not create LiqPay installment checkout.")},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -1569,9 +1282,10 @@ class OrderViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+
 @extend_schema(tags=["Orders"])
 class TeacherOrdersView(APIView):
-    """GET /orders/teacher/ -- one row per (student, course) purchase across
+    """GET /orders/teacher/: one row per (student, course) purchase across
     the teacher's own courses, for the teacher dashboard Payments table."""
 
     permission_classes = [IsAuthenticated]
@@ -1618,7 +1332,11 @@ class TeacherOrdersView(APIView):
             # Installments are prefetched ordered by due_date (see PaymentInstallment.Meta),
             # so the first still-pending one is the next payment the student owes.
             next_due = next(
-                (i.due_date for i in order.installments.all() if i.status == PaymentInstallment.StatusChoices.PENDING),
+                (
+                    i.due_date
+                    for i in order.installments.all()
+                    if i.status == PaymentInstallment.StatusChoices.PENDING
+                ),
                 None,
             )
             for item in order.items.all():
@@ -1631,23 +1349,27 @@ class TeacherOrdersView(APIView):
                 cohort_name = None
                 if item.cohort_id:
                     cohort_name = item.cohort.name or f"Group {item.cohort_id}"
-                rows.append({
-                    "order_id": order.id,
-                    "student_id": order.student_profile_id,
-                    "student_name": order.student_profile.user.get_full_name(),
-                    "student_avatar": absolute_media_url(order.student_profile.user.avatar, request),
-                    "course_slug": item.course.slug,
-                    "course_title": item.course_title,
-                    "cohort_id": item.cohort_id,
-                    "cohort_name": cohort_name,
-                    "payment_plan": order.get_payment_type_display(),
-                    "status": row_status,
-                    "amount": str(item.unit_amount),
-                    "currency": item.currency,
-                    "date": (order.completed_at or order.created_at).isoformat(),
-                    "due_date": next_due.isoformat() if next_due else None,
-                    "has_receipt": row_status == "paid",
-                })
+                rows.append(
+                    {
+                        "order_id": order.id,
+                        "student_id": order.student_profile_id,
+                        "student_name": order.student_profile.user.get_full_name(),
+                        "student_avatar": absolute_media_url(
+                            order.student_profile.user.avatar, request
+                        ),
+                        "course_slug": item.course.slug,
+                        "course_title": item.course_title,
+                        "cohort_id": item.cohort_id,
+                        "cohort_name": cohort_name,
+                        "payment_plan": order.get_payment_type_display(),
+                        "status": row_status,
+                        "amount": str(item.unit_amount),
+                        "currency": item.currency,
+                        "date": (order.completed_at or order.created_at).isoformat(),
+                        "due_date": next_due.isoformat() if next_due else None,
+                        "has_receipt": row_status == "paid",
+                    }
+                )
 
         courses = Course.objects.filter(teacher_profile=teacher_profile)
         cohorts_qs = (
@@ -1656,16 +1378,18 @@ class TeacherOrdersView(APIView):
             else Cohort.objects.none()
         )
 
-        return Response({
-            "results": rows,
-            "courses": [{"slug": c.slug, "title": c.title} for c in courses],
-            "cohorts": [{"id": c.id, "name": c.name or f"Group {c.id}"} for c in cohorts_qs],
-        })
+        return Response(
+            {
+                "results": rows,
+                "courses": [{"slug": c.slug, "title": c.title} for c in courses],
+                "cohorts": [{"id": c.id, "name": c.name or f"Group {c.id}"} for c in cohorts_qs],
+            }
+        )
 
 
 @extend_schema(tags=["Orders"])
 class TeacherOrderInvoiceView(APIView):
-    """GET /orders/teacher/<order_id>/invoice/ -- download the invoice PDF for
+    """GET /orders/teacher/<order_id>/invoice/: download the invoice PDF for
     an order that includes one of the requesting teacher's courses."""
 
     permission_classes = [IsAuthenticated]
@@ -1720,6 +1444,7 @@ class StripeWebhookView(APIView):
 
         return Response({"received": True})
 
+
 @extend_schema(tags=["Teacher finance"])
 class LiqPayPayoutCallbackView(APIView):
     authentication_classes = []
@@ -1744,67 +1469,34 @@ class LiqPayPayoutCallbackView(APIView):
 
         if not data or not signature:
             return Response(
-                {
-                    "detail": (
-                        "LiqPay payout callback "
-                        "data and signature "
-                        "are required."
-                    )
-                },
-                status=(
-                    status
-                    .HTTP_400_BAD_REQUEST
-                ),
+                {"detail": ("LiqPay payout callback data and signature are required.")},
+                status=(status.HTTP_400_BAD_REQUEST),
             )
 
         try:
-            payout = (
-                PaymentService
-                .handle_liqpay_payout_callback(
-                    data=data,
-                    signature=signature,
-                )
+            payout = PaymentService.handle_liqpay_payout_callback(
+                data=data,
+                signature=signature,
             )
 
         except ImproperlyConfigured as exc:
             return Response(
-                {
-                    "detail": str(exc)
-                },
-                status=(
-                    status
-                    .HTTP_503_SERVICE_UNAVAILABLE
-                ),
+                {"detail": str(exc)},
+                status=(status.HTTP_503_SERVICE_UNAVAILABLE),
             )
 
         except PaymentError as exc:
             return Response(
-                {
-                    "detail": str(exc)
-                },
-                status=(
-                    status
-                    .HTTP_400_BAD_REQUEST
-                ),
+                {"detail": str(exc)},
+                status=(status.HTTP_400_BAD_REQUEST),
             )
 
         except Exception:
-            logger.exception(
-                "Could not process LiqPay "
-                "teacher payout callback."
-            )
+            logger.exception("Could not process LiqPay teacher payout callback.")
 
             return Response(
-                {
-                    "detail": (
-                        "Could not process "
-                        "LiqPay payout callback."
-                    )
-                },
-                status=(
-                    status
-                    .HTTP_500_INTERNAL_SERVER_ERROR
-                ),
+                {"detail": ("Could not process LiqPay payout callback.")},
+                status=(status.HTTP_500_INTERNAL_SERVER_ERROR),
             )
 
         return Response(
@@ -1815,6 +1507,7 @@ class LiqPayPayoutCallbackView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
 
 @extend_schema(tags=["Payments"])
 class LiqPayCallbackView(APIView):
@@ -1848,9 +1541,7 @@ class LiqPayCallbackView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception:
-            logger.exception(
-                "Could not process LiqPay callback."
-            )
+            logger.exception("Could not process LiqPay callback.")
             return Response(
                 {"detail": "Could not process LiqPay callback."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

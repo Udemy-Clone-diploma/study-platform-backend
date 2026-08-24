@@ -12,7 +12,9 @@ class ChatService:
     @staticmethod
     def assert_can_write(user) -> None:
         if ChatUserRestriction.objects.filter(user=user, is_active=True).exists():
-            raise PermissionDenied("Your ability to write in chats has been restricted by moderation.")
+            raise PermissionDenied(
+                "Your ability to write in chats has been restricted by moderation."
+            )
 
     @staticmethod
     def direct_key_for_users(first_user_id: int, second_user_id: int) -> str:
@@ -25,9 +27,7 @@ class ChatService:
 
     @staticmethod
     def active_participant_user_ids(chat_id: int) -> list[int]:
-        return list(
-            ChatService.active_participants(chat_id).values_list("user_id", flat=True)
-        )
+        return list(ChatService.active_participants(chat_id).values_list("user_id", flat=True))
 
     @staticmethod
     def get_active_participation(user, chat_id: int) -> ChatParticipant:
@@ -128,9 +128,7 @@ class ChatService:
         participation = ChatService.get_active_participation(user, chat.pk)
         participation.history_cleared_at = timezone.now()
         participation.last_read_message = chat.last_message
-        participation.save(
-            update_fields=["history_cleared_at", "last_read_message", "updated_at"]
-        )
+        participation.save(update_fields=["history_cleared_at", "last_read_message", "updated_at"])
         return participation
 
     @staticmethod
@@ -220,10 +218,9 @@ class ChatService:
 
     @staticmethod
     def _delivery_format_chat_title(delivery_format) -> str:
-        return (
-            f"{delivery_format.course.title} — "
-            f"{delivery_format.get_format_type_display()}"
-        )[:255]
+        return (f"{delivery_format.course.title} — {delivery_format.get_format_type_display()}")[
+            :255
+        ]
 
     @classmethod
     def ensure_cohort_chat(cls, cohort: "object") -> ChatRoom:

@@ -99,7 +99,9 @@ class InvoiceService(PaymentBaseService):
         styles = cls._styles()
         story = [
             Paragraph(heading, styles["title"]),
-            Paragraph("<br/>".join(escape(value) for value in cls._company_details()), styles["body"]),
+            Paragraph(
+                "<br/>".join(escape(value) for value in cls._company_details()), styles["body"]
+            ),
             Spacer(1, 12),
         ]
 
@@ -233,9 +235,13 @@ class InvoiceService(PaymentBaseService):
         paid_date = timezone.localtime(paid_at).strftime("%d %b %Y")
         receipt_number = f"REC-{paid_at.year}-{payment.id:06d}"
         student_name = payment.user.get_full_name().strip() or payment.user.email
-        successful_attempt = payment.attempts.filter(
-            status=Payment.StatusChoices.SUCCEEDED,
-        ).exclude(stripe_charge_id="").first()
+        successful_attempt = (
+            payment.attempts.filter(
+                status=Payment.StatusChoices.SUCCEEDED,
+            )
+            .exclude(stripe_charge_id="")
+            .first()
+        )
         transaction_reference = (
             payment.stripe_payment_intent_id
             or (successful_attempt.stripe_charge_id if successful_attempt else "")
@@ -243,7 +249,11 @@ class InvoiceService(PaymentBaseService):
             or f"Payment #{payment.id}"
         )
         provider = payment.get_payment_method_display()
-        method = "Card" if payment.payment_method == Payment.MethodChoices.STRIPE else "Manual confirmation"
+        method = (
+            "Card"
+            if payment.payment_method == Payment.MethodChoices.STRIPE
+            else "Manual confirmation"
+        )
         payment_items = list(payment.items.all())
         item_amounts = cls._receipt_item_amounts(payment, payment_items)
         subtotal = sum(item_amounts, Decimal("0.00"))
@@ -256,7 +266,10 @@ class InvoiceService(PaymentBaseService):
                 (("Paid date", paid_date), ("Payment status", "Paid")),
                 (("Student", student_name), ("Order number", f"#{payment.order_id or '—'}")),
                 (("Payment provider", provider), ("Payment method", method)),
-                (("Payment reference", transaction_reference), ("Currency", payment.currency.upper())),
+                (
+                    ("Payment reference", transaction_reference),
+                    ("Currency", payment.currency.upper()),
+                ),
             ],
             item_rows=[
                 (item.course_title, item.pricing_plan_kind, amount, item.currency)

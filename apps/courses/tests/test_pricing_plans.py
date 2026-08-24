@@ -26,25 +26,19 @@ class PricingPlanReadTests(APITestCase):
         make_pricing_plan(self.published, format_type="individual", price="200.00")
 
     def test_anonymous_can_list_plans_for_published_course(self):
-        response = self.client.get(
-            reverse("pricing-plans-list", args=[self.published.slug])
-        )
+        response = self.client.get(reverse("pricing-plans-list", args=[self.published.slug]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
 
     def test_anonymous_cannot_see_plans_on_draft_course(self):
         make_pricing_plan(self.draft)
-        response = self.client.get(
-            reverse("pricing-plans-list", args=[self.draft.slug])
-        )
+        response = self.client.get(reverse("pricing-plans-list", args=[self.draft.slug]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_owner_can_see_plans_on_their_draft_course(self):
         make_pricing_plan(self.draft)
         self.client.force_authenticate(user=self.teacher_profile.user)
-        response = self.client.get(
-            reverse("pricing-plans-list", args=[self.draft.slug])
-        )
+        response = self.client.get(reverse("pricing-plans-list", args=[self.draft.slug]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
 

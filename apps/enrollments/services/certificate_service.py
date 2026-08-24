@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 from django.utils import timezone
@@ -20,11 +20,11 @@ FONTS_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 FONT_REGULAR_PATH = str(FONTS_DIR / "DejaVuSans.ttf")
 FONT_BOLD_PATH = str(FONTS_DIR / "DejaVuSans-Bold.ttf")
 
-# Rendered 1:1 with the Figma artboard (1415x1985 px, ~170dpi at A4-ish size) --
+# Rendered 1:1 with the Figma artboard (1415x1985 px, ~170dpi at A4-ish size),
 # crisp enough to print, small enough to stay a lightweight download.
 CANVAS_W, CANVAS_H = 1415, 1985
 # Physical PDF page size in points (the wrapped PDF is just this raster image,
-# scaled down from px to a printable page -- independent of image resolution).
+# scaled down from px to a printable page, independent of image resolution).
 PDF_SCALE = 0.42
 PDF_W, PDF_H = CANVAS_W * PDF_SCALE, CANVAS_H * PDF_SCALE
 
@@ -50,7 +50,7 @@ COURSE_TYPE_WORD = {
 }
 
 
-@lru_cache(maxsize=None)
+@cache
 def _font(bold: bool, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(FONT_BOLD_PATH if bold else FONT_REGULAR_PATH, size)
 
@@ -77,8 +77,13 @@ class CertificateService:
 
     @classmethod
     def render_certificate_assets(
-        cls, *, course: Course, student_name: str, course_title: str,
-        teacher_name: str, completed_at,
+        cls,
+        *,
+        course: Course,
+        student_name: str,
+        course_title: str,
+        teacher_name: str,
+        completed_at,
     ) -> tuple[bytes, bytes]:
         """Takes the snapshot values explicitly rather than a CourseCompletion,
         because certificates issued by hand have no completion behind them."""
@@ -106,21 +111,32 @@ class CertificateService:
             return course.category.name_en
         return ""
 
-    # ── raster rendering ────────────────────────────────────────────────
-
     @classmethod
     def _render_image(
-        cls, *, student_name, course_title, course_type, certificate_description,
-        duration_hours, focus_text, teacher_name, teacher_specialization,
-        signature_file, completed_at,
+        cls,
+        *,
+        student_name,
+        course_title,
+        course_type,
+        certificate_description,
+        duration_hours,
+        focus_text,
+        teacher_name,
+        teacher_specialization,
+        signature_file,
+        completed_at,
     ) -> Image.Image:
         canvas = cls._gradient_background(CANVAS_W, CANVAS_H)
         cls._draw_blobs(canvas)
         cls._draw_panel(canvas)
         cls._draw_logo_box(canvas)
         cls._draw_heading(canvas)
-        cls._draw_certify_block(canvas, student_name, course_title, course_type, certificate_description)
-        cls._draw_meta_rows(canvas, teacher_name, teacher_specialization, duration_hours, focus_text)
+        cls._draw_certify_block(
+            canvas, student_name, course_title, course_type, certificate_description
+        )
+        cls._draw_meta_rows(
+            canvas, teacher_name, teacher_specialization, duration_hours, focus_text
+        )
         cls._draw_date(canvas, completed_at)
         cls._draw_signature(canvas, teacher_name, signature_file)
         return canvas.convert("RGB")
@@ -146,8 +162,6 @@ class CertificateService:
         thumb.save(buffer, format="JPEG", quality=85)
         return buffer.getvalue()
 
-    # ── layers ───────────────────────────────────────────────────────────
-
     @staticmethod
     def _gradient_background(w: int, h: int) -> Image.Image:
         canvas = Image.new("RGBA", (w, h), (255, 255, 255, 255))
@@ -156,19 +170,17 @@ class CertificateService:
         pixels = row.load()
         for x in range(w):
             t = x / (w - 1)
-            for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
+            for (t0, c0), (t1, c1) in zip(stops, stops[1:], strict=False):
                 if t0 <= t <= t1:
                     frac = 0 if t1 == t0 else (t - t0) / (t1 - t0)
-                    color = tuple(
-                        round(c0[i] + (c1[i] - c0[i]) * frac) for i in range(3)
-                    )
+                    color = tuple(round(c0[i] + (c1[i] - c0[i]) * frac) for i in range(3))
                     pixels[x, 0] = (*color, 255)
                     break
         canvas.paste(row.resize((w, h)), (0, 0))
         return canvas
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @cache
     def _prepared_sprite(path: Path, w: int, h: int, angle: float) -> Image.Image | None:
         """Decode + resize + rotate a static decorative asset once; every render reuses it."""
         if not path.exists():
@@ -201,14 +213,16 @@ class CertificateService:
     @staticmethod
     def _draw_logo_box(canvas: Image.Image) -> None:
         # Right edge pinned to the panel's inner right margin (60 + 1295 = 1355
-        # is the panel edge). No background box -- the logo's own transparency
+        # is the panel edge). No background box: the logo's own transparency
         # sits directly on the gradient/panel.
         right, top, target_h = 1295, 105, 170
 
         if not LOGO.exists():
             draw = ImageDraw.Draw(canvas)
             left = right - 180
-            draw.text((left + 90, top + 30), "NEXO4YOU", font=_font(True, 20), fill=BLACK, anchor="mm")
+            draw.text(
+                (left + 90, top + 30), "NEXO4YOU", font=_font(True, 20), fill=BLACK, anchor="mm"
+            )
             return
 
         logo = Image.open(LOGO).convert("RGBA")
@@ -225,26 +239,41 @@ class CertificateService:
         draw.text((120, 380 + line_h), "OF COMPLETION", font=font, fill=BLUE, anchor="la")
 
     @classmethod
-    def _draw_certify_block(cls, canvas, student_name, course_title, course_type, certificate_description) -> None:
+    def _draw_certify_block(
+        cls, canvas, student_name, course_title, course_type, certificate_description
+    ) -> None:
         draw = ImageDraw.Draw(canvas)
-        draw.text((120, 598), "This is to certify that", font=_font(False, 36), fill=BLACK, anchor="la")
+        draw.text(
+            (120, 598), "This is to certify that", font=_font(False, 36), fill=BLACK, anchor="la"
+        )
         draw.text((120, 651), student_name, font=_font(True, 36), fill=BLACK, anchor="la")
 
         word = COURSE_TYPE_WORD.get(course_type, "")
         draw.text(
-            (120, 724), f"has successfully completed the {word} course".strip(),
-            font=_font(False, 32), fill=BLACK, anchor="la",
+            (120, 724),
+            f"has successfully completed the {word} course".strip(),
+            font=_font(False, 32),
+            fill=BLACK,
+            anchor="la",
         )
 
         pill_left, pill_top, pill_w, pill_h = 120, 772, 731, 40
         overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
         ImageDraw.Draw(overlay).rounded_rectangle(
-            [pill_left, pill_top, pill_left + pill_w, pill_top + pill_h], radius=4, fill=PILL_BG,
+            [pill_left, pill_top, pill_left + pill_w, pill_top + pill_h],
+            radius=4,
+            fill=PILL_BG,
         )
         canvas.alpha_composite(overlay)
         title_font = _font(False, 32)
         title_text = cls._ellipsize(course_title, title_font, pill_w - 24)
-        draw.text((pill_left + 12, pill_top + pill_h / 2), title_text, font=title_font, fill=BLUE, anchor="lm")
+        draw.text(
+            (pill_left + 12, pill_top + pill_h / 2),
+            title_text,
+            font=title_font,
+            fill=BLUE,
+            anchor="lm",
+        )
 
         if certificate_description:
             desc_font = _font(False, 32)
@@ -253,7 +282,9 @@ class CertificateService:
                 draw.text((120, 872 + i * 40), line, font=desc_font, fill=GRAY_TEXT, anchor="la")
 
     @staticmethod
-    def _draw_meta_rows(canvas, teacher_name, teacher_specialization, duration_hours, focus_text) -> None:
+    def _draw_meta_rows(
+        canvas, teacher_name, teacher_specialization, duration_hours, focus_text
+    ) -> None:
         draw = ImageDraw.Draw(canvas)
         instructor = teacher_name
         if teacher_specialization:
@@ -297,22 +328,23 @@ class CertificateService:
                 sig = Image.open(signature_file.open("rb")).convert("RGBA")
                 iw, ih = sig.size
                 # Fills most of the blank gap above the line (Focus row ends well
-                # above line_top) -- a small signature reads as an afterthought.
+                # above line_top), a small signature reads as an afterthought.
                 # Sits low enough to slightly cross the line, like a real signature.
                 target_h = 220
                 target_w = min(line_w * 1.3, target_h * iw / ih)
                 sig = sig.resize((round(target_w), round(target_h)), Image.LANCZOS)
                 canvas.alpha_composite(
-                    sig, (round(center_x - target_w / 2), round(line_top - target_h + 20)),
+                    sig,
+                    (round(center_x - target_w / 2), round(line_top - target_h + 20)),
                 )
             except (OSError, ValueError):
                 pass
 
         font = _font(True, 24)
         draw.text((center_x, line_top + 32), teacher_name, font=font, fill=BLACK, anchor="ma")
-        draw.text((center_x, line_top + 32 + 24 * 1.25), "Instructor", font=font, fill=BLACK, anchor="ma")
-
-    # ── text helpers ─────────────────────────────────────────────────────
+        draw.text(
+            (center_x, line_top + 32 + 24 * 1.25), "Instructor", font=font, fill=BLACK, anchor="ma"
+        )
 
     @staticmethod
     def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: float) -> list[str]:

@@ -10,9 +10,11 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from apps.payments.models import Payment, PaymentAttempt, TeacherPayout
+
 from .base import PaymentBaseService
 from .exceptions import PaymentError
-from apps.payments.models import Payment, PaymentAttempt, TeacherPayout
+
 
 class LiqPayService(PaymentBaseService):
     @staticmethod
@@ -31,22 +33,12 @@ class LiqPayService(PaymentBaseService):
 
     @classmethod
     def _ensure_liqpay_payout_sandbox(cls) -> None:
-        public_key = str(
-            cls._liqpay_public_key()
-        ).strip()
+        public_key = str(cls._liqpay_public_key()).strip()
 
-        private_key = str(
-            cls._liqpay_private_key()
-        ).strip()
+        private_key = str(cls._liqpay_private_key()).strip()
 
-        if (
-            not public_key.startswith("sandbox_")
-            or not private_key.startswith("sandbox_")
-        ):
-            raise PaymentError(
-                "Teacher payouts are allowed only "
-                "with LiqPay sandbox keys."
-            )
+        if not public_key.startswith("sandbox_") or not private_key.startswith("sandbox_"):
+            raise PaymentError("Teacher payouts are allowed only with LiqPay sandbox keys.")
 
     @staticmethod
     def _liqpay_http_timeout() -> int:
@@ -64,11 +56,8 @@ class LiqPayService(PaymentBaseService):
 
     @staticmethod
     def _liqpay_api_url() -> str:
-        return getattr(
-            settings,
-            "LIQPAY_API_URL",
-        )
-    
+        return settings.LIQPAY_API_URL
+
     @staticmethod
     def _liqpay_checkout_url() -> str:
         return getattr(
@@ -86,9 +75,7 @@ class LiqPayService(PaymentBaseService):
         api_url: str | None = None,
     ) -> dict:
         if not data or not signature:
-            raise PaymentError(
-                "LiqPay request data and signature are required."
-            )
+            raise PaymentError("LiqPay request data and signature are required.")
 
         url = api_url or cls._liqpay_api_url()
 
@@ -117,36 +104,24 @@ class LiqPayService(PaymentBaseService):
                 raw_response = response.read()
 
         except HTTPError as exc:
-            raise PaymentError(
-                f"LiqPay API returned HTTP {exc.code}."
-            ) from exc
+            raise PaymentError(f"LiqPay API returned HTTP {exc.code}.") from exc
 
         except URLError as exc:
-            raise PaymentError(
-                "Could not connect to LiqPay API."
-            ) from exc
+            raise PaymentError("Could not connect to LiqPay API.") from exc
 
         except TimeoutError as exc:
-            raise PaymentError(
-                "LiqPay API request timed out."
-            ) from exc
+            raise PaymentError("LiqPay API request timed out.") from exc
 
         try:
-            payload = json.loads(
-                raw_response.decode("utf-8")
-            )
+            payload = json.loads(raw_response.decode("utf-8"))
         except (
             UnicodeDecodeError,
             json.JSONDecodeError,
         ) as exc:
-            raise PaymentError(
-                "Invalid response from LiqPay API."
-            ) from exc
+            raise PaymentError("Invalid response from LiqPay API.") from exc
 
         if not isinstance(payload, dict):
-            raise PaymentError(
-                "Invalid response from LiqPay API."
-            )
+            raise PaymentError("Invalid response from LiqPay API.")
 
         return payload
 
@@ -157,9 +132,7 @@ class LiqPayService(PaymentBaseService):
         provider_order_id: str,
     ) -> dict:
         if not provider_order_id:
-            raise PaymentError(
-                "LiqPay order_id is required for status request."
-            )
+            raise PaymentError("LiqPay order_id is required for status request.")
 
         payload = {
             "public_key": cls._liqpay_public_key(),
@@ -176,7 +149,6 @@ class LiqPayService(PaymentBaseService):
             "data": data,
             "signature": signature,
         }
-
 
     @classmethod
     def _liqpay_get_payment_status(
@@ -202,19 +174,13 @@ class LiqPayService(PaymentBaseService):
             separators=(",", ":"),
         )
 
-        return base64.b64encode(
-            json_data.encode("utf-8")
-        ).decode("ascii")
+        return base64.b64encode(json_data.encode("utf-8")).decode("ascii")
 
     @classmethod
     def _liqpay_sign_data(cls, data: str) -> str:
         private_key = cls._liqpay_private_key()
 
-        sign_string = (
-            private_key
-            + data
-            + private_key
-        ).encode("utf-8")
+        sign_string = (private_key + data + private_key).encode("utf-8")
 
         digest = hashlib.sha3_256(sign_string).digest()
 
@@ -258,9 +224,7 @@ class LiqPayService(PaymentBaseService):
         result_url: str | None = None,
         server_url: str | None = None,
     ) -> dict:
-        normalized_amount = cls._decimal_money(
-        Decimal(str(amount))
-        )
+        normalized_amount = cls._decimal_money(Decimal(str(amount)))
         payload = {
             "public_key": cls._liqpay_public_key(),
             "version": cls._liqpay_api_version(),
@@ -271,15 +235,9 @@ class LiqPayService(PaymentBaseService):
             "order_id": provider_order_id,
         }
 
-        resolved_result_url = (
-            result_url
-            or getattr(settings, "LIQPAY_RESULT_URL", "")
-        )
+        resolved_result_url = result_url or getattr(settings, "LIQPAY_RESULT_URL", "")
 
-        resolved_server_url = (
-            server_url
-            or getattr(settings, "LIQPAY_SERVER_URL", "")
-        )
+        resolved_server_url = server_url or getattr(settings, "LIQPAY_SERVER_URL", "")
 
         if resolved_result_url:
             payload["result_url"] = resolved_result_url
@@ -304,18 +262,12 @@ class LiqPayService(PaymentBaseService):
         amount: Decimal,
     ) -> dict:
         if not provider_order_id:
-            raise PaymentError(
-                "LiqPay order_id is required for refund."
-            )
+            raise PaymentError("LiqPay order_id is required for refund.")
 
-        normalized_amount = cls._decimal_money(
-            Decimal(str(amount))
-        )
+        normalized_amount = cls._decimal_money(Decimal(str(amount)))
 
         if normalized_amount <= Decimal("0.00"):
-            raise PaymentError(
-                "LiqPay refund amount must be positive."
-            )
+            raise PaymentError("LiqPay refund amount must be positive.")
 
         payload = {
             "public_key": cls._liqpay_public_key(),
@@ -341,14 +293,11 @@ class LiqPayService(PaymentBaseService):
         payment: Payment,
     ) -> PaymentAttempt:
         attempt = (
-            payment.attempts
-            .filter(
+            payment.attempts.filter(
                 provider=Payment.MethodChoices.LIQPAY,
                 status=Payment.StatusChoices.SUCCEEDED,
             )
-            .exclude(
-                provider_order_id=""
-            )
+            .exclude(provider_order_id="")
             .order_by(
                 "-processed_at",
                 "-created_at",
@@ -357,9 +306,7 @@ class LiqPayService(PaymentBaseService):
         )
 
         if attempt is None:
-            raise PaymentError(
-                "Successful LiqPay payment attempt was not found."
-            )
+            raise PaymentError("Successful LiqPay payment attempt was not found.")
 
         return attempt
 
@@ -372,57 +319,33 @@ class LiqPayService(PaymentBaseService):
         server_url: str | None = None,
     ) -> dict:
         if payout.pk is None:
-            raise PaymentError(
-                "Teacher payout must be saved before "
-                "building a LiqPay request."
-            )
+            raise PaymentError("Teacher payout must be saved before building a LiqPay request.")
 
-        if (
-            payout.provider
-            != TeacherPayout.ProviderChoices.LIQPAY
-        ):
-            raise PaymentError(
-                "Teacher payout is not a LiqPay payout."
-                )
+        if payout.provider != TeacherPayout.ProviderChoices.LIQPAY:
+            raise PaymentError("Teacher payout is not a LiqPay payout.")
 
         cls._ensure_liqpay_payout_sandbox()
 
-        amount = cls._decimal_money(
-            Decimal(str(payout.amount))
-        )
+        amount = cls._decimal_money(Decimal(str(payout.amount)))
 
         if amount <= Decimal("0.00"):
-            raise PaymentError(
-                "Payout amount must be positive."
-            )
+            raise PaymentError("Payout amount must be positive.")
 
-        currency = str(
-            payout.currency
-        ).strip().upper()
+        currency = str(payout.currency).strip().upper()
 
         if currency not in {
             "UAH",
             "USD",
             "EUR",
         }:
-            raise PaymentError(
-                "Unsupported LiqPay payout currency."
-            )
+            raise PaymentError("Unsupported LiqPay payout currency.")
 
-        client_ip = str(
-            client_ip or ""
-        ).strip()
+        client_ip = str(client_ip or "").strip()
 
         if not client_ip:
-            raise PaymentError(
-                "Client IP is required for "
-                "LiqPay payout."
-            )
+            raise PaymentError("Client IP is required for LiqPay payout.")
 
-        snapshot = (
-            payout.destination_snapshot
-            or {}
-        )
+        snapshot = payout.destination_snapshot or {}
 
         destination_type = str(
             snapshot.get(
@@ -432,8 +355,7 @@ class LiqPayService(PaymentBaseService):
         ).strip()
 
         provider_order_id = str(
-            payout.provider_order_id
-            or f"nexo-teacher-payout-{payout.id}"
+            payout.provider_order_id or f"nexo-teacher-payout-{payout.id}"
         ).strip()
 
         payload = {
@@ -442,9 +364,7 @@ class LiqPayService(PaymentBaseService):
             "action": "p2pcredit",
             "amount": f"{amount:.2f}",
             "currency": currency,
-            "description": (
-                f"Nexo teacher payout #{payout.id}"
-            ),
+            "description": (f"Nexo teacher payout #{payout.id}"),
             "ip": client_ip,
             "order_id": provider_order_id,
         }
@@ -469,41 +389,18 @@ class LiqPayService(PaymentBaseService):
             )
 
             missing = [
-                field
-                for field in required_fields
-                if not str(
-                    snapshot.get(field, "")
-                ).strip()
+                field for field in required_fields if not str(snapshot.get(field, "")).strip()
             ]
 
             if missing:
-                raise PaymentError(
-                    "Bank payout destination "
-                    "snapshot is incomplete."
-                )
+                raise PaymentError("Bank payout destination snapshot is incomplete.")
 
             payload.update(
                 {
-                    "receiver_account": str(
-                        snapshot[
-                            "receiver_account"
-                        ]
-                    ).strip(),
-                    "receiver_mfo": str(
-                        snapshot[
-                            "receiver_mfo"
-                        ]
-                    ).strip(),
-                    "receiver_okpo": str(
-                        snapshot[
-                            "receiver_okpo"
-                        ]
-                    ).strip(),
-                    "receiver_company": str(
-                        snapshot[
-                            "receiver_company"
-                        ]
-                    ).strip(),
+                    "receiver_account": str(snapshot["receiver_account"]).strip(),
+                    "receiver_mfo": str(snapshot["receiver_mfo"]).strip(),
+                    "receiver_okpo": str(snapshot["receiver_okpo"]).strip(),
+                    "receiver_company": str(snapshot["receiver_company"]).strip(),
                 }
             )
 
@@ -516,36 +413,22 @@ class LiqPayService(PaymentBaseService):
             ).strip()
 
             if not receiver_card_token:
-                raise PaymentError(
-                    "LiqPay card token is missing "
-                    "from payout snapshot."
-                )
+                raise PaymentError("LiqPay card token is missing from payout snapshot.")
 
-            payload[
-                "receiver_card_token"
-            ] = receiver_card_token
+            payload["receiver_card_token"] = receiver_card_token
 
         else:
-            raise PaymentError(
-                "Unsupported payout destination "
-                "snapshot type."
-            )
+            raise PaymentError("Unsupported payout destination snapshot type.")
 
-        data = cls._liqpay_encode_payload(
-            payload
-        )
+        data = cls._liqpay_encode_payload(payload)
 
-        signature = cls._liqpay_sign_data(
-            data
-        )
+        signature = cls._liqpay_sign_data(data)
 
         return {
             "api_url": cls._liqpay_api_url(),
             "data": data,
             "signature": signature,
-            "provider_order_id": (
-                provider_order_id
-            ),
+            "provider_order_id": (provider_order_id),
         }
 
     @classmethod

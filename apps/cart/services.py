@@ -68,8 +68,7 @@ class CartService:
         """Drop group items after the selected cohort enrollment closes."""
         today = timezone.localdate()
         cart.items.filter(
-            Q(cohort__enrollment_deadline__lt=today)
-            | Q(cohort__is_enrollment_open=False)
+            Q(cohort__enrollment_deadline__lt=today) | Q(cohort__is_enrollment_open=False)
         ).delete()
 
     @classmethod
@@ -142,9 +141,7 @@ class CartService:
             defaults={"pricing_plan": pricing_plan, "cohort": cohort},
         )
         if not created:
-            raise serializers.ValidationError(
-                {"course_id": "Course is already in cart."}
-            )
+            raise serializers.ValidationError({"course_id": "Course is already in cart."})
 
         if schedule_slots:
             item.schedule_slots.set(schedule_slots)

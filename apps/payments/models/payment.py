@@ -1,7 +1,8 @@
 from decimal import Decimal
-from django.db.models import Q
+
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -44,12 +45,17 @@ class Payment(models.Model):
         related_name="payments",
     )
     teacher = models.ForeignKey(
-        "users.TeacherProfile", on_delete=models.SET_NULL, null=True, blank=True,
+        "users.TeacherProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="course_payments",
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     gross_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    platform_fee_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    platform_fee_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
     teacher_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     currency = models.CharField(max_length=3)
     status = models.CharField(

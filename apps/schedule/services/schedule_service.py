@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Q
 
+from apps.courses.models import Cohort, CourseDeliveryFormat
 from apps.schedule.exceptions import (
     InvalidScheduleTimeError,
     SlotAlreadyBookedError,
@@ -17,13 +18,10 @@ from apps.schedule.models import (
     Session,
     TeacherUnavailability,
 )
-from apps.courses.models import Cohort, CourseDeliveryFormat
 from apps.users.models import TeacherProfile
 
 
 class ScheduleService:
-       # ── Conflict checker ───────────────────────────────────────────────
-
     @staticmethod
     def _time_overlap_filter(start_time, end_time) -> Q:
         return Q(start_time__lt=end_time) & Q(end_time__gt=start_time)
@@ -45,8 +43,8 @@ class ScheduleService:
         overlap = cls._time_overlap_filter(start_time, end_time)
         day_q = Q(day_of_week=day_of_week)
 
-        _INACTIVE_OVERRIDE = [ScheduleOverride.Status.CANCELLED, ScheduleOverride.Status.RESCHEDULED]
-        _INACTIVE_SESSION  = [Session.Status.CANCELLED, Session.Status.RESCHEDULED]
+        inactive_override = [ScheduleOverride.Status.CANCELLED, ScheduleOverride.Status.RESCHEDULED]
+        inactive_session = [Session.Status.CANCELLED, Session.Status.RESCHEDULED]
 
         slot_qs = ScheduleSlot.objects.filter(
             day_q & overlap,
@@ -64,12 +62,12 @@ class ScheduleService:
                     ScheduleOverride.objects.filter(
                         slot=slot,
                         original_date=specific_date,
-                        status__in=_INACTIVE_OVERRIDE,
+                        status__in=inactive_override,
                     ).exists()
                     or Session.objects.filter(
                         slot=slot,
                         date=specific_date,
-                        status__in=_INACTIVE_SESSION,
+                        status__in=inactive_session,
                     ).exists()
                 )
                 if not already_handled:
@@ -93,12 +91,12 @@ class ScheduleService:
                     ScheduleOverride.objects.filter(
                         schedule=schedule,
                         original_date=specific_date,
-                        status__in=_INACTIVE_OVERRIDE,
+                        status__in=inactive_override,
                     ).exists()
                     or Session.objects.filter(
                         schedule=schedule,
                         date=specific_date,
-                        status__in=_INACTIVE_SESSION,
+                        status__in=inactive_session,
                     ).exists()
                 )
                 if not already_handled:
@@ -165,8 +163,9 @@ class ScheduleService:
         cohort_start_date=None,
         cohort_duration_months: int | None = None,
     ) -> dict:
-        from datetime import date as _date, timedelta
         import calendar as _cal
+        from datetime import date as _date
+        from datetime import timedelta
 
         overlap = cls._time_overlap_filter(start_time, end_time)
         day_q = Q(day_of_week=day_of_week)
@@ -179,12 +178,14 @@ class ScheduleService:
         if exclude_slot_id:
             slot_qs = slot_qs.exclude(pk=exclude_slot_id)
         for slot in slot_qs:
-            result["individual"].append({
-                "id": slot.id,
-                "course_title": slot.delivery_format.course.title,
-                "start_time": slot.start_time.strftime("%H:%M"),
-                "end_time": slot.end_time.strftime("%H:%M"),
-            })
+            result["individual"].append(
+                {
+                    "id": slot.id,
+                    "course_title": slot.delivery_format.course.title,
+                    "start_time": slot.start_time.strftime("%H:%M"),
+                    "end_time": slot.end_time.strftime("%H:%M"),
+                }
+            )
 
         cohort_qs = CohortSchedule.objects.filter(
             day_q & overlap,
@@ -193,25 +194,29 @@ class ScheduleService:
         if exclude_cohort_schedule_id:
             cohort_qs = cohort_qs.exclude(pk=exclude_cohort_schedule_id)
         for sched in cohort_qs:
-            result["group"].append({
-                "id": sched.id,
-                "course_title": sched.cohort.course.title,
-                "cohort_name": sched.cohort.name,
-                "start_time": sched.start_time.strftime("%H:%M"),
-                "end_time": sched.end_time.strftime("%H:%M"),
-            })
+            result["group"].append(
+                {
+                    "id": sched.id,
+                    "course_title": sched.cohort.course.title,
+                    "cohort_name": sched.cohort.name,
+                    "start_time": sched.start_time.strftime("%H:%M"),
+                    "end_time": sched.end_time.strftime("%H:%M"),
+                }
+            )
 
         for u in TeacherUnavailability.objects.filter(
             day_q & overlap,
             teacher_profile=teacher_profile,
             recurrence_type=TeacherUnavailability.RecurrenceType.WEEKLY,
         ):
-            result["personal"].append({
-                "id": u.id,
-                "reason": u.reason,
-                "start_time": u.start_time.strftime("%H:%M"),
-                "end_time": u.end_time.strftime("%H:%M"),
-            })
+            result["personal"].append(
+                {
+                    "id": u.id,
+                    "reason": u.reason,
+                    "start_time": u.start_time.strftime("%H:%M"),
+                    "end_time": u.end_time.strftime("%H:%M"),
+                }
+            )
 
         today = _date.today()
         date_from = max(cohort_start_date, today) if cohort_start_date else today
@@ -220,7 +225,10 @@ class ScheduleService:
             date_to = _date(
                 cohort_start_date.year + m // 12,
                 m % 12 + 1,
-                min(cohort_start_date.day, _cal.monthrange(cohort_start_date.year + m // 12, m % 12 + 1)[1]),
+                min(
+                    cohort_start_date.day,
+                    _cal.monthrange(cohort_start_date.year + m // 12, m % 12 + 1)[1],
+                ),
             )
         else:
             date_to = today + timedelta(days=365)
@@ -234,15 +242,17 @@ class ScheduleService:
 
         for event in PersonalEvent.objects.filter(event_overlap & date_range, owner=user):
             seen_event_ids.add(event.id)
-            result["personal_events"].append({
-                "id": event.id,
-                "title": event.title,
-                "date": event.date.isoformat(),
-                "start_time": event.start_time.strftime("%H:%M"),
-                "end_time": event.end_time.strftime("%H:%M"),
-                "is_owner": True,
-                "invitation_id": None,
-            })
+            result["personal_events"].append(
+                {
+                    "id": event.id,
+                    "title": event.title,
+                    "date": event.date.isoformat(),
+                    "start_time": event.start_time.strftime("%H:%M"),
+                    "end_time": event.end_time.strftime("%H:%M"),
+                    "is_owner": True,
+                    "invitation_id": None,
+                }
+            )
 
         inv_event_overlap = Q(event__start_time__lt=end_time) & Q(event__end_time__gt=start_time)
         inv_date_range = (
@@ -258,19 +268,19 @@ class ScheduleService:
             ev = inv.event
             if ev.id in seen_event_ids:
                 continue
-            result["personal_events"].append({
-                "id": ev.id,
-                "title": ev.title,
-                "date": ev.date.isoformat(),
-                "start_time": ev.start_time.strftime("%H:%M"),
-                "end_time": ev.end_time.strftime("%H:%M"),
-                "is_owner": False,
-                "invitation_id": inv.id,
-            })
+            result["personal_events"].append(
+                {
+                    "id": ev.id,
+                    "title": ev.title,
+                    "date": ev.date.isoformat(),
+                    "start_time": ev.start_time.strftime("%H:%M"),
+                    "end_time": ev.end_time.strftime("%H:%M"),
+                    "is_owner": False,
+                    "invitation_id": inv.id,
+                }
+            )
 
         return result
-
-    # ── ScheduleSlot (individual) ──────────────────────────────────────
 
     @classmethod
     @transaction.atomic
@@ -279,9 +289,9 @@ class ScheduleService:
         delivery_format: CourseDeliveryFormat,
         validated_data: dict,
     ) -> ScheduleSlot:
-        day     = validated_data["day_of_week"]
-        start   = validated_data["start_time"]
-        end     = validated_data["end_time"]
+        day = validated_data["day_of_week"]
+        start = validated_data["start_time"]
+        end = validated_data["end_time"]
         teacher = delivery_format.course.teacher_profile
 
         cls._validate_time_range(start, end)
@@ -312,13 +322,15 @@ class ScheduleService:
         validated_data: dict,
     ) -> ScheduleSlot:
         """Move an existing slot to a new day/time (reschedule). Preserves original values."""
-        day   = validated_data.get("day_of_week", slot.day_of_week)
-        start = validated_data.get("start_time",  slot.start_time)
-        end   = validated_data.get("end_time",    slot.end_time)
+        day = validated_data.get("day_of_week", slot.day_of_week)
+        start = validated_data.get("start_time", slot.start_time)
+        end = validated_data.get("end_time", slot.end_time)
         teacher = slot.delivery_format.course.teacher_profile
 
         cls._validate_time_range(start, end)
-        cls._check_teacher_conflict(teacher, day, start, end, exclude_slot_id=slot.pk, ignore_unavailability=True)
+        cls._check_teacher_conflict(
+            teacher, day, start, end, exclude_slot_id=slot.pk, ignore_unavailability=True
+        )
 
         if slot.booked_by_id:
             iso_dow = day + 1
@@ -330,22 +342,22 @@ class ScheduleService:
                     "Teacher has a personal event on this weekday and time."
                 )
 
-        old_day   = slot.day_of_week
+        old_day = slot.day_of_week
         old_start = slot.start_time
-        old_end   = slot.end_time
+        old_end = slot.end_time
 
         if slot.booked_by_id and not slot.is_rescheduled:
             slot.original_day_of_week = old_day
-            slot.original_start_time  = old_start
-            slot.original_end_time    = old_end
-            slot.is_rescheduled       = True
+            slot.original_start_time = old_start
+            slot.original_end_time = old_end
+            slot.is_rescheduled = True
 
         slot.day_of_week = day
-        slot.start_time  = start
-        slot.end_time    = end
+        slot.start_time = start
+        slot.end_time = end
         slot.save()
 
-        day_changed  = old_day != day
+        day_changed = old_day != day
         time_changed = old_start != start or old_end != end
         if day_changed or time_changed:
             today = date.today()
@@ -378,8 +390,6 @@ class ScheduleService:
         slot.save(update_fields=["booked_by"])
         return slot
 
-    # ── CohortSchedule (group) ─────────────────────────────────────────
-
     @classmethod
     @transaction.atomic
     def create_cohort_schedule(
@@ -387,9 +397,9 @@ class ScheduleService:
         cohort: Cohort,
         validated_data: dict,
     ) -> CohortSchedule:
-        day     = validated_data["day_of_week"]
-        start   = validated_data["start_time"]
-        end     = validated_data["end_time"]
+        day = validated_data["day_of_week"]
+        start = validated_data["start_time"]
+        end = validated_data["end_time"]
         teacher = cohort.course.teacher_profile
 
         cls._validate_time_range(start, end)
@@ -419,25 +429,26 @@ class ScheduleService:
         cohort_schedule: CohortSchedule,
         validated_data: dict,
     ) -> CohortSchedule:
-        day   = validated_data.get("day_of_week", cohort_schedule.day_of_week)
-        start = validated_data.get("start_time",  cohort_schedule.start_time)
-        end   = validated_data.get("end_time",    cohort_schedule.end_time)
+        day = validated_data.get("day_of_week", cohort_schedule.day_of_week)
+        start = validated_data.get("start_time", cohort_schedule.start_time)
+        end = validated_data.get("end_time", cohort_schedule.end_time)
         teacher = cohort_schedule.cohort.course.teacher_profile
 
         cls._validate_time_range(start, end)
         cls._check_teacher_conflict(
-            teacher, day, start, end,
+            teacher,
+            day,
+            start,
+            end,
             exclude_cohort_schedule_id=cohort_schedule.pk,
             ignore_unavailability=True,
         )
 
         cohort_schedule.day_of_week = day
-        cohort_schedule.start_time  = start
-        cohort_schedule.end_time    = end
+        cohort_schedule.start_time = start
+        cohort_schedule.end_time = end
         cohort_schedule.save()
         return cohort_schedule
-
-    # ── TeacherUnavailability ──────────────────────────────────────────
 
     @classmethod
     @transaction.atomic
@@ -447,10 +458,10 @@ class ScheduleService:
         validated_data: dict,
     ) -> TeacherUnavailability:
         recurrence = validated_data["recurrence_type"]
-        date       = validated_data.get("date")
-        date_to    = validated_data.get("date_to")
-        start      = validated_data["start_time"]
-        end        = validated_data["end_time"]
+        date = validated_data.get("date")
+        date_to = validated_data.get("date_to")
+        start = validated_data["start_time"]
+        end = validated_data["end_time"]
 
         cls._validate_time_range(start, end)
 
@@ -467,6 +478,7 @@ class ScheduleService:
             cls._check_teacher_conflict(teacher_profile, day, start, end, specific_date=date)
         elif recurrence == TeacherUnavailability.RecurrenceType.DATE_RANGE:
             from datetime import timedelta as _td
+
             seen_weekdays: set[int] = set()
             d = validated_data["date"]
             d_to = validated_data["date_to"]
@@ -475,9 +487,7 @@ class ScheduleService:
                 wd = cur.weekday()
                 if wd not in seen_weekdays:
                     seen_weekdays.add(wd)
-                    cls._check_teacher_conflict(
-                        teacher_profile, wd, start, end, specific_date=None
-                    )
+                    cls._check_teacher_conflict(teacher_profile, wd, start, end, specific_date=None)
                     if len(seen_weekdays) == 7:
                         break
                 cur += _td(days=1)
@@ -503,10 +513,10 @@ class ScheduleService:
         validated_data: dict,
     ) -> TeacherUnavailability:
         recurrence = validated_data.get("recurrence_type", unavailability.recurrence_type)
-        date       = validated_data.get("date", unavailability.date)
-        date_to    = validated_data.get("date_to", unavailability.date_to)
-        start      = validated_data.get("start_time", unavailability.start_time)
-        end        = validated_data.get("end_time",   unavailability.end_time)
+        date = validated_data.get("date", unavailability.date)
+        date_to = validated_data.get("date_to", unavailability.date_to)
+        start = validated_data.get("start_time", unavailability.start_time)
+        end = validated_data.get("end_time", unavailability.end_time)
 
         cls._validate_time_range(start, end)
 
@@ -516,18 +526,22 @@ class ScheduleService:
         elif recurrence == TeacherUnavailability.RecurrenceType.DATE_RANGE:
             day = date.weekday()
         else:
-            day     = validated_data.get("day_of_week", unavailability.day_of_week)
-            date    = None
+            day = validated_data.get("day_of_week", unavailability.day_of_week)
+            date = None
             date_to = None
 
         if recurrence == TeacherUnavailability.RecurrenceType.ONE_TIME:
             cls._check_teacher_conflict(
-                unavailability.teacher_profile, day, start, end,
+                unavailability.teacher_profile,
+                day,
+                start,
+                end,
                 exclude_unavailability_id=unavailability.pk,
                 specific_date=date,
             )
         elif recurrence == TeacherUnavailability.RecurrenceType.DATE_RANGE:
             from datetime import timedelta as _td
+
             seen_weekdays: set[int] = set()
             cur = date
             d_to = date_to
@@ -536,7 +550,10 @@ class ScheduleService:
                 if wd not in seen_weekdays:
                     seen_weekdays.add(wd)
                     cls._check_teacher_conflict(
-                        unavailability.teacher_profile, wd, start, end,
+                        unavailability.teacher_profile,
+                        wd,
+                        start,
+                        end,
                         exclude_unavailability_id=unavailability.pk,
                     )
                     if len(seen_weekdays) == 7:
@@ -544,25 +561,26 @@ class ScheduleService:
                 cur += _td(days=1)
         else:
             cls._check_teacher_conflict(
-                unavailability.teacher_profile, day, start, end,
+                unavailability.teacher_profile,
+                day,
+                start,
+                end,
                 exclude_unavailability_id=unavailability.pk,
             )
 
         unavailability.recurrence_type = recurrence
-        unavailability.day_of_week     = day
-        unavailability.date            = date
-        unavailability.date_to         = date_to
-        unavailability.start_time      = start
-        unavailability.end_time        = end
-        unavailability.reason          = validated_data.get("reason", unavailability.reason)
+        unavailability.day_of_week = day
+        unavailability.date = date
+        unavailability.date_to = date_to
+        unavailability.start_time = start
+        unavailability.end_time = end
+        unavailability.reason = validated_data.get("reason", unavailability.reason)
         unavailability.save()
         return unavailability
 
-    # ── Read helpers ───────────────────────────────────────────────────
-
     @staticmethod
     def get_available_slots(delivery_format: CourseDeliveryFormat):
-        """Return only unbooked slots — shown to prospective buyers."""
+        """Return only unbooked slots, shown to prospective buyers."""
         return ScheduleSlot.objects.filter(
             delivery_format=delivery_format,
             booked_by__isnull=True,

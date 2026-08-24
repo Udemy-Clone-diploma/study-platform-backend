@@ -14,9 +14,16 @@ class TestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Test
         fields = [
-            "id", "title", "description", "passing_score",
-            "duration_minutes", "allow_retakes", "max_attempts",
-            "order", "questions", "source_test_id",
+            "id",
+            "title",
+            "description",
+            "passing_score",
+            "duration_minutes",
+            "allow_retakes",
+            "max_attempts",
+            "order",
+            "questions",
+            "source_test_id",
         ]
 
     @extend_schema_field(QuestionSerializer(many=True))

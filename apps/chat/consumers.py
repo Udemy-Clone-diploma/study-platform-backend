@@ -11,7 +11,6 @@ from apps.chat.services import ChatService
 from apps.chat.views.utils import get_chat_for_user, message_queryset_for_user
 from apps.users.models import User
 
-
 ONLINE_USER_CONNECTIONS: dict[int, int] = {}
 
 
@@ -161,9 +160,13 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         became_offline = _mark_user_disconnected(self.user_id)
         if became_offline:
             await self._broadcast_presence(is_online=False)
-        await self.channel_layer.group_discard(events.user_group_name(self.user.pk), self.channel_name)
+        await self.channel_layer.group_discard(
+            events.user_group_name(self.user.pk), self.channel_name
+        )
         for chat_id in self.joined_chat_ids:
-            await self.channel_layer.group_discard(events.chat_group_name(chat_id), self.channel_name)
+            await self.channel_layer.group_discard(
+                events.chat_group_name(chat_id), self.channel_name
+            )
 
     async def receive_json(self, content, **kwargs):
         if await _user_is_blocked(self.user_id):
@@ -258,17 +261,23 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             participant = payload.get("participant") or {}
             if participant.get("user_id") == self.user.pk:
                 chat_id = payload.get("chat_id")
-                await self.channel_layer.group_add(events.chat_group_name(chat_id), self.channel_name)
+                await self.channel_layer.group_add(
+                    events.chat_group_name(chat_id), self.channel_name
+                )
                 self.joined_chat_ids.add(chat_id)
 
         if payload.get("type") == "participant.removed" and payload.get("user_id") == self.user.pk:
             chat_id = payload.get("chat_id")
-            await self.channel_layer.group_discard(events.chat_group_name(chat_id), self.channel_name)
+            await self.channel_layer.group_discard(
+                events.chat_group_name(chat_id), self.channel_name
+            )
             self.joined_chat_ids.discard(chat_id)
 
         if payload.get("type") == "chat.deleted":
             chat_id = payload.get("chat_id")
-            await self.channel_layer.group_discard(events.chat_group_name(chat_id), self.channel_name)
+            await self.channel_layer.group_discard(
+                events.chat_group_name(chat_id), self.channel_name
+            )
             self.joined_chat_ids.discard(chat_id)
 
         await self.send_json(payload)

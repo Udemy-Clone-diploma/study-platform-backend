@@ -1,0 +1,6 @@
+# Commits listed here are skipped by git blame because they only reformat code.
+# GitHub reads this file automatically. Locally, enable it once with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+287325c97ce8ea888927938251c816a42619e1a4
+b603c69d1dc234ce1fa288bb12432096f1308cde

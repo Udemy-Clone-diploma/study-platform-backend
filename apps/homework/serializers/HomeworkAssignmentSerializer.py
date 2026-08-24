@@ -14,7 +14,6 @@ from apps.homework.models import (
 )
 from apps.users.models import StudentProfile
 
-
 MAX_HOMEWORK_ATTACHMENT_BYTES = 25 * 1024 * 1024
 HOMEWORK_SCORE_MIN = 1
 HOMEWORK_SCORE_MAX = 5
@@ -53,7 +52,9 @@ class HomeworkSubmissionAttachmentSerializer(serializers.ModelSerializer):
 
 class HomeworkRecipientSerializer(serializers.ModelSerializer):
     enrollment_id = serializers.IntegerField(read_only=True)
-    student_email = serializers.EmailField(source="enrollment.student_profile.user.email", read_only=True)
+    student_email = serializers.EmailField(
+        source="enrollment.student_profile.user.email", read_only=True
+    )
     student_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -68,7 +69,9 @@ class HomeworkAvailableRecipientSerializer(serializers.ModelSerializer):
     student_email = serializers.EmailField(source="student_profile.user.email", read_only=True)
     student_name = serializers.SerializerMethodField()
     delivery_format_id = serializers.IntegerField(read_only=True)
-    delivery_format_type = serializers.CharField(source="delivery_format.format_type", read_only=True)
+    delivery_format_type = serializers.CharField(
+        source="delivery_format.format_type", read_only=True
+    )
     cohort_ids = serializers.SerializerMethodField()
     cohort_names = serializers.SerializerMethodField()
 
@@ -99,7 +102,9 @@ class HomeworkAvailableRecipientSerializer(serializers.ModelSerializer):
 
 class HomeworkSubmissionSerializer(serializers.ModelSerializer):
     enrollment_id = serializers.IntegerField(read_only=True)
-    student_email = serializers.EmailField(source="enrollment.student_profile.user.email", read_only=True)
+    student_email = serializers.EmailField(
+        source="enrollment.student_profile.user.email", read_only=True
+    )
     student_name = serializers.SerializerMethodField()
     attachments = HomeworkSubmissionAttachmentSerializer(many=True, read_only=True)
     test_attempt = serializers.SerializerMethodField()
@@ -107,13 +112,31 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = HomeworkSubmission
         fields = [
-            "id", "enrollment_id", "student_email", "student_name", "content",
-            "attachments", "test_attempt", "status", "score", "feedback", "submitted_at",
-            "reviewed_at", "updated_at",
+            "id",
+            "enrollment_id",
+            "student_email",
+            "student_name",
+            "content",
+            "attachments",
+            "test_attempt",
+            "status",
+            "score",
+            "feedback",
+            "submitted_at",
+            "reviewed_at",
+            "updated_at",
         ]
         read_only_fields = [
-            "id", "enrollment_id", "student_email", "student_name", "status",
-            "score", "feedback", "submitted_at", "reviewed_at", "updated_at",
+            "id",
+            "enrollment_id",
+            "student_email",
+            "student_name",
+            "status",
+            "score",
+            "feedback",
+            "submitted_at",
+            "reviewed_at",
+            "updated_at",
         ]
 
     def get_student_name(self, obj) -> str:
@@ -190,10 +213,24 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = [
-            "id", "course_id", "course_slug", "status", "published_at", "closed_at",
-            "course_title", "course_image", "module_title", "lesson_title", "test_detail", "attachments",
-            "recipients", "recipients_count", "my_submission", "teacher_submissions",
-            "created_at", "updated_at",
+            "id",
+            "course_id",
+            "course_slug",
+            "status",
+            "published_at",
+            "closed_at",
+            "course_title",
+            "course_image",
+            "module_title",
+            "lesson_title",
+            "test_detail",
+            "attachments",
+            "recipients",
+            "recipients_count",
+            "my_submission",
+            "teacher_submissions",
+            "created_at",
+            "updated_at",
         ]
         extra_kwargs = {
             "max_score": {"min_value": HOMEWORK_SCORE_MIN, "max_value": HOMEWORK_SCORE_MAX},
@@ -265,10 +302,15 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
             profile = request.user.student_profile
         except StudentProfile.DoesNotExist:
             return None
-        submission = HomeworkSubmission.objects.filter(
-            assignment=obj,
-            enrollment__student_profile=profile,
-        ).select_related("enrollment__student_profile__user").prefetch_related("attachments").first()
+        submission = (
+            HomeworkSubmission.objects.filter(
+                assignment=obj,
+                enrollment__student_profile=profile,
+            )
+            .select_related("enrollment__student_profile__user")
+            .prefetch_related("attachments")
+            .first()
+        )
         return (
             HomeworkSubmissionSerializer(submission, context=self.context).data
             if submission

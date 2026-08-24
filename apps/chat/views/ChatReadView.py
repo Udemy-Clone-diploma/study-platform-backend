@@ -25,6 +25,4 @@ class ChatReadView(APIView):
             request.user.pk,
             participant.last_read_message_id,
         )
-        return Response(
-            ChatParticipantSerializer(participant, context={"request": request}).data
-        )
+        return Response(ChatParticipantSerializer(participant, context={"request": request}).data)

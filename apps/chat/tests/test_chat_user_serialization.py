@@ -32,9 +32,7 @@ class ChatUserSerializationTests(APITestCase):
         self.client.force_authenticate(self.student)
 
         chat_response = self.client.get(reverse("chats-list"))
-        message_response = self.client.get(
-            reverse("chat-messages", args=[self.chat.pk])
-        )
+        message_response = self.client.get(reverse("chat-messages", args=[self.chat.pk]))
 
         self.assertEqual(chat_response.status_code, status.HTTP_200_OK)
         self.assertEqual(message_response.status_code, status.HTTP_200_OK)
