@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.reviews.views import (
     CourseReviewsView,
+    MyCourseReviewView,
     ReviewApproveView,
     ReviewAssignModeratorView,
     ReviewRejectView,
@@ -12,6 +13,11 @@ from apps.reviews.views import (
 )
 
 urlpatterns = [
+    path(
+        "courses/<slug:slug>/reviews/mine/",
+        MyCourseReviewView.as_view(),
+        name="course-reviews-mine",
+    ),
     path(
         "courses/<slug:slug>/reviews/",
         CourseReviewsView.as_view(),

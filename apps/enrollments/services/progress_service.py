@@ -454,6 +454,15 @@ class ProgressService:
 
     @classmethod
     def is_eligible_to_review(cls, enrollment: Enrollment, course: Course) -> bool:
+        # A finished course (self-completed or teacher-completed) is always
+        # reviewable -- this is also the only path to eligibility for
+        # group/individual courses, which can have zero curriculum lessons
+        # (see teacher_complete_course), so the lesson-progress check below
+        # can never pass for them.
+        if CourseCompletion.objects.filter(
+            student_profile=enrollment.student_profile, course=course,
+        ).exists():
+            return True
         if course.lessons_count <= 0:
             return False
         return enrollment.lessons_completed_count >= cls.review_threshold(course.lessons_count)
