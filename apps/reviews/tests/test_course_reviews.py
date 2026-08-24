@@ -3,13 +3,15 @@ from unittest.mock import patch
 
 from django.core.cache import cache
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.courses.models import Course
 from apps.courses.tests._factories import make_course, make_teacher
 from apps.curriculum.models import Lesson, Module
-from apps.enrollments.models import Enrollment, LessonCompletion
+from apps.enrollments.models import CourseCompletion, Enrollment, LessonCompletion
+from apps.enrollments.services import ProgressService
 from apps.reviews.models import Review
 from apps.reviews.tests._factories import make_student
 from apps.reviews.views.CourseReviewsView import CourseReviewsView
@@ -177,3 +179,70 @@ class CourseReviewsWriteTests(APITestCase):
         self.course.refresh_from_db()
         self.assertEqual(self.course.rating_count, 0)
         self.assertEqual(self.course.rating_avg, Decimal("0.00"))
+
+    def test_teacher_completed_course_with_no_lessons_is_reviewable(self):
+        """Group/individual courses can have zero curriculum lessons (teacher
+        teaches live), so the lesson-progress eligibility check can never
+        pass for them -- a teacher-marked completion must be enough on its own."""
+        no_lesson_course = make_course(
+            self.teacher_profile,
+            slug="rw-course-no-lessons",
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        self.assertEqual(no_lesson_course.lessons_count, 0)
+        enrollment = Enrollment.objects.create(
+            student_profile=self.student_profile, course=no_lesson_course,
+        )
+        CourseCompletion.objects.create(
+            student_profile=self.student_profile,
+            course=no_lesson_course,
+            title=no_lesson_course.title,
+            teacher_name="Teacher",
+            level=no_lesson_course.level,
+            progress_percent=100,
+            started_at=timezone.now(),
+        )
+
+        self.assertTrue(ProgressService.is_eligible_to_review(enrollment, no_lesson_course))
+
+        self.client.force_authenticate(user=self.student_user)
+        response = self.client.post(
+            reverse("course-reviews", args=[no_lesson_course.slug]),
+            {"rating": 5, "text": "Great live sessions"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+class MyCourseReviewTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        _, self.teacher_profile = make_teacher(email="mine_teacher@example.com")
+        self.course = make_course(
+            self.teacher_profile,
+            slug="mine-course",
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        self.student_user, self.student_profile = make_student(email="mine_student@example.com")
+
+    def test_anonymous_cannot_fetch(self):
+        response = self.client.get(reverse("course-reviews-mine", args=[self.course.slug]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_returns_404_when_no_review_yet(self):
+        self.client.force_authenticate(user=self.student_user)
+        response = self.client.get(reverse("course-reviews-mine", args=[self.course.slug]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_returns_own_review(self):
+        Review.objects.create(
+            course=self.course, student=self.student_user, rating=4, text="Mine",
+        )
+        other_user, _ = make_student(email="mine_other@example.com")
+        Review.objects.create(course=self.course, student=other_user, rating=1, text="Not mine")
+
+        self.client.force_authenticate(user=self.student_user)
+        response = self.client.get(reverse("course-reviews-mine", args=[self.course.slug]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["text"], "Mine")
+        self.assertEqual(response.data["rating"], 4)
