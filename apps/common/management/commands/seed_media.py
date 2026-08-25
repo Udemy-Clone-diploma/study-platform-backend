@@ -33,7 +33,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas as pdfcanvas
 
-from apps.courses.models import Course
+from apps.courses.models import ApprovedCourseRecord, Course, RejectedCourseRecord
 from apps.curriculum.models import LessonDocument
 from apps.users.models import TeacherProfile, User
 
@@ -169,8 +169,25 @@ class Command(BaseCommand):
             buffer = io.BytesIO()
             image.save(buffer, format="PNG")
             course.image.save(f"{course.slug}.png", ContentFile(buffer.getvalue()), save=True)
+            self._backfill_record_images(course)
             attached += 1
         self.stdout.write(f"  covers: {attached} generated")
+
+    @staticmethod
+    def _backfill_record_images(course):
+        """Approval and rejection records freeze the cover URL at decision time.
+
+        The seed command writes those records before this command gives the
+        course an image, so their snapshot is empty and the moderator's history
+        screens show a course with no icon. Only blank snapshots are filled, so
+        a record that captured an earlier cover keeps it.
+        """
+        url = course.image.url
+        for model in (ApprovedCourseRecord, RejectedCourseRecord):
+            model.objects.filter(course=course, course_image_url__isnull=True).update(
+                course_image_url=url
+            )
+            model.objects.filter(course=course, course_image_url="").update(course_image_url=url)
 
     def _signatures(self):
         attached = 0
