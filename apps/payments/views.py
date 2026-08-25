@@ -687,6 +687,9 @@ class PaymentViewSet(
             "order__payments",
             "refunds",
         )
+        # drf-spectacular introspects with AnonymousUser; without this the filterset is dropped.
+        if getattr(self, "swagger_fake_view", False):
+            return queryset.none()
         user = self.request.user
         if user.role == User.RoleChoices.ADMINISTRATOR:
             return queryset
@@ -706,6 +709,7 @@ class PaymentViewSet(
         return super().get_permissions()
 
     @extend_schema(
+        filters=True,
         responses={200: PaymentSummarySerializer},
         summary="Aggregated payment totals for the admin Finance panel",
     )

@@ -15,6 +15,9 @@ class UserReportEscalatedListView(ListAPIView):
     filterset_class = UserReportFilter
 
     def get_queryset(self):
+        # drf-spectacular introspects with AnonymousUser; without this the filterset is dropped.
+        if getattr(self, "swagger_fake_view", False):
+            return UserReport.objects.none()
         queryset = UserReportService.get_escalated_queryset(self.request.user)
         if "status" not in self.request.query_params:
             queryset = queryset.filter(status=UserReport.StatusChoices.ESCALATED)

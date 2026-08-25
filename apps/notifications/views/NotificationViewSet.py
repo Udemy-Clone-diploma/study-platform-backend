@@ -23,6 +23,9 @@ class NotificationViewSet(
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
+        # drf-spectacular introspects with AnonymousUser; without this the filterset is dropped.
+        if getattr(self, "swagger_fake_view", False):
+            return Notification.objects.none()
         return Notification.objects.filter(recipient=self.request.user).select_related("actor")
 
     @extend_schema(
