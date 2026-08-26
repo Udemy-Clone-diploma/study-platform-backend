@@ -51,9 +51,7 @@ class CategoryService:
         count = category.courses.count()
         if count:
             noun = "course" if count == 1 else "courses"
-            raise CategoryInUseError(
-                f"Category is assigned to {count} {noun}. Move them first."
-            )
+            raise CategoryInUseError(f"Category is assigned to {count} {noun}. Move them first.")
         # name_en/slug uniqueness spans soft-deleted rows (see _generate_unique_slug),
         # so free the name up for reuse by mangling the deleted row's own copy. The
         # pk suffix keeps it unique even if the same name gets deleted more than once.

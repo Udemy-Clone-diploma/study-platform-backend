@@ -8,10 +8,14 @@ class TeacherPayoutAccount(models.Model):
         ACTIVE = "active", "Active"
         RESTRICTED = "restricted", "Restricted"
 
-    teacher = models.OneToOneField("users.TeacherProfile", on_delete=models.CASCADE, related_name="payout_account")
+    teacher = models.OneToOneField(
+        "users.TeacherProfile", on_delete=models.CASCADE, related_name="payout_account"
+    )
     provider = models.CharField(max_length=20, default="stripe")
     provider_account_id = models.CharField(max_length=255, unique=True)
-    status = models.CharField(max_length=24, choices=StatusChoices.choices, default=StatusChoices.INCOMPLETE)
+    status = models.CharField(
+        max_length=24, choices=StatusChoices.choices, default=StatusChoices.INCOMPLETE
+    )
     details_submitted = models.BooleanField(default=False)
     charges_enabled = models.BooleanField(default=False)
     payouts_enabled = models.BooleanField(default=False)

@@ -28,9 +28,7 @@ class ChatMessageAttachmentView(APIView):
             pk=message_id,
         )
         if message.sender_id != request.user.pk:
-            raise PermissionDenied(
-                "Only the sender can attach files to this message."
-            )
+            raise PermissionDenied("Only the sender can attach files to this message.")
         if message.is_deleted:
             raise ValidationError("Deleted messages cannot receive attachments.")
         serializer = MessageAttachmentUploadSerializer(data=request.data)
@@ -39,10 +37,7 @@ class ChatMessageAttachmentView(APIView):
         attachment = MessageAttachment.objects.create(
             message=message,
             file=uploaded_file,
-            file_type=(
-                getattr(uploaded_file, "content_type", "")
-                or "application/octet-stream"
-            ),
+            file_type=(getattr(uploaded_file, "content_type", "") or "application/octet-stream"),
             size=uploaded_file.size,
         )
         events.broadcast_message_updated(message)

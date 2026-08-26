@@ -200,9 +200,7 @@ class CertificateViewSet(
         # not change when that tab is the one selected.
         params = request.query_params.copy()
         params.pop("status", None)
-        queryset = CertificateFilter(
-            params, queryset=self.get_queryset(), request=request
-        ).qs
+        queryset = CertificateFilter(params, queryset=self.get_queryset(), request=request).qs
         statuses = Certificate.StatusChoices
         return Response(
             queryset.aggregate(

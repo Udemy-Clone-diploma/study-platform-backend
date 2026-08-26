@@ -41,9 +41,7 @@ class PasswordResetRequestTests(APITestCase):
         send.assert_not_called()
 
     def test_request_for_unverified_user_no_email(self):
-        unverified = make_user(
-            role="student", email="raw@example.com", verified=False
-        )
+        unverified = make_user(role="student", email="raw@example.com", verified=False)
 
         with patch(
             "apps.users.services.email_service.EmailService.send_password_reset_email"
@@ -61,9 +59,7 @@ class PasswordResetValidateTests(APITestCase):
     def test_valid_token_returns_200(self):
         uid, token = _uid_and_token(self.user)
 
-        response = self.client.get(
-            reverse("auth-password-reset-validate", args=[uid, token])
-        )
+        response = self.client.get(reverse("auth-password-reset-validate", args=[uid, token]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["valid"])
@@ -71,9 +67,7 @@ class PasswordResetValidateTests(APITestCase):
     def test_invalid_token_returns_400_with_valid_false(self):
         uid, _ = _uid_and_token(self.user)
 
-        response = self.client.get(
-            reverse("auth-password-reset-validate", args=[uid, "bogus"])
-        )
+        response = self.client.get(reverse("auth-password-reset-validate", args=[uid, "bogus"]))
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(response.data["valid"])

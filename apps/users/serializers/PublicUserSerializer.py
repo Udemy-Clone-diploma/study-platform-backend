@@ -6,7 +6,6 @@ from .PublicModeratorProfileSerializer import PublicModeratorProfileSerializer
 from .PublicStudentProfileSerializer import PublicStudentProfileSerializer
 from .PublicTeacherProfileSerializer import PublicTeacherProfileSerializer
 
-
 PUBLIC_PROFILE_SERIALIZERS = {
     User.RoleChoices.STUDENT: PublicStudentProfileSerializer,
     User.RoleChoices.TEACHER: PublicTeacherProfileSerializer,
@@ -56,11 +55,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
     def get_is_self(self, obj: User) -> bool:
         request = self.context.get("request")
-        return bool(
-            request
-            and request.user.is_authenticated
-            and request.user.pk == obj.pk
-        )
+        return bool(request and request.user.is_authenticated and request.user.pk == obj.pk)
 
     def get_email(self, obj: User) -> str:
         request = self.context.get("request")

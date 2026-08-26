@@ -2,23 +2,23 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.payments.views import (
+    LiqPayCallbackView,
+    LiqPayPayoutCallbackView,
     OrderViewSet,
     PaymentViewSet,
+    StaffTeacherBalanceView,
+    StaffTeacherPayoutViewSet,
     StripeWebhookView,
-    TeacherOrderInvoiceView,
-    TeacherOrdersView,
-    TeacherPayoutStatusView,
-    TeacherPayoutOnboardingView,
-    TeacherPayoutRefreshView,
-    LiqPayCallbackView,
     TeacherFinanceBalanceView,
     TeacherFinanceLedgerView,
-    TeacherStripeFinanceView,
     TeacherFinancePayoutHistoryView,
+    TeacherOrderInvoiceView,
+    TeacherOrdersView,
     TeacherPayoutDestinationViewSet,
-    StaffTeacherPayoutViewSet,
-    StaffTeacherBalanceView,
-    LiqPayPayoutCallbackView,
+    TeacherPayoutOnboardingView,
+    TeacherPayoutRefreshView,
+    TeacherPayoutStatusView,
+    TeacherStripeFinanceView,
 )
 
 router = DefaultRouter()
@@ -42,8 +42,16 @@ urlpatterns = [
         TeacherStripeFinanceView.as_view(),
         name="teacher-stripe-finance",
     ),
-    path("teacher/payouts/onboarding/", TeacherPayoutOnboardingView.as_view(), name="teacher-payout-onboarding"),
-    path("teacher/payouts/refresh/", TeacherPayoutRefreshView.as_view(), name="teacher-payout-refresh"),
+    path(
+        "teacher/payouts/onboarding/",
+        TeacherPayoutOnboardingView.as_view(),
+        name="teacher-payout-onboarding",
+    ),
+    path(
+        "teacher/payouts/refresh/",
+        TeacherPayoutRefreshView.as_view(),
+        name="teacher-payout-refresh",
+    ),
     # Must precede the router include: the router's detail route
     # (`orders/<pk>/`) would otherwise swallow `orders/teacher/` by treating
     # "teacher" as a pk.
@@ -76,8 +84,7 @@ urlpatterns = [
         name="teacher-finance-payouts",
     ),
     path(
-        "staff/finance/teachers/"
-        "<int:teacher_id>/balance/",
+        "staff/finance/teachers/<int:teacher_id>/balance/",
         StaffTeacherBalanceView.as_view(),
         name="staff-teacher-finance-balance",
     ),

@@ -2,7 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.courses.models import Category, Course
+from apps.courses.models import Category
 
 from ._factories import make_category, make_course, make_teacher
 
@@ -59,9 +59,7 @@ class CoursePaginationTests(APITestCase):
         self.assertEqual(response.data["count"], 28)
 
     def test_page_size_capped_at_max(self):
-        response = self.client.get(
-            reverse("courses-list"), {"page_size": self.MAX_PAGE_SIZE + 50}
-        )
+        response = self.client.get(reverse("courses-list"), {"page_size": self.MAX_PAGE_SIZE + 50})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLessEqual(len(response.data["results"]), self.MAX_PAGE_SIZE)

@@ -85,8 +85,7 @@ class CourseReviewsView(ListCreateAPIView):
             return Response(
                 {
                     "detail": (
-                        "Complete at least 30% of the course's lessons "
-                        "before leaving a review."
+                        "Complete at least 30% of the course's lessons before leaving a review."
                     )
                 },
                 status=status.HTTP_403_FORBIDDEN,

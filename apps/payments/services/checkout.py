@@ -1,6 +1,6 @@
 from decimal import Decimal
-from django.conf import settings
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -90,9 +90,7 @@ class CheckoutService(PaymentBaseService):
             delivery_format = item.selected_pricing_plan.delivery_format
             if delivery_format.format_type == CourseDeliveryFormat.FormatType.GROUP:
                 if item.cohort is not None and not item.cohort.is_enrollment_open:
-                    raise PaymentError(
-                        f"The selected group for '{item.course.title}' is closed."
-                    )
+                    raise PaymentError(f"The selected group for '{item.course.title}' is closed.")
                 if (
                     item.cohort is not None
                     and item.cohort.enrollment_deadline is not None
@@ -106,9 +104,7 @@ class CheckoutService(PaymentBaseService):
                     and item.cohort.group_size is not None
                     and item.cohort.members.count() >= item.cohort.group_size
                 ):
-                    raise PaymentError(
-                        f"The selected group for '{item.course.title}' is full."
-                    )
+                    raise PaymentError(f"The selected group for '{item.course.title}' is full.")
 
         if len({item.course.teacher_profile_id for item in items}) != 1:
             raise PaymentError("Courses from different instructors must be purchased separately.")
@@ -190,17 +186,13 @@ class CheckoutService(PaymentBaseService):
 
         for item in items:
             plan = item.selected_pricing_plan
-            if (
-                plan is None
-                or plan.installment_count is None
-                or plan.installment_amount is None
-            ):
+            if plan is None or plan.installment_count is None or plan.installment_amount is None:
                 raise PaymentError(
                     "Installment checkout is available only for pricing plans with installment terms."
                 )
 
             configured_counts.add(plan.installment_count)
-            # final_installment_amount applies the course's current discount (if any) --
+            # final_installment_amount applies the course's current discount (if any):
             # installment_amount alone would silently ignore an active sale.
             installment_amounts_by_item[item.id] = cls._decimal_money(plan.final_installment_amount)
 
@@ -275,7 +267,7 @@ class CheckoutService(PaymentBaseService):
                 for item in items
             ]
         )
-        for order_item, cart_item in zip(created_order_items, items):
+        for order_item, cart_item in zip(created_order_items, items, strict=True):
             slot_ids = list(cart_item.schedule_slots.values_list("id", flat=True))
             if slot_ids:
                 order_item.schedule_slots.set(slot_ids)
@@ -328,7 +320,7 @@ class CheckoutService(PaymentBaseService):
                 for item in order_items
             ]
         )
-        for payment_item, order_item in zip(created_payment_items, order_items):
+        for payment_item, order_item in zip(created_payment_items, order_items, strict=True):
             slot_ids = list(order_item.schedule_slots.values_list("id", flat=True))
             if slot_ids:
                 payment_item.schedule_slots.set(slot_ids)
@@ -342,7 +334,9 @@ class CheckoutService(PaymentBaseService):
         payment_method: str = Payment.MethodChoices.STRIPE,
     ) -> Payment:
         amount = installment.amount if installment is not None else order.total_amount
-        teacher = order.items.select_related("course__teacher_profile").first().course.teacher_profile
+        teacher = (
+            order.items.select_related("course__teacher_profile").first().course.teacher_profile
+        )
         commission = Decimal(str(getattr(settings, "PLATFORM_COMMISSION_PERCENT", "20.00")))
         fee = cls._decimal_money(amount * commission / Decimal("100"))
         payment = Payment.objects.create(
@@ -416,6 +410,7 @@ class CheckoutService(PaymentBaseService):
             )
 
         return line_items
+
     @classmethod
     def _create_liqpay_attempt(
         cls,
@@ -428,9 +423,7 @@ class CheckoutService(PaymentBaseService):
             status=Payment.StatusChoices.PENDING,
         )
 
-        attempt.provider_order_id = (
-            f"nexo-payment-{payment.id}-attempt-{attempt.id}"
-        )
+        attempt.provider_order_id = f"nexo-payment-{payment.id}-attempt-{attempt.id}"
         attempt.save(
             update_fields=[
                 "provider_order_id",
@@ -439,6 +432,7 @@ class CheckoutService(PaymentBaseService):
         )
 
         return attempt
+
     @classmethod
     def _get_or_create_liqpay_attempt(
         cls,
@@ -449,9 +443,7 @@ class CheckoutService(PaymentBaseService):
             Payment.StatusChoices.SUCCEEDED,
             Payment.StatusChoices.REFUNDED,
         }:
-            raise PaymentError(
-                "This payment cannot start another LiqPay checkout."
-            )
+            raise PaymentError("This payment cannot start another LiqPay checkout.")
 
         existing_attempt = (
             payment.attempts.filter(
@@ -648,9 +640,13 @@ class CheckoutService(PaymentBaseService):
         if installment.status == PaymentInstallment.StatusChoices.PAID:
             raise PaymentError("This installment is already paid.")
 
-        has_unpaid_previous = order.installments.filter(
-            installment_number__lt=installment.installment_number,
-        ).exclude(status=PaymentInstallment.StatusChoices.PAID).exists()
+        has_unpaid_previous = (
+            order.installments.filter(
+                installment_number__lt=installment.installment_number,
+            )
+            .exclude(status=PaymentInstallment.StatusChoices.PAID)
+            .exists()
+        )
         if has_unpaid_previous:
             raise PaymentError("Previous installments must be paid first.")
 
@@ -679,16 +675,18 @@ class CheckoutService(PaymentBaseService):
             status=Payment.StatusChoices.PROCESSING,
             payment_method=Payment.MethodChoices.LIQPAY,
         ).exists():
-            raise PaymentError(
-                "A LiqPay payment is already in progress for this installment."
+            raise PaymentError("A LiqPay payment is already in progress for this installment.")
+
+        existing_payment = (
+            installment.payments.filter(
+                status=Payment.StatusChoices.PROCESSING,
+                payment_method=Payment.MethodChoices.STRIPE,
             )
-        
-        existing_payment = installment.payments.filter(
-            status=Payment.StatusChoices.PROCESSING,
-            payment_method=Payment.MethodChoices.STRIPE,
-        ).exclude(checkout_url=""
-        ).order_by("-created_at").first()
-        
+            .exclude(checkout_url="")
+            .order_by("-created_at")
+            .first()
+        )
+
         if existing_payment is not None:
             return existing_payment
 
@@ -718,16 +716,17 @@ class CheckoutService(PaymentBaseService):
             status=Payment.StatusChoices.PROCESSING,
             payment_method=Payment.MethodChoices.LIQPAY,
         ).exists():
-            raise PaymentError(
-                "A LiqPay payment is already in progress for this installment."
+            raise PaymentError("A LiqPay payment is already in progress for this installment.")
+
+        existing_payment = (
+            installment.payments.filter(
+                status=Payment.StatusChoices.PROCESSING,
+                payment_method=Payment.MethodChoices.STRIPE,
             )
-        
-        existing_payment = installment.payments.filter(
-            status=Payment.StatusChoices.PROCESSING,
-            payment_method=Payment.MethodChoices.STRIPE,
-        ).exclude(
-            stripe_payment_intent_id=""
-        ).order_by("-created_at").first()
+            .exclude(stripe_payment_intent_id="")
+            .order_by("-created_at")
+            .first()
+        )
 
         if existing_payment is not None:
             client_secret = cls._retrieve_stripe_payment_intent_client_secret(
@@ -762,8 +761,7 @@ class CheckoutService(PaymentBaseService):
         order = installment.order
 
         processing_payments = (
-            installment.payments
-            .select_for_update()
+            installment.payments.select_for_update()
             .filter(
                 status=Payment.StatusChoices.PROCESSING,
             )
@@ -781,10 +779,7 @@ class CheckoutService(PaymentBaseService):
             )
 
         if processing_payments.exists():
-            raise PaymentError(
-                "Another payment is already in progress "
-                "for this installment."
-            )
+            raise PaymentError("Another payment is already in progress for this installment.")
 
         payment = cls._create_payment_for_order(
             order=order,
@@ -796,7 +791,6 @@ class CheckoutService(PaymentBaseService):
             payment=payment,
             result_url=result_url,
         )
-
 
     @classmethod
     def _find_reusable_liqpay_payment_for_cart(
@@ -820,9 +814,7 @@ class CheckoutService(PaymentBaseService):
             installments_count=installments_count,
         )
 
-        expected_total = cls._decimal_money(
-            sum(item_totals.values(), Decimal("0.00"))
-        )
+        expected_total = cls._decimal_money(sum(item_totals.values(), Decimal("0.00")))
 
         expected_payment_amount = (
             installment_amounts[0]
@@ -861,9 +853,7 @@ class CheckoutService(PaymentBaseService):
 
             order = payment.order
 
-            existing_cart_item_ids = sorted(
-                order.metadata.get("cart_item_ids", [])
-            )
+            existing_cart_item_ids = sorted(order.metadata.get("cart_item_ids", []))
 
             if existing_cart_item_ids != cart_item_ids:
                 continue
@@ -880,9 +870,7 @@ class CheckoutService(PaymentBaseService):
             if cls._decimal_money(order.total_amount) != expected_total:
                 continue
 
-            if cls._decimal_money(payment.amount) != cls._decimal_money(
-                expected_payment_amount
-            ):
+            if cls._decimal_money(payment.amount) != cls._decimal_money(expected_payment_amount):
                 continue
 
             return payment

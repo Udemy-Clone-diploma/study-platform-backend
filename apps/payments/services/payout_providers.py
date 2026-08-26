@@ -31,36 +31,19 @@ class LiqPaySandboxPayoutProvider:
     ) -> PayoutProviderResult:
         LiqPayService._ensure_liqpay_payout_sandbox()
 
-        if (
-            payout.status
-            != TeacherPayout.StatusChoices.PROCESSING
-        ):
-            raise PaymentError(
-                "Teacher payout must be processing "
-                "before sending it to LiqPay."
-            )
+        if payout.status != TeacherPayout.StatusChoices.PROCESSING:
+            raise PaymentError("Teacher payout must be processing before sending it to LiqPay.")
 
         if not payout.provider_order_id:
-            raise PaymentError(
-                "Teacher payout provider_order_id "
-                "must be saved before sending."
-            )
+            raise PaymentError("Teacher payout provider_order_id must be saved before sending.")
 
-        payout_request = (
-            LiqPayService._liqpay_build_payout_request(
-                payout=payout,
-                client_ip=client_ip,
-            )
+        payout_request = LiqPayService._liqpay_build_payout_request(
+            payout=payout,
+            client_ip=client_ip,
         )
 
-        if (
-            payout_request["provider_order_id"]
-            != payout.provider_order_id
-        ):
-            raise PaymentError(
-                "LiqPay payout order_id does not "
-                "match persisted provider_order_id."
-            )
+        if payout_request["provider_order_id"] != payout.provider_order_id:
+            raise PaymentError("LiqPay payout order_id does not match persisted provider_order_id.")
 
         response = LiqPayService._liqpay_send_request(
             data=payout_request["data"],
@@ -80,40 +63,20 @@ class LiqPaySandboxPayoutProvider:
         payout: TeacherPayout,
         response: dict,
     ) -> PayoutProviderResult:
-        action = str(
-            response.get("action") or ""
-        ).lower()
+        action = str(response.get("action") or "").lower()
 
         if action and action != "p2pcredit":
-            raise PaymentError(
-                "Unexpected LiqPay payout action."
-            )
+            raise PaymentError("Unexpected LiqPay payout action.")
 
-        response_order_id = str(
-            response.get("order_id") or ""
-        )
+        response_order_id = str(response.get("order_id") or "")
 
-        if (
-            response_order_id
-            and response_order_id
-            != payout.provider_order_id
-        ):
-            raise PaymentError(
-                "LiqPay payout order_id does not match."
-            )
+        if response_order_id and response_order_id != payout.provider_order_id:
+            raise PaymentError("LiqPay payout order_id does not match.")
 
-        response_public_key = response.get(
-            "public_key"
-        )
+        response_public_key = response.get("public_key")
 
-        if (
-            response_public_key
-            and response_public_key
-            != LiqPayService._liqpay_public_key()
-        ):
-            raise PaymentError(
-                "LiqPay payout public_key does not match."
-            )
+        if response_public_key and response_public_key != LiqPayService._liqpay_public_key():
+            raise PaymentError("LiqPay payout public_key does not match.")
 
         response_version = response.get("version")
 
@@ -121,34 +84,18 @@ class LiqPaySandboxPayoutProvider:
             try:
                 version = int(response_version)
             except (TypeError, ValueError) as exc:
-                raise PaymentError(
-                    "Invalid LiqPay payout API version."
-                ) from exc
+                raise PaymentError("Invalid LiqPay payout API version.") from exc
 
-            if (
-                version
-                != LiqPayService._liqpay_api_version()
-            ):
-                raise PaymentError(
-                    "LiqPay payout API version "
-                    "does not match."
-                )
+            if version != LiqPayService._liqpay_api_version():
+                raise PaymentError("LiqPay payout API version does not match.")
 
-        result = str(
-            response.get("result") or ""
-        ).lower()
+        result = str(response.get("result") or "").lower()
 
-        provider_status = str(
-            response.get("status") or ""
-        ).lower()
+        provider_status = str(response.get("status") or "").lower()
 
-        provider_payment_id = str(
-            response.get("payment_id") or ""
-        )
+        provider_payment_id = str(response.get("payment_id") or "")
 
-        provider_transaction_id = str(
-            response.get("transaction_id") or ""
-        )
+        provider_transaction_id = str(response.get("transaction_id") or "")
 
         safe_raw = {
             "result": response.get("result"),
@@ -156,34 +103,22 @@ class LiqPaySandboxPayoutProvider:
             "action": response.get("action"),
             "order_id": response.get("order_id"),
             "payment_id": response.get("payment_id"),
-            "transaction_id": response.get(
-                "transaction_id"
-            ),
-            "liqpay_order_id": response.get(
-                "liqpay_order_id"
-            ),
+            "transaction_id": response.get("transaction_id"),
+            "liqpay_order_id": response.get("liqpay_order_id"),
             "err_code": response.get("err_code"),
-            "err_description": response.get(
-                "err_description"
-            ),
+            "err_description": response.get("err_description"),
         }
 
-        if (
-            result == "ok"
-            and provider_status in {
-                "success",
-                "sandbox",
-            }
-        ):
+        if result == "ok" and provider_status in {
+            "success",
+            "sandbox",
+        }:
             normalized_status = cls.SUCCEEDED
 
-        elif (
-            result == "error"
-            or provider_status in {
-                "failure",
-                "error",
-            }
-        ):
+        elif result == "error" or provider_status in {
+            "failure",
+            "error",
+        }:
             normalized_status = cls.FAILED
 
         else:
@@ -192,14 +127,11 @@ class LiqPaySandboxPayoutProvider:
         return PayoutProviderResult(
             status=normalized_status,
             provider_status=provider_status,
-            provider_payment_id=(
-                provider_payment_id
-            ),
-            provider_transaction_id=(
-                provider_transaction_id
-            ),
+            provider_payment_id=(provider_payment_id),
+            provider_transaction_id=(provider_transaction_id),
             raw=safe_raw,
         )
+
     @classmethod
     def reconcile(
         cls,
@@ -209,18 +141,10 @@ class LiqPaySandboxPayoutProvider:
         LiqPayService._ensure_liqpay_payout_sandbox()
 
         if not payout.provider_order_id:
-            raise PaymentError(
-                "Teacher payout provider_order_id "
-                "is required for reconciliation."
-            )
+            raise PaymentError("Teacher payout provider_order_id is required for reconciliation.")
 
-        response = (
-            LiqPayService
-            ._liqpay_get_payment_status(
-                provider_order_id=(
-                    payout.provider_order_id
-                ),
-            )
+        response = LiqPayService._liqpay_get_payment_status(
+            provider_order_id=(payout.provider_order_id),
         )
 
         return cls._normalize_response(
@@ -243,19 +167,21 @@ class SimulatedLiqPayPayoutProvider:
             "failure",
             "processing",
         }:
-            raise PaymentError(
-                "Invalid simulated payout outcome."
-            )
+            raise PaymentError("Invalid simulated payout outcome.")
 
     @staticmethod
     def _outcome() -> str:
-        return str(
-            getattr(
-                settings,
-                "LIQPAY_SIMULATED_PAYOUT_OUTCOME",
-                "success",
+        return (
+            str(
+                getattr(
+                    settings,
+                    "LIQPAY_SIMULATED_PAYOUT_OUTCOME",
+                    "success",
+                )
             )
-        ).strip().lower()
+            .strip()
+            .lower()
+        )
 
     @classmethod
     def execute(
@@ -266,19 +192,11 @@ class SimulatedLiqPayPayoutProvider:
     ) -> PayoutProviderResult:
         cls.validate_configuration()
 
-        if (
-            payout.status
-            != TeacherPayout.StatusChoices.PROCESSING
-        ):
-            raise PaymentError(
-                "Teacher payout must be processing."
-            )
+        if payout.status != TeacherPayout.StatusChoices.PROCESSING:
+            raise PaymentError("Teacher payout must be processing.")
 
         if not payout.provider_order_id:
-            raise PaymentError(
-                "Teacher payout provider_order_id "
-                "must be saved before execution."
-            )
+            raise PaymentError("Teacher payout provider_order_id must be saved before execution.")
 
         outcome = cls._outcome()
 
@@ -286,12 +204,8 @@ class SimulatedLiqPayPayoutProvider:
             return PayoutProviderResult(
                 status=cls.SUCCEEDED,
                 provider_status="simulated_success",
-                provider_payment_id=(
-                    f"sim-payment-{payout.id}"
-                ),
-                provider_transaction_id=(
-                    f"sim-transaction-{payout.id}"
-                ),
+                provider_payment_id=(f"sim-payment-{payout.id}"),
+                provider_transaction_id=(f"sim-transaction-{payout.id}"),
                 raw={
                     "result": "ok",
                     "status": "simulated_success",
@@ -307,9 +221,7 @@ class SimulatedLiqPayPayoutProvider:
                     "result": "error",
                     "status": "simulated_failure",
                     "err_code": "simulated_failure",
-                    "err_description": (
-                        "Simulated provider rejection."
-                    ),
+                    "err_description": ("Simulated provider rejection."),
                     "mode": "simulated",
                 },
             )
@@ -323,6 +235,7 @@ class SimulatedLiqPayPayoutProvider:
                 "mode": "simulated",
             },
         )
+
     @classmethod
     def reconcile(
         cls,

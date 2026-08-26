@@ -33,12 +33,14 @@ class LessonItemService:
     def reorder_items(lesson: Lesson, item_ids: list[int]) -> list[LessonItem]:
         items = list(LessonItem.objects.filter(lesson=lesson))
         if sorted(item_ids) != sorted(i.id for i in items):
-            raise InvalidReorderError("Submitted item ids must match the lesson's current items exactly.")
+            raise InvalidReorderError(
+                "Submitted item ids must match the lesson's current items exactly."
+            )
         by_id = {i.id: i for i in items}
 
         # The (lesson, order) unique constraint is checked per-statement (not
         # deferrable), so writing final positions directly can collide with
-        # whatever currently holds that slot -- stage through an out-of-range
+        # whatever currently holds that slot, so stage through an out-of-range
         # offset first, then assign final positions.
         offset = len(item_ids)
         for item in items:

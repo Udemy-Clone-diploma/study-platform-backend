@@ -52,6 +52,7 @@ class UserReportConflictError(UsersError):
 
 class UserReportPermissionError(UsersError):
     """The actor is not allowed to process this report."""
-    
+
+
 class ApplicationAlreadyDecidedError(UsersError):
     """The teacher application has already been approved or cancelled."""

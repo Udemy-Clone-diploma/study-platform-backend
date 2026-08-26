@@ -99,7 +99,9 @@ class ScheduleNotificationService:
             )
 
     @classmethod
-    def notify_session_rescheduled(cls, session, actor: User, old_date, old_start_time, old_end_time) -> None:
+    def notify_session_rescheduled(
+        cls, session, actor: User, old_date, old_start_time, old_end_time
+    ) -> None:
         recipients = [u for u in cls.session_participants(session) if u.id != actor.id]
         title = cls._session_course_title(session)
         body = (
@@ -149,7 +151,9 @@ class ScheduleNotificationService:
             )
 
     @staticmethod
-    def notify_recurring_cancelled(participants: list[User], course_title: str, actor: User) -> None:
+    def notify_recurring_cancelled(
+        participants: list[User], course_title: str, actor: User
+    ) -> None:
         from datetime import date as _date
 
         for recipient in [u for u in participants if u.id != actor.id]:
@@ -170,7 +174,7 @@ class ScheduleNotificationService:
             recipient=invitation.invitee,
             type=Notification.TypeChoices.SCHEDULE_EVENT,
             title=event.title,
-            body=f"{actor.get_full_name() or actor.email} invited you to \"{event.title}\" on {event.date.isoformat()}.",
+            body=f'{actor.get_full_name() or actor.email} invited you to "{event.title}" on {event.date.isoformat()}.',
             actor=actor,
             link_url=_invitations_link_for(invitation.invitee),
             payload={"action": "invited", "event_id": event.id},
@@ -183,7 +187,7 @@ class ScheduleNotificationService:
                 recipient=invitee,
                 type=Notification.TypeChoices.SCHEDULE_EVENT,
                 title=event.title,
-                body=f"\"{event.title}\" was moved to {event.date.isoformat()} {_fmt_time(event.start_time)}. Please reconfirm.",
+                body=f'"{event.title}" was moved to {event.date.isoformat()} {_fmt_time(event.start_time)}. Please reconfirm.',
                 actor=actor,
                 link_url=_invitations_link_for(invitee),
                 payload={"action": "event_rescheduled", "event_id": event.id},
@@ -196,7 +200,7 @@ class ScheduleNotificationService:
                 recipient=invitee,
                 type=Notification.TypeChoices.SCHEDULE_EVENT,
                 title=event.title,
-                body=f"\"{event.title}\" on {event.date.isoformat()} was cancelled.",
+                body=f'"{event.title}" on {event.date.isoformat()} was cancelled.',
                 actor=actor,
                 link_url=_link_for(invitee, event.date),
                 payload={"action": "event_cancelled"},
@@ -213,8 +217,12 @@ class ScheduleNotificationService:
             recipient=event.owner,
             type=Notification.TypeChoices.SCHEDULE_EVENT,
             title=event.title,
-            body=f"{invitee_name} {verb} your invitation to \"{event.title}\".",
+            body=f'{invitee_name} {verb} your invitation to "{event.title}".',
             actor=invitation.invitee,
             link_url=_link_for(event.owner, event.date),
-            payload={"action": "invitation_responded", "event_id": event.id, "response": invitation.status},
+            payload={
+                "action": "invitation_responded",
+                "event_id": event.id,
+                "response": invitation.status,
+            },
         )

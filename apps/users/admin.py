@@ -22,20 +22,43 @@ def _is_moderator_profile_user_autocomplete(request):
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     ordering = ("-date_joined",)
-    list_display = ("email", "first_name", "last_name", "role", "is_active", "is_staff", "date_joined")
+    list_display = (
+        "email",
+        "first_name",
+        "last_name",
+        "role",
+        "is_active",
+        "is_staff",
+        "date_joined",
+    )
     list_filter = ("role", "is_active", "is_staff")
     search_fields = ("email", "first_name", "last_name")
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Personal info", {"fields": ("first_name", "last_name")}),
-        ("Role & permissions", {"fields": ("role", "is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        (
+            "Role & permissions",
+            {
+                "fields": (
+                    "role",
+                    "is_active",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                )
+            },
+        ),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
     add_fieldsets = (
-        (None, {
-            "classes": ("wide",),
-            "fields": ("email", "first_name", "last_name", "role", "password1", "password2"),
-        }),
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": ("email", "first_name", "last_name", "role", "password1", "password2"),
+            },
+        ),
     )
 
     def get_search_results(self, request, queryset, search_term):

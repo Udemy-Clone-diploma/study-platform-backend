@@ -33,7 +33,6 @@ from apps.enrollments.models import Enrollment
 from apps.reviews.models import Review
 from apps.users.models import StudentProfile, TeacherProfile, User
 
-
 CATEGORY_SPECS = {
     "design": {
         "name_en": "Design",
@@ -65,8 +64,7 @@ TEACHER_SPECS = {
         "last_name": "Martinez",
         "specialization": "UX research and product design",
         "bio": (
-            "Product designer helping students turn research into clear, "
-            "accessible interfaces."
+            "Product designer helping students turn research into clear, accessible interfaces."
         ),
         "years_experience": 9,
     },
@@ -501,16 +499,15 @@ class Command(BaseCommand):
             course.category = categories[category_slugs[course.pk % len(category_slugs)]]
             changed_fields.append("category")
 
-        if not (course.short_description or "").strip() or len(
-            course.short_description.strip()
-        ) < 20:
+        if (
+            not (course.short_description or "").strip()
+            or len(course.short_description.strip()) < 20
+        ):
             course.short_description = (
                 f"A practical {course.title} course with guided examples and hands-on exercises."
             )
             changed_fields.append("short_description")
-        if not (course.full_description or "").strip() or len(
-            course.full_description.strip()
-        ) < 50:
+        if not (course.full_description or "").strip() or len(course.full_description.strip()) < 50:
             course.full_description = (
                 f"Build a solid understanding of {course.title} through clear explanations, "
                 "guided practice, and realistic projects. The course is structured to help "
@@ -575,10 +572,7 @@ class Command(BaseCommand):
             )
             self._repair_cohorts(course, group_format, stats)
 
-        if (
-            course.status == Course.StatusChoices.PUBLISHED
-            and not course.modules.exists()
-        ):
+        if course.status == Course.StatusChoices.PUBLISHED and not course.modules.exists():
             self._ensure_curriculum(course, stats)
 
     def _ensure_demo_course(
@@ -831,14 +825,11 @@ class Command(BaseCommand):
                 errors.append(f"{prefix} primary delivery format is missing")
             for delivery_format in formats:
                 if not hasattr(delivery_format, "pricing"):
-                    errors.append(
-                        f"{prefix} {delivery_format.format_type} has no pricing plan"
-                    )
+                    errors.append(f"{prefix} {delivery_format.format_type} has no pricing plan")
             for cohort in course.cohorts.select_related("delivery_format"):
                 if (
                     cohort.delivery_format is None
-                    or cohort.delivery_format.format_type
-                    != CourseDeliveryFormat.FormatType.GROUP
+                    or cohort.delivery_format.format_type != CourseDeliveryFormat.FormatType.GROUP
                 ):
                     errors.append(f"{prefix} cohort {cohort.pk} is not linked to group format")
 

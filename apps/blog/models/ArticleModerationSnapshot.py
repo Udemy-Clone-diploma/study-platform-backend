@@ -8,7 +8,7 @@ from .Article import Article, default_cover_crops
 
 class ArticleModerationSnapshot(models.Model):
     """Permanent record of a moderator's reject/publish decision, independent of the
-    live Article row -- which keeps mutating (edited, resubmitted, archived, withdrawn)
+    live Article row, which keeps mutating (edited, resubmitted, archived, withdrawn)
     after the decision. Created by ArticleService.reject_article / approve_article;
     never updated afterwards.
     """

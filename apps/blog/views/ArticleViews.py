@@ -14,7 +14,11 @@ from apps.blog.cache import (
     public_article_detail_cache_key,
     public_article_list_cache_key,
 )
-from apps.blog.exceptions import ArticleAlreadyAssignedError, ArticleNotAssignedToModeratorError, BlogError
+from apps.blog.exceptions import (
+    ArticleAlreadyAssignedError,
+    ArticleNotAssignedToModeratorError,
+    BlogError,
+)
 from apps.blog.models import Article
 from apps.blog.permissions import CanCreateArticle, CanManageArticle
 from apps.blog.serializers import (
@@ -38,7 +42,7 @@ def _moderator_profile(user):
 
 @extend_schema(tags=["Blog"])
 class ArticleListCreateView(ListCreateAPIView):
-    """GET /blog/articles/ — public/own/moderation article listing. POST creates a draft.
+    """GET /blog/articles/: public/own/moderation article listing. POST creates a draft.
 
     Query params: category=<slug>, mine=true (own articles, any status),
     status=<draft|review|rejected|published|archived> (staff-only unless combined
@@ -119,10 +123,12 @@ class ArticleListCreateView(ListCreateAPIView):
 
         data = cache_get_or_set(
             public_article_list_cache_key(request),
-            lambda: self.get_serializer(
-                self.filter_queryset(self.get_queryset()),
-                many=True,
-            ).data,
+            lambda: (
+                self.get_serializer(
+                    self.filter_queryset(self.get_queryset()),
+                    many=True,
+                ).data
+            ),
             timeout=jittered_cache_timeout(
                 settings.CACHE_DEFAULT_TIMEOUT,
                 settings.CACHE_TTL_JITTER_SECONDS,
@@ -151,7 +157,11 @@ class ArticleDetailView(RetrieveUpdateDestroyAPIView):
         return []
 
     def get_serializer_class(self):
-        return ArticleCreateUpdateSerializer if self.request.method in ("PATCH", "PUT") else ArticleDetailSerializer
+        return (
+            ArticleCreateUpdateSerializer
+            if self.request.method in ("PATCH", "PUT")
+            else ArticleDetailSerializer
+        )
 
     def get_object(self):
         article = get_object_or_404(
@@ -175,20 +185,19 @@ class ArticleDetailView(RetrieveUpdateDestroyAPIView):
         is_owner_or_staff = user.is_authenticated and (
             user.role in _STAFF_ROLES or article.author_id == user.id
         )
-        if (
-            article.status == Article.StatusChoices.PUBLISHED
-            and not is_owner_or_staff
-        ):
+        if article.status == Article.StatusChoices.PUBLISHED and not is_owner_or_staff:
             data = cache_get_or_set(
                 public_article_detail_cache_key(
                     request,
                     article_id=article.pk,
                     slug=article.slug,
                 ),
-                lambda: PublicArticleDetailSerializer(
-                    article,
-                    context={"request": request},
-                ).data,
+                lambda: (
+                    PublicArticleDetailSerializer(
+                        article,
+                        context={"request": request},
+                    ).data
+                ),
                 timeout=jittered_cache_timeout(
                     settings.CACHE_DEFAULT_TIMEOUT,
                     settings.CACHE_TTL_JITTER_SECONDS,
@@ -203,7 +212,9 @@ class ArticleDetailView(RetrieveUpdateDestroyAPIView):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         try:
-            article = ArticleService.update_article(instance, request.user, serializer.validated_data)
+            article = ArticleService.update_article(
+                instance, request.user, serializer.validated_data
+            )
         except BlogError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         out = ArticleDetailSerializer(article, context={"request": request})
@@ -237,42 +248,42 @@ class _ArticleActionView(APIView):
 
 @extend_schema(tags=["Blog"])
 class ArticleSubmitReviewView(_ArticleActionView):
-    """POST /blog/articles/{slug}/submit/ — teacher submits a draft/rejected article for moderation."""
+    """POST /blog/articles/{slug}/submit/: teacher submits a draft/rejected article for moderation."""
 
     service_method_name = "submit_for_review"
 
 
 @extend_schema(tags=["Blog"])
 class ArticlePublishView(_ArticleActionView):
-    """POST /blog/articles/{slug}/publish/ — moderator/admin publishes their own draft directly."""
+    """POST /blog/articles/{slug}/publish/: moderator/admin publishes their own draft directly."""
 
     service_method_name = "publish_own_article"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleWithdrawView(_ArticleActionView):
-    """POST /blog/articles/{slug}/withdraw/ — author pulls a review/published article back to draft."""
+    """POST /blog/articles/{slug}/withdraw/: author pulls a review/published article back to draft."""
 
     service_method_name = "withdraw_to_draft"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleArchiveView(_ArticleActionView):
-    """POST /blog/articles/{slug}/archive/ — shelve a published article (or, for staff, any article)."""
+    """POST /blog/articles/{slug}/archive/: shelve a published article (or, for staff, any article)."""
 
     service_method_name = "archive_article"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleRestoreView(_ArticleActionView):
-    """POST /blog/articles/{slug}/restore/ — bring an archived article back to draft."""
+    """POST /blog/articles/{slug}/restore/: bring an archived article back to draft."""
 
     service_method_name = "restore_from_archive"
 
 
 @extend_schema(tags=["Blog"])
 class ArticleAssignModeratorView(APIView):
-    """POST /blog/articles/{slug}/assign-moderator/ — claim an under-review article from the shared queue."""
+    """POST /blog/articles/{slug}/assign-moderator/: claim an under-review article from the shared queue."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -281,7 +292,10 @@ class ArticleAssignModeratorView(APIView):
         try:
             ArticleService.assign_moderator_self(article, _moderator_profile(request.user))
         except ArticleAlreadyAssignedError:
-            return Response({"detail": "This article already has a moderator assigned."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "This article already has a moderator assigned."},
+                status=status.HTTP_409_CONFLICT,
+            )
         except BlogError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response({"detail": "Moderator assigned."})
@@ -289,7 +303,7 @@ class ArticleAssignModeratorView(APIView):
 
 @extend_schema(tags=["Blog"])
 class ArticleApproveView(APIView):
-    """POST /blog/articles/{slug}/approve/ — publish an article the requester is assigned to review."""
+    """POST /blog/articles/{slug}/approve/: publish an article the requester is assigned to review."""
 
     permission_classes = [IsAdminOrModerator]
 
@@ -298,7 +312,10 @@ class ArticleApproveView(APIView):
         try:
             article = ArticleService.approve_article(article, _moderator_profile(request.user))
         except ArticleNotAssignedToModeratorError:
-            return Response({"detail": "Assign yourself to this article before moderating it."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Assign yourself to this article before moderating it."},
+                status=status.HTTP_409_CONFLICT,
+            )
         except BlogError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response(ArticleDetailSerializer(article, context={"request": request}).data)
@@ -306,16 +323,21 @@ class ArticleApproveView(APIView):
 
 @extend_schema(tags=["Blog"])
 class ArticleRejectView(APIView):
-    """POST /blog/articles/{slug}/reject/ — return an article under review with a comment."""
+    """POST /blog/articles/{slug}/reject/: return an article under review with a comment."""
 
     permission_classes = [IsAdminOrModerator]
 
     def post(self, request, slug):
         article = get_object_or_404(Article.objects, slug=slug)
         try:
-            article = ArticleService.reject_article(article, _moderator_profile(request.user), request.data.get("comment", ""))
+            article = ArticleService.reject_article(
+                article, _moderator_profile(request.user), request.data.get("comment", "")
+            )
         except ArticleNotAssignedToModeratorError:
-            return Response({"detail": "Assign yourself to this article before moderating it."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "Assign yourself to this article before moderating it."},
+                status=status.HTTP_409_CONFLICT,
+            )
         except BlogError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         return Response(ArticleDetailSerializer(article, context={"request": request}).data)

@@ -20,8 +20,8 @@ from apps.courses.models import (
     PricingPlan,
 )
 from apps.courses.services import CourseService
-from apps.courses.views.CourseViewSet import CourseViewSet
 from apps.courses.views.CategoryViewSet import CategoryViewSet
+from apps.courses.views.CourseViewSet import CourseViewSet
 from apps.curriculum.models import Lesson, Module
 from apps.enrollments.models import Enrollment
 from apps.enrollments.tests._factories import make_student
@@ -313,10 +313,6 @@ class PublicCourseResponseCacheTests(APITestCase):
         )
 
         response = self.client.get(reverse("categories-list"))
-        category = next(
-            item
-            for item in response.data["results"]
-            if item["id"] == self.category.id
-        )
+        category = next(item for item in response.data["results"] if item["id"] == self.category.id)
 
         self.assertEqual(category["courses_count"], 1)

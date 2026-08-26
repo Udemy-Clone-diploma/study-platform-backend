@@ -8,7 +8,10 @@ from apps.users.exceptions import ApplicationAlreadyDecidedError
 from apps.users.filters import TeacherApplicationFilter
 from apps.users.models import TeacherApplication
 from apps.users.permissions import IsAdminOrModerator
-from apps.users.serializers import TeacherApplicationDecisionSerializer, TeacherApplicationSerializer
+from apps.users.serializers import (
+    TeacherApplicationDecisionSerializer,
+    TeacherApplicationSerializer,
+)
 from apps.users.services.teacher_application_service import TeacherApplicationService
 
 
@@ -19,10 +22,12 @@ def _moderator_profile(user):
 @extend_schema(tags=["Users"])
 class TeacherApplicationModerationViewSet(viewsets.ReadOnlyModelViewSet):
     """GET /teacher-applications/ and /teacher-applications/{id}/, plus the
-    approve/cancel actions — the moderator-facing queue for applications
+    approve/cancel actions, the moderator-facing queue for applications
     submitted through the public "register as teacher" form."""
 
-    queryset = TeacherApplication.objects.select_related("moderator_profile__user").prefetch_related("directions")
+    queryset = TeacherApplication.objects.select_related(
+        "moderator_profile__user"
+    ).prefetch_related("directions")
     serializer_class = TeacherApplicationSerializer
     permission_classes = [IsAdminOrModerator]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
@@ -30,7 +35,9 @@ class TeacherApplicationModerationViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["submitted_at"]
     ordering = ["-submitted_at"]
 
-    @extend_schema(request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer})
+    @extend_schema(
+        request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer}
+    )
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         application = self.get_object()
@@ -48,7 +55,9 @@ class TeacherApplicationModerationViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(TeacherApplicationSerializer(application).data)
 
-    @extend_schema(request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer})
+    @extend_schema(
+        request=TeacherApplicationDecisionSerializer, responses={200: TeacherApplicationSerializer}
+    )
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         application = self.get_object()

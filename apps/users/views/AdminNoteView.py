@@ -20,7 +20,8 @@ class AdminNoteView(generics.GenericAPIView):
         note = AdminNoteService.get_note(user)
         if note is None:
             return Response(
-                {"detail": "Note not found."}, status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Note not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(AdminNoteSerializer(note).data)
 
@@ -30,7 +31,9 @@ class AdminNoteView(generics.GenericAPIView):
         serializer = AdminNoteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         note = AdminNoteService.upsert_note(
-            user, serializer.validated_data["content"], updated_by=request.user,
+            user,
+            serializer.validated_data["content"],
+            updated_by=request.user,
         )
         return Response(AdminNoteSerializer(note).data)
 

@@ -2,7 +2,11 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.blog.exceptions import ArticleAlreadyAssignedError, ArticleNotAssignedToModeratorError, BlogError
+from apps.blog.exceptions import (
+    ArticleAlreadyAssignedError,
+    ArticleNotAssignedToModeratorError,
+    BlogError,
+)
 from apps.blog.models import Article, ArticleModerationSnapshot
 from apps.common.files import duplicate_file_field
 from apps.users.models import User
@@ -37,7 +41,8 @@ class ArticleService:
 
         title_changed = "title" in validated_data and validated_data["title"] != article.title
         can_regenerate = (
-            article.status in (Article.StatusChoices.DRAFT, Article.StatusChoices.REJECTED) and title_changed
+            article.status in (Article.StatusChoices.DRAFT, Article.StatusChoices.REJECTED)
+            and title_changed
         )
         if can_regenerate:
             validated_data["slug"] = cls._build_unique_slug(title, article)
@@ -59,7 +64,10 @@ class ArticleService:
     @transaction.atomic
     def update_article(cls, article: Article, user: User, validated_data: dict) -> Article:
         is_staff = user.role in _STAFF_ROLES
-        if not is_staff and article.status not in (Article.StatusChoices.DRAFT, Article.StatusChoices.REJECTED):
+        if not is_staff and article.status not in (
+            Article.StatusChoices.DRAFT,
+            Article.StatusChoices.REJECTED,
+        ):
             raise BlogError("Withdraw this article to draft before editing it.")
         data = cls._apply_slug(dict(validated_data), article)
         for field, value in data.items():
@@ -137,10 +145,12 @@ class ArticleService:
 
     @classmethod
     def delete_article(cls, article: Article, user: User) -> None:
-        # Staff can archive any article (see archive_article) but only ever delete their own --
+        # Staff can archive any article (see archive_article) but only ever delete their own:
         # deleting someone else's work outright isn't a moderation action, just archiving is.
         if article.author_id != user.id:
-            raise BlogError("Only the article's author can delete it. Staff can archive it instead.")
+            raise BlogError(
+                "Only the article's author can delete it. Staff can archive it instead."
+            )
         if article.status in (Article.StatusChoices.REVIEW, Article.StatusChoices.PUBLISHED):
             raise BlogError("Withdraw or archive this article before deleting it.")
         article.is_deleted = True
@@ -159,9 +169,11 @@ class ArticleService:
         return article
 
     @classmethod
-    def _create_snapshot(cls, article: Article, moderator_profile, decision: str, comment: str = "") -> None:
+    def _create_snapshot(
+        cls, article: Article, moderator_profile, decision: str, comment: str = ""
+    ) -> None:
         """Freezes the article's current display fields into a permanent moderation
-        record -- see ArticleModerationSnapshot for why this exists instead of relying
+        record, see ArticleModerationSnapshot for why this exists instead of relying
         on the live Article row (which keeps mutating after the decision)."""
         snapshot = ArticleModerationSnapshot(
             article=article,
@@ -187,7 +199,9 @@ class ArticleService:
         article.published_at = timezone.now()
         article.moderator_comment = ""
         article.save(update_fields=["status", "published_at", "moderator_comment", "updated_at"])
-        cls._create_snapshot(article, moderator_profile, ArticleModerationSnapshot.Decision.PUBLISHED)
+        cls._create_snapshot(
+            article, moderator_profile, ArticleModerationSnapshot.Decision.PUBLISHED
+        )
         return article
 
     @classmethod
@@ -200,5 +214,7 @@ class ArticleService:
         article.status = Article.StatusChoices.REJECTED
         article.moderator_comment = comment
         article.save(update_fields=["status", "moderator_comment", "updated_at"])
-        cls._create_snapshot(article, moderator_profile, ArticleModerationSnapshot.Decision.REJECTED, comment)
+        cls._create_snapshot(
+            article, moderator_profile, ArticleModerationSnapshot.Decision.REJECTED, comment
+        )
         return article

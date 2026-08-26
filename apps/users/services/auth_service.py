@@ -45,8 +45,8 @@ class AuthService:
         """Validates credentials and user state. Returns JWT token pair."""
         try:
             user = User.all_objects.get(email__iexact=email)
-        except User.DoesNotExist:
-            raise AuthenticationError("Invalid email or password.")
+        except User.DoesNotExist as exc:
+            raise AuthenticationError("Invalid email or password.") from exc
 
         if not user.check_password(password):
             raise AuthenticationError("Invalid email or password.")
@@ -73,8 +73,8 @@ class AuthService:
             payload = google_id_token.verify_oauth2_token(
                 id_token_str, google_requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
             )
-        except ValueError:
-            raise GoogleAuthError("Invalid or expired Google ID token.")
+        except ValueError as exc:
+            raise GoogleAuthError("Invalid or expired Google ID token.") from exc
 
         if not payload.get("email_verified"):
             raise GoogleAuthError("This Google account's email is not verified.")
@@ -168,8 +168,8 @@ class AuthService:
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.all_objects.get(pk=uid)
-        except (ValueError, User.DoesNotExist):
-            raise InvalidTokenError()
+        except (ValueError, User.DoesNotExist) as exc:
+            raise InvalidTokenError() from exc
 
         if user.is_deleted or user.is_blocked:
             raise InvalidTokenError()
@@ -207,8 +207,8 @@ class AuthService:
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.all_objects.get(pk=uid)
-        except (ValueError, User.DoesNotExist):
-            raise InvalidTokenError()
+        except (ValueError, User.DoesNotExist) as exc:
+            raise InvalidTokenError() from exc
 
         if user.is_deleted or user.is_blocked:
             raise InvalidTokenError()
@@ -235,8 +235,8 @@ class AuthService:
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.all_objects.get(pk=uid)
-        except (ValueError, User.DoesNotExist):
-            raise InvalidTokenError()
+        except (ValueError, User.DoesNotExist) as exc:
+            raise InvalidTokenError() from exc
 
         if user.is_deleted or user.is_blocked:
             raise InvalidTokenError()
@@ -273,7 +273,7 @@ class AuthService:
         """Sets the teacher's own password and activates the account.
 
         Since the link could only have reached the applicant's inbox, using
-        it also counts as confirming the email — one step does both.
+        it also counts as confirming the email, one step does both.
         """
         user = cls._resolve_user_for_teacher_invitation(uidb64, token)
         user.set_password(password)

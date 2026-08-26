@@ -26,7 +26,9 @@ class PricingPlanService:
         return plan
 
     @staticmethod
-    def validate_installment_fields(validated_data: dict, instance: PricingPlan | None = None) -> None:
+    def validate_installment_fields(
+        validated_data: dict, instance: PricingPlan | None = None
+    ) -> None:
         """Cross-field validation that installment_count and installment_amount
         either both appear (with sensible values) or both stay null.
         """

@@ -82,7 +82,12 @@ class CartItem(models.Model):
         if self.pricing_plan_id:
             return self.pricing_plan
         from apps.courses.models import PricingPlan
-        return PricingPlan.objects.filter(delivery_format__course=self.course).order_by("price", "id").first()
+
+        return (
+            PricingPlan.objects.filter(delivery_format__course=self.course)
+            .order_by("price", "id")
+            .first()
+        )
 
     @property
     def unit_price(self) -> Decimal:

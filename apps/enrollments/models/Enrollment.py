@@ -13,7 +13,7 @@ class EnrollmentQuerySet(models.QuerySet):
         )
 
     def with_visible_access(self):
-        """Active or suspended -- what the student's "my courses" dashboard should
+        """Active or suspended: what the student's "my courses" dashboard should
         still list. A suspended enrollment is a reversible pause (overdue
         installment), not a departure, so the course must stay visible for the
         student to see why and pay to restore it. Distinct from
@@ -30,7 +30,7 @@ class EnrollmentQuerySet(models.QuerySet):
         """Excludes enrollments the student has already finished (has a CourseCompletion).
 
         Used where "currently, actively studying" matters (notification fan-out,
-        deadlines, schedule participation) -- distinct from content access, which
+        deadlines, schedule participation), distinct from content access, which
         a finished student keeps via `with_active_access()`.
         """
         from apps.enrollments.models import CourseCompletion
@@ -153,7 +153,7 @@ class Enrollment(models.Model):
         self.save(update_fields=["access_status"])
 
     def suspend(self) -> None:
-        """Reversible pause for an overdue installment -- progress/data untouched.
+        """Reversible pause for an overdue installment, progress/data untouched.
 
         Content access is cut immediately because `with_active_access()` filters
         on `access_status="active"`. Paying any installment reactivates via the

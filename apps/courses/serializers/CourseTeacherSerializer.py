@@ -12,15 +12,21 @@ class CourseTeacherSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeacherProfile
         fields = [
-            "id", "name", "avatar", "bio", "specialization",
-            "years_experience", "partnerships_count", "students_taught",
+            "id",
+            "name",
+            "avatar",
+            "bio",
+            "specialization",
+            "years_experience",
+            "partnerships_count",
+            "students_taught",
         ]
 
     def get_avatar(self, obj: TeacherProfile) -> str | None:
         return absolute_media_url(obj.user.avatar, self.context.get("request"))
 
     def get_students_taught(self, obj: TeacherProfile) -> int:
-        """Distinct students with active access across every course this teacher owns —
+        """Distinct students with active access across every course this teacher owns,
         computed live so it always reflects current enrollments, not a stale stored count."""
         from apps.enrollments.models import Enrollment
 

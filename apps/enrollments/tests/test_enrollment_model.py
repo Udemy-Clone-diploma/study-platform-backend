@@ -87,9 +87,7 @@ class EnrollmentModelTests(TestCase):
         )
 
     def test_get_access_status_reports_suspended_and_none(self):
-        self.assertIsNone(
-            EnrollmentService.get_access_status(self.student_user, self.course)
-        )
+        self.assertIsNone(EnrollmentService.get_access_status(self.student_user, self.course))
 
         enrollment = Enrollment.objects.create(
             student_profile=self.student_profile,

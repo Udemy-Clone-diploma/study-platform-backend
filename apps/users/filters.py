@@ -46,9 +46,7 @@ class TeacherApplicationFilter(django_filters.FilterSet):
 
 class UserReportFilter(django_filters.FilterSet):
     status = django_filters.ChoiceFilter(choices=UserReport.StatusChoices.choices)
-    resolution = django_filters.ChoiceFilter(
-        choices=UserReport.ResolutionChoices.choices
-    )
+    resolution = django_filters.ChoiceFilter(choices=UserReport.ResolutionChoices.choices)
     reason = django_filters.ChoiceFilter(choices=UserReport.ReasonChoices.choices)
     search = django_filters.CharFilter(method="filter_search")
 

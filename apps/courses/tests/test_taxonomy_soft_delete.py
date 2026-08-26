@@ -77,8 +77,7 @@ class FeaturedCategoriesHidesDeletedTests(APITestCase):
 
     def test_deleted_category_not_in_featured(self):
         live = Category.objects.create(name_en="Live", slug="live", featured_order=1)
-        Category.objects.create(name_en="Dead", slug="dead", featured_order=2, is_deleted=True
-        )
+        Category.objects.create(name_en="Dead", slug="dead", featured_order=2, is_deleted=True)
 
         response = self.client.get(reverse("categories-featured"))
 

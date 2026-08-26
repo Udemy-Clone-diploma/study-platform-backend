@@ -5,18 +5,17 @@ from pathlib import Path
 from urllib.parse import quote
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.urls import include, path, re_path
 from django.utils._os import safe_join
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.generic import RedirectView
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django.views.static import serve
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from apps.payments.views import StripeWebhookView
 from apps.common.cache import cache_is_available
+from apps.payments.views import StripeWebhookView
 
 
 def health(request):
@@ -39,7 +38,7 @@ _RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)$")
 class _LimitedReader:
     """Wraps a file handle already seeked to the range start, stopping reads
     after `length` bytes. Deliberately exposes only read()/close() (no
-    seek/tell/name) -- FileResponse.set_headers() only auto-computes
+    seek/tell/name), FileResponse.set_headers() only auto-computes
     Content-Length from those attributes, and here that would overwrite the
     single-range Content-Length this view sets explicitly."""
 
@@ -67,14 +66,14 @@ def _serve_media_range(path, document_root, range_header):
     """A single-range 206 response, so <video>/<audio> scrubbing works.
 
     django.views.static.serve (which serve_media wraps below) always returns
-    the whole file with a plain 200 -- it never implements HTTP Range at all
+    the whole file with a plain 200, it never implements HTTP Range at all
     (confirmed: there is no Range/Content-Range handling anywhere in Django's
     own source). Without this, the browser has no way to seek without first
     downloading the entire file, so it just disables the scrubber outright for
     any reasonably large video.
 
     Returns None (falls back to the normal full-file response) for a missing
-    file or a Range header this doesn't understand -- multi-range requests
+    file or a Range header this doesn't understand, multi-range requests
     ("bytes=0-99,200-299") aren't supported, which is fine: browsers doing
     video seeking only ever send a single range.
     """
@@ -126,9 +125,9 @@ def _serve_media_range(path, document_root, range_header):
 
 def serve_media(request, path, document_root=None, **kwargs):
     """Wraps django.views.static.serve to (1) answer HTTP Range requests with
-    a real 206 (see _serve_media_range), (2) declare UTF-8 for text files --
+    a real 206 (see _serve_media_range), (2) declare UTF-8 for text files,
     without it browsers guess the charset (often wrong) for uploaded .txt/.md
-    materials, garbling any non-ASCII (e.g. Cyrillic) content -- and (3) force
+    materials, garbling any non-ASCII (e.g. Cyrillic) content, and (3) force
     a real "Save As" download when the frontend's Download button links here
     with `?download=<name>`, instead of just opening the file in a new tab.
     Plain links (used by the in-app image/PDF/text preview) are untouched, so
@@ -178,5 +177,9 @@ if settings.DEBUG:
     urlpatterns += [
         # Exempt from X-Frame-Options: media files (PDFs, images...) are previewed
         # in an <iframe> by the frontend, which the default DENY would block.
-        re_path(r"^media/(?P<path>.*)$", xframe_options_exempt(serve_media), {"document_root": settings.MEDIA_ROOT}),
+        re_path(
+            r"^media/(?P<path>.*)$",
+            xframe_options_exempt(serve_media),
+            {"document_root": settings.MEDIA_ROOT},
+        ),
     ]

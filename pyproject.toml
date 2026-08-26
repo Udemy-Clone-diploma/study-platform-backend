@@ -1,0 +1,25 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "N", "UP", "B", "C4"]
+ignore = ["UP047"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+
+# models/, views/ and serializers/ are PascalCase on purpose (see CLAUDE.md),
+# so N999 is silenced there and stays on everywhere else, services/ included.
+[tool.ruff.lint.per-file-ignores]
+"apps/*/models/*.py" = ["N999"]
+"apps/*/views/*.py" = ["N999"]
+"apps/*/serializers/*.py" = ["N999"]
+"apps/common/test_runner.py" = ["N802"]
+# Re-export order in __init__.py is load-bearing: apps.users.models and
+# apps.courses.models import each other, so alphabetising them breaks startup.
+"**/__init__.py" = ["I001"]

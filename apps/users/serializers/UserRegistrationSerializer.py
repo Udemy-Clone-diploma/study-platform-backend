@@ -5,9 +5,7 @@ from apps.users.models import StudentProfile, User
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True, min_length=8, validators=[validate_password]
-    )
+    password = serializers.CharField(write_only=True, min_length=8, validators=[validate_password])
     date_of_birth = serializers.DateField(write_only=True, required=False)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)

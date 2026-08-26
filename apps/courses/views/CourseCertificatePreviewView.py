@@ -12,7 +12,7 @@ from ._course_scoped import ensure_can_modify_course, get_course_for_request
 
 @extend_schema(tags=["Courses"])
 class CourseCertificatePreviewView(APIView):
-    """Live certificate preview for the course owner (teacher) or an admin --
+    """Live certificate preview for the course owner (teacher) or an admin,
     always rendered from the course's current data, never persisted."""
 
     permission_classes = [IsAuthenticated]
@@ -29,6 +29,8 @@ class CourseCertificatePreviewView(APIView):
 
         pdf = CertificateService.render_preview_pdf(course)
         response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = f'inline; filename="certificate-preview-{course.slug}.pdf"'
+        response["Content-Disposition"] = (
+            f'inline; filename="certificate-preview-{course.slug}.pdf"'
+        )
         response["Content-Length"] = str(len(pdf))
         return response

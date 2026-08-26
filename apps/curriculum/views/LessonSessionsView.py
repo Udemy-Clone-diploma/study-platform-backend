@@ -17,13 +17,14 @@ class LessonSessionsView(APIView):
     """
     GET /courses/<slug>/lessons/<lesson_id>/sessions/
 
-    Scheduled live sessions a teacher has tied to this lesson     """
+    Scheduled live sessions a teacher has tied to this lesson"""
 
     permission_classes = [AllowAny]
 
     def get(self, request, slug: str, lesson_id: int):
         course = Course.objects.filter(
-            slug=slug, status=Course.StatusChoices.PUBLISHED,
+            slug=slug,
+            status=Course.StatusChoices.PUBLISHED,
         ).first()
         if course is None:
             return Response({"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -45,16 +46,18 @@ class LessonSessionsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response([
-            {
-                "id": s.id,
-                "date": s.date.isoformat(),
-                "start_time": s.start_time.strftime("%H:%M"),
-                "end_time": s.end_time.strftime("%H:%M"),
-                "meeting_link": s.meeting_link,
-            }
-            for s in sessions
-        ])
+        return Response(
+            [
+                {
+                    "id": s.id,
+                    "date": s.date.isoformat(),
+                    "start_time": s.start_time.strftime("%H:%M"),
+                    "end_time": s.end_time.strftime("%H:%M"),
+                    "meeting_link": s.meeting_link,
+                }
+                for s in sessions
+            ]
+        )
 
     @staticmethod
     def _base(lesson):

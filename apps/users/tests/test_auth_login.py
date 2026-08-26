@@ -8,23 +8,17 @@ from ._factories import make_user
 class AuthLoginEndpointTests(APITestCase):
     def setUp(self):
         self.url = reverse("auth-login")
-        self.user = make_user(
-            role="student", email="login@example.com", verified=True
-        )
+        self.user = make_user(role="student", email="login@example.com", verified=True)
 
     def test_login_returns_token_pair(self):
-        response = self.client.post(
-            self.url, {"email": self.user.email, "password": "pass12345"}
-        )
+        response = self.client.post(self.url, {"email": self.user.email, "password": "pass12345"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
 
     def test_login_with_wrong_password_returns_401(self):
-        response = self.client.post(
-            self.url, {"email": self.user.email, "password": "wrong"}
-        )
+        response = self.client.post(self.url, {"email": self.user.email, "password": "wrong"})
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -36,13 +30,9 @@ class AuthLoginEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_unverified_email_blocks_login_with_403(self):
-        unverified = make_user(
-            role="student", email="unverified@example.com", verified=False
-        )
+        unverified = make_user(role="student", email="unverified@example.com", verified=False)
 
-        response = self.client.post(
-            self.url, {"email": unverified.email, "password": "pass12345"}
-        )
+        response = self.client.post(self.url, {"email": unverified.email, "password": "pass12345"})
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -50,9 +40,7 @@ class AuthLoginEndpointTests(APITestCase):
         self.user.is_blocked = True
         self.user.save()
 
-        response = self.client.post(
-            self.url, {"email": self.user.email, "password": "pass12345"}
-        )
+        response = self.client.post(self.url, {"email": self.user.email, "password": "pass12345"})
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -60,9 +48,7 @@ class AuthLoginEndpointTests(APITestCase):
         self.user.is_deleted = True
         self.user.save()
 
-        response = self.client.post(
-            self.url, {"email": self.user.email, "password": "pass12345"}
-        )
+        response = self.client.post(self.url, {"email": self.user.email, "password": "pass12345"})
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 

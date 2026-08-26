@@ -44,13 +44,16 @@ class DeliveryFormatService:
 
     @staticmethod
     def _validate_installment(
-        validated_data: dict, instance: PricingPlan | None = None,
+        validated_data: dict,
+        instance: PricingPlan | None = None,
     ) -> None:
         count = validated_data.get(
-            "installment_count", getattr(instance, "installment_count", None),
+            "installment_count",
+            getattr(instance, "installment_count", None),
         )
         amount = validated_data.get(
-            "installment_amount", getattr(instance, "installment_amount", None),
+            "installment_amount",
+            getattr(instance, "installment_amount", None),
         )
         price = validated_data.get("price", getattr(instance, "price", None))
 

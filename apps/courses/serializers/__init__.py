@@ -2,7 +2,10 @@ from .CategorySerializer import CategorySerializer, CategoryWriteSerializer
 from .CohortSerializer import CohortSerializer
 from .CohortGroupSerializer import CohortMemberSerializer, EnrolledStudentSerializer
 from .CourseCreateUpdateSerializer import CourseCreateUpdateSerializer
-from .CourseDeliveryFormatSerializer import CourseDeliveryFormatSerializer, CourseDeliveryFormatWriteSerializer
+from .CourseDeliveryFormatSerializer import (
+    CourseDeliveryFormatSerializer,
+    CourseDeliveryFormatWriteSerializer,
+)
 from .CourseDetailSerializer import CourseDetailSerializer
 from .ApprovedCourseRecordSerializer import ApprovedCourseRecordSerializer
 from .CourseListSerializer import CourseListSerializer

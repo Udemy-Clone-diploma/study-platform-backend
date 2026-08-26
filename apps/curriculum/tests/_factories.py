@@ -25,7 +25,10 @@ def make_module(course, *, order=1, title="Module"):
 
 def make_lesson(module, *, order=1, title="Lesson", is_preview=False):
     return Lesson.objects.create(
-        module=module, title=title, order=order, is_preview=is_preview,
+        module=module,
+        title=title,
+        order=order,
+        is_preview=is_preview,
     )
 
 
@@ -49,26 +52,34 @@ def build_quiz(module, *, order=1, **test_overrides):
     test = make_test(module, order=order, **test_overrides)
     questions = {
         "single": Question.objects.create(
-            test=test, order=1,
+            test=test,
+            order=1,
             question_type=Question.TypeChoices.SINGLE_CHOICE,
-            text="What is 2 + 2?", options=["3", "4", "5", "6"],
+            text="What is 2 + 2?",
+            options=["3", "4", "5", "6"],
             correct_indices=[1],
         ),
         "multi": Question.objects.create(
-            test=test, order=2,
+            test=test,
+            order=2,
             question_type=Question.TypeChoices.MULTIPLE_CHOICE,
-            text="Which are prime?", options=["2", "4", "7", "9"],
+            text="Which are prime?",
+            options=["2", "4", "7", "9"],
             correct_indices=[0, 2],
         ),
         "tf": Question.objects.create(
-            test=test, order=3,
+            test=test,
+            order=3,
             question_type=Question.TypeChoices.TRUE_FALSE,
-            text="The sky is blue.", correct_bool=True,
+            text="The sky is blue.",
+            correct_bool=True,
         ),
         "short": Question.objects.create(
-            test=test, order=4,
+            test=test,
+            order=4,
             question_type=Question.TypeChoices.SHORT_ANSWER,
-            text="Capital of France?", sample_answer="Paris",
+            text="Capital of France?",
+            sample_answer="Paris",
             accepted_answers=["Lutetia"],
         ),
     }
@@ -87,6 +98,8 @@ def all_correct_answers(questions: dict) -> list[dict]:
 
 def attach_test_to_lesson(lesson, test, *, order=1):
     return LessonItem.objects.create(
-        lesson=lesson, order=order,
-        item_type=LessonItem.ItemType.TEST, test=test,
+        lesson=lesson,
+        order=order,
+        item_type=LessonItem.ItemType.TEST,
+        test=test,
     )

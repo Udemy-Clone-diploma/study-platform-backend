@@ -137,7 +137,9 @@ class TeacherApplicationModerationPermissionTests(APITestCase):
 
     def test_anonymous_forbidden(self):
         response = self.client.get(self.url)
-        self.assertIn(response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.assertIn(
+            response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+        )
 
     def test_student_forbidden(self):
         student = make_user(role="student", email="student@example.com")
@@ -270,6 +272,7 @@ class TeacherInvitationConfirmTests(APITestCase):
 
     def test_login_blocked_until_invitation_confirmed(self):
         response = self.client.post(
-            reverse("auth-login"), {"email": self.user.email, "password": "anything"},
+            reverse("auth-login"),
+            {"email": self.user.email, "password": "anything"},
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -35,7 +35,8 @@ class BlogCategoryService:
     def update_category(cls, category: BlogCategory, validated_data: dict) -> BlogCategory:
         if "slug" in validated_data and not validated_data["slug"]:
             validated_data["slug"] = cls._generate_unique_slug(
-                validated_data.get("name_en", category.name_en), exclude_pk=category.pk,
+                validated_data.get("name_en", category.name_en),
+                exclude_pk=category.pk,
             )
         for field, value in validated_data.items():
             setattr(category, field, value)

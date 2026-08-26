@@ -22,7 +22,10 @@ class PricingPlan(models.Model):
     )
     installment_count = models.PositiveSmallIntegerField(null=True, blank=True)
     installment_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
     )
 
     class Meta:

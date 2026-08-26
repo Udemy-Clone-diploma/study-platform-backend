@@ -20,16 +20,12 @@ class CohortReadTests(APITestCase):
         make_cohort(self.published, duration_months=6)
 
     def test_anonymous_cannot_list_management_cohorts(self):
-        response = self.client.get(
-            reverse("cohorts-list", args=[self.published.slug])
-        )
+        response = self.client.get(reverse("cohorts-list", args=[self.published.slug]))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_course_owner_can_list_management_cohorts(self):
         self.client.force_authenticate(user=self.teacher_profile.user)
-        response = self.client.get(
-            reverse("cohorts-list", args=[self.published.slug])
-        )
+        response = self.client.get(reverse("cohorts-list", args=[self.published.slug]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 2)
 
@@ -37,9 +33,7 @@ class CohortReadTests(APITestCase):
         student, _ = make_student(email="cohort_student@example.com")
         self.client.force_authenticate(user=student)
 
-        response = self.client.get(
-            reverse("cohorts-list", args=[self.published.slug])
-        )
+        response = self.client.get(reverse("cohorts-list", args=[self.published.slug]))
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -95,8 +89,6 @@ class CohortWriteTests(APITestCase):
     def test_owner_can_delete(self):
         cohort = make_cohort(self.course)
         self.client.force_authenticate(user=self.owner_profile.user)
-        response = self.client.delete(
-            reverse("cohorts-detail", args=[self.course.slug, cohort.pk])
-        )
+        response = self.client.delete(reverse("cohorts-detail", args=[self.course.slug, cohort.pk]))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Cohort.objects.filter(pk=cohort.pk).exists())

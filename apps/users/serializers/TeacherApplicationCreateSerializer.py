@@ -6,7 +6,9 @@ from apps.users.models import TeacherApplication
 
 class TeacherApplicationCreateSerializer(serializers.ModelSerializer):
     directions = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(), many=True, required=False,
+        queryset=Category.objects.all(),
+        many=True,
+        required=False,
     )
 
     class Meta:

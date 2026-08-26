@@ -11,7 +11,8 @@ from .models import Review
 
 def _recompute_course_rating(course_id: int) -> None:
     aggregates = Review.objects.filter(course_id=course_id).aggregate(
-        avg=Avg("rating"), total=Count("id"),
+        avg=Avg("rating"),
+        total=Count("id"),
     )
     Course.all_objects.filter(pk=course_id).update(
         rating_avg=aggregates["avg"] or Decimal("0.00"),

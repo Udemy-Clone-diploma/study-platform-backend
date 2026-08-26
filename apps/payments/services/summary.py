@@ -137,8 +137,7 @@ class SummaryService(PaymentBaseService):
         trunc = TRUNC_FUNCTIONS.get(group_by)
         if trunc is None:
             raise PaymentError(
-                f"Unsupported group_by '{group_by}'. Use one of: "
-                f"{', '.join(TRUNC_FUNCTIONS)}."
+                f"Unsupported group_by '{group_by}'. Use one of: {', '.join(TRUNC_FUNCTIONS)}."
             )
 
         payments = cls._one_row_per_payment(queryset).filter(status__in=CHARGED_STATUSES)
@@ -155,7 +154,11 @@ class SummaryService(PaymentBaseService):
 
     @classmethod
     def _zero_fill(
-        cls, rows: list[dict], group_by: str, date_from: date | None, date_to: date | None,
+        cls,
+        rows: list[dict],
+        group_by: str,
+        date_from: date | None,
+        date_to: date | None,
     ) -> list[dict]:
         """Span the requested window, or the observed data when no window was
         given. Every currency gets its own continuous series, so a currency that
@@ -285,6 +288,4 @@ class SummaryService(PaymentBaseService):
             )
             bucket["gross_revenue"] += row["total"]
 
-        return sorted(
-            results.values(), key=lambda row: (row["currency"], -row["gross_revenue"])
-        )
+        return sorted(results.values(), key=lambda row: (row["currency"], -row["gross_revenue"]))

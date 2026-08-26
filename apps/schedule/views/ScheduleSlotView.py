@@ -1,5 +1,6 @@
-from datetime import datetime, timezone as dt_timezone
+from datetime import UTC, datetime
 
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers, status
 from rest_framework.exceptions import NotFound
@@ -8,17 +9,18 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.db.models import Q
-
-from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
-from apps.schedule.models import CohortSchedule, PersonalEvent, EventInvitation, ScheduleSlot, Session
-from apps.schedule.serializers import ScheduleSlotSerializer, ScheduleSlotRescheduleSerializer, ScheduleSlotWriteSerializer
-from apps.schedule.services import ScheduleService, ScheduleNotificationService
 from apps.courses.models import CourseDeliveryFormat
-from apps.enrollments.models import Enrollment
-from apps.users.models import User
-
 from apps.courses.views._course_scoped import ensure_can_modify_course, get_course_for_request
+from apps.enrollments.models import Enrollment
+from apps.schedule.exceptions import InvalidScheduleTimeError, TeacherScheduleConflictError
+from apps.schedule.models import EventInvitation, PersonalEvent, ScheduleSlot
+from apps.schedule.serializers import (
+    ScheduleSlotRescheduleSerializer,
+    ScheduleSlotSerializer,
+    ScheduleSlotWriteSerializer,
+)
+from apps.schedule.services import ScheduleNotificationService, ScheduleService
+from apps.users.models import User
 
 
 class _EnrollmentPeriodSerializer(serializers.Serializer):
@@ -34,16 +36,16 @@ def _get_delivery_format(view, slug: str, format_id: int) -> CourseDeliveryForma
             course=course,
             format_type=CourseDeliveryFormat.FormatType.INDIVIDUAL,
         )
-    except CourseDeliveryFormat.DoesNotExist:
-        raise NotFound("Individual delivery format not found.")
+    except CourseDeliveryFormat.DoesNotExist as exc:
+        raise NotFound("Individual delivery format not found.") from exc
 
 
 def _get_slot(view, slug: str, format_id: int, slot_id: int) -> ScheduleSlot:
     fmt = _get_delivery_format(view, slug, format_id)
     try:
         return ScheduleSlot.objects.get(pk=slot_id, delivery_format=fmt)
-    except ScheduleSlot.DoesNotExist:
-        raise NotFound("Schedule slot not found.")
+    except ScheduleSlot.DoesNotExist as exc:
+        raise NotFound("Schedule slot not found.") from exc
 
 
 @extend_schema(tags=["Schedule"])
@@ -64,9 +66,9 @@ class ScheduleSlotListCreateView(generics.GenericAPIView):
         fmt = _get_delivery_format(self, slug, format_id)
         user = request.user
 
-        if (
-            user.is_authenticated
-            and user.role in (User.RoleChoices.TEACHER, User.RoleChoices.ADMINISTRATOR)
+        if user.is_authenticated and user.role in (
+            User.RoleChoices.TEACHER,
+            User.RoleChoices.ADMINISTRATOR,
         ):
             slots = ScheduleService.get_all_slots(fmt)
         else:
@@ -189,48 +191,57 @@ class ScheduleSlotPersonalConflictView(APIView):
         slot = _get_slot(self, slug, format_id, slot_id)
         ensure_can_modify_course(request.user, slot.delivery_format.course)
 
-        user     = request.user
-        dow      = slot.day_of_week
-        iso_dow  = dow + 1
-        start_t  = slot.start_time
-        end_t    = slot.end_time
-        time_q   = Q(start_time__lt=end_t) & Q(end_time__gt=start_t)
+        user = request.user
+        dow = slot.day_of_week
+        iso_dow = dow + 1
+        start_t = slot.start_time
+        end_t = slot.end_time
+        time_q = Q(start_time__lt=end_t) & Q(end_time__gt=start_t)
         date_dow = Q(date__iso_week_day=iso_dow)
 
-        personal_qs = PersonalEvent.objects.filter(
-            Q(owner=user) & date_dow & time_q
-        ).order_by("date")
+        personal_qs = PersonalEvent.objects.filter(Q(owner=user) & date_dow & time_q).order_by(
+            "date"
+        )
 
-        inv_qs = EventInvitation.objects.filter(
-            invitee=user,
-            status__in=[EventInvitation.Status.PENDING, EventInvitation.Status.ACCEPTED],
-        ).filter(
-            Q(event__date__iso_week_day=iso_dow)
-            & Q(event__start_time__lt=end_t)
-            & Q(event__end_time__gt=start_t)
-        ).select_related("event").order_by("event__date")
+        inv_qs = (
+            EventInvitation.objects.filter(
+                invitee=user,
+                status__in=[EventInvitation.Status.PENDING, EventInvitation.Status.ACCEPTED],
+            )
+            .filter(
+                Q(event__date__iso_week_day=iso_dow)
+                & Q(event__start_time__lt=end_t)
+                & Q(event__end_time__gt=start_t)
+            )
+            .select_related("event")
+            .order_by("event__date")
+        )
 
         result = []
         for ev in personal_qs:
-            result.append({
-                "id":           ev.id,
-                "title":        ev.title,
-                "date":         ev.date.isoformat(),
-                "start_time":   ev.start_time.strftime("%H:%M"),
-                "end_time":     ev.end_time.strftime("%H:%M"),
-                "is_owner":     True,
-                "invitation_id": None,
-            })
+            result.append(
+                {
+                    "id": ev.id,
+                    "title": ev.title,
+                    "date": ev.date.isoformat(),
+                    "start_time": ev.start_time.strftime("%H:%M"),
+                    "end_time": ev.end_time.strftime("%H:%M"),
+                    "is_owner": True,
+                    "invitation_id": None,
+                }
+            )
         for inv in inv_qs:
-            result.append({
-                "id":           inv.event_id,
-                "title":        inv.event.title,
-                "date":         inv.event.date.isoformat(),
-                "start_time":   inv.event.start_time.strftime("%H:%M"),
-                "end_time":     inv.event.end_time.strftime("%H:%M"),
-                "is_owner":     False,
-                "invitation_id": inv.id,
-            })
+            result.append(
+                {
+                    "id": inv.event_id,
+                    "title": inv.event.title,
+                    "date": inv.event.date.isoformat(),
+                    "start_time": inv.event.start_time.strftime("%H:%M"),
+                    "end_time": inv.event.end_time.strftime("%H:%M"),
+                    "is_owner": False,
+                    "invitation_id": inv.id,
+                }
+            )
 
         return Response(result)
 
@@ -242,21 +253,23 @@ class ScheduleSlotConflictView(APIView):
     Returns categorised conflicts for a proposed day+time without blocking.
     Query params: day_of_week, start_time, end_time, slot_id (self, to exclude)
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, slug, format_id):
         from datetime import time as time_type
+
         fmt = _get_delivery_format(self, slug, format_id)
         ensure_can_modify_course(request.user, fmt.course)
 
         try:
             day_of_week = int(request.query_params["day_of_week"])
-            start_str   = request.query_params["start_time"]
-            end_str     = request.query_params["end_time"]
+            start_str = request.query_params["start_time"]
+            end_str = request.query_params["end_time"]
             sh, sm = map(int, start_str.split(":"))
             eh, em = map(int, end_str.split(":"))
             start_t = time_type(sh, sm)
-            end_t   = time_type(eh, em)
+            end_t = time_type(eh, em)
         except (KeyError, ValueError, AttributeError):
             return Response(
                 {"detail": "day_of_week, start_time, end_time are required."},
@@ -267,7 +280,10 @@ class ScheduleSlotConflictView(APIView):
         exclude_id = int(slot_id_param) if slot_id_param and slot_id_param.isdigit() else None
 
         conflicts = ScheduleService.get_schedule_conflicts(
-            fmt.course.teacher_profile, day_of_week, start_t, end_t,
+            fmt.course.teacher_profile,
+            day_of_week,
+            start_t,
+            end_t,
             exclude_slot_id=exclude_id,
         )
         return Response(conflicts)
@@ -295,13 +311,12 @@ class EnrollmentPeriodView(APIView):
         update_fields = []
         if "access_granted_at" in data:
             d = data["access_granted_at"]
-            enrollment.access_granted_at = datetime(d.year, d.month, d.day, tzinfo=dt_timezone.utc)
+            enrollment.access_granted_at = datetime(d.year, d.month, d.day, tzinfo=UTC)
             update_fields.append("access_granted_at")
         if "access_until" in data:
             d = data["access_until"]
             enrollment.access_until = (
-                datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=dt_timezone.utc)
-                if d else None
+                datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=UTC) if d else None
             )
             update_fields.append("access_until")
 
@@ -309,4 +324,5 @@ class EnrollmentPeriodView(APIView):
             enrollment.save(update_fields=update_fields)
 
         from apps.courses.serializers.CohortGroupSerializer import EnrolledStudentSerializer
+
         return Response(EnrolledStudentSerializer(enrollment).data)

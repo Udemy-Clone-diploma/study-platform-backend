@@ -5,7 +5,10 @@ from rest_framework.response import Response
 
 from apps.courses.exceptions import DuplicateDeliveryFormatError
 from apps.courses.models import CourseDeliveryFormat
-from apps.courses.serializers import CourseDeliveryFormatSerializer, CourseDeliveryFormatWriteSerializer
+from apps.courses.serializers import (
+    CourseDeliveryFormatSerializer,
+    CourseDeliveryFormatWriteSerializer,
+)
 from apps.courses.services import DeliveryFormatService
 
 from ._course_scoped import (
@@ -17,12 +20,15 @@ from ._course_scoped import (
 
 @extend_schema(tags=["DeliveryFormats"])
 class DeliveryFormatListCreateView(generics.ListCreateAPIView):
-
     def get_permissions(self):
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
-        return CourseDeliveryFormatWriteSerializer if self.request.method == "POST" else CourseDeliveryFormatSerializer
+        return (
+            CourseDeliveryFormatWriteSerializer
+            if self.request.method == "POST"
+            else CourseDeliveryFormatSerializer
+        )
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])
@@ -55,7 +61,11 @@ class DeliveryFormatDetailView(generics.RetrieveUpdateDestroyAPIView):
         return [IsAuthenticated()]
 
     def get_serializer_class(self):
-        return CourseDeliveryFormatWriteSerializer if self.request.method == "PATCH" else CourseDeliveryFormatSerializer
+        return (
+            CourseDeliveryFormatWriteSerializer
+            if self.request.method == "PATCH"
+            else CourseDeliveryFormatSerializer
+        )
 
     def get_queryset(self):
         course = get_course_for_request(self, self.kwargs["slug"])

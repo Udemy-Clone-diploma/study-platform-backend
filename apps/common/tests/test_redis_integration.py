@@ -3,7 +3,6 @@ import time
 import uuid
 from unittest import skipUnless
 
-from django.core.cache import cache
 from django.test import SimpleTestCase, override_settings
 
 from apps.common.cache import (

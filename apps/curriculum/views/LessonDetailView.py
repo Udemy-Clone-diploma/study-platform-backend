@@ -5,8 +5,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.courses.models import Course
 from apps.common.cache import cache_get_or_set, jittered_cache_timeout
+from apps.courses.models import Course
 from apps.curriculum.cache import lesson_detail_cache_key
 from apps.curriculum.models import Lesson
 from apps.curriculum.serializers import LessonSerializer
@@ -21,11 +21,13 @@ class LessonDetailView(APIView):
     @extend_schema(responses=LessonSerializer)
     def get(self, request, slug: str, lesson_id: int):
         course = Course.objects.filter(
-            slug=slug, status=Course.StatusChoices.PUBLISHED,
+            slug=slug,
+            status=Course.StatusChoices.PUBLISHED,
         ).first()
         if course is None:
             return Response(
-                {"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Course not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         lesson = (
@@ -35,7 +37,8 @@ class LessonDetailView(APIView):
         )
         if lesson is None:
             return Response(
-                {"detail": "Lesson not found."}, status=status.HTTP_404_NOT_FOUND,
+                {"detail": "Lesson not found."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         # Teachers / staff see the full test (answers included); enrolled students get

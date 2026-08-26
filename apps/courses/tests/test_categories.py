@@ -54,9 +54,7 @@ class CategoryWritePermissionTests(APITestCase):
         self.category = Category.objects.create(name_en="Development", slug="development")
 
     def test_anonymous_cannot_create(self):
-        response = self.client.post(
-            reverse("categories-list"), {"name_en": "New"}, format="json"
-        )
+        response = self.client.post(reverse("categories-list"), {"name_en": "New"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -66,9 +64,7 @@ class CategoryWritePermissionTests(APITestCase):
         )
         self.client.force_authenticate(user=student)
 
-        response = self.client.post(
-            reverse("categories-list"), {"name_en": "New"}, format="json"
-        )
+        response = self.client.post(reverse("categories-list"), {"name_en": "New"}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -92,9 +88,7 @@ class CategoryWritePermissionTests(APITestCase):
         )
         self.client.force_authenticate(user=student)
 
-        response = self.client.delete(
-            reverse("categories-detail", args=[self.category.pk])
-        )
+        response = self.client.delete(reverse("categories-detail", args=[self.category.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -211,9 +205,7 @@ class CategoryDeleteTests(APITestCase):
     def test_delete_empty_category_soft_deletes(self):
         category = Category.objects.create(name_en="Empty", slug="empty")
 
-        response = self.client.delete(
-            reverse("categories-detail", args=[category.pk])
-        )
+        response = self.client.delete(reverse("categories-detail", args=[category.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Category.objects.filter(pk=category.pk).exists())
@@ -223,9 +215,7 @@ class CategoryDeleteTests(APITestCase):
         category = Category.objects.create(name_en="Busy", slug="busy")
         make_course(self.teacher_profile, category=category)
 
-        response = self.client.delete(
-            reverse("categories-detail", args=[category.pk])
-        )
+        response = self.client.delete(reverse("categories-detail", args=[category.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         category.refresh_from_db()
@@ -237,8 +227,6 @@ class CategoryDeleteTests(APITestCase):
         course.is_deleted = True
         course.save(update_fields=["is_deleted"])
 
-        response = self.client.delete(
-            reverse("categories-detail", args=[category.pk])
-        )
+        response = self.client.delete(reverse("categories-detail", args=[category.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)

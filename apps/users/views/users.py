@@ -28,7 +28,7 @@ from apps.users.services.user_service import UserService
 
 @extend_schema(tags=["Users"])
 class UserSearchView(APIView):
-    """GET /users/search/?email=... — find users to invite to personal events.
+    """GET /users/search/ finds users to invite to personal events.
 
     Not the admin user search: the admin Users table filters via
     GET /users/?search= instead.
@@ -42,17 +42,21 @@ class UserSearchView(APIView):
             return Response({"detail": "Provide at least 3 characters"}, status=400)
 
         users = (
-            User.objects
-            .filter(email__icontains=email)
-            .exclude(pk=request.user.pk)
-            [:10]
+            User.objects.filter(email__icontains=email)
+            .exclude(
+                role__in=(
+                    User.RoleChoices.MODERATOR,
+                    User.RoleChoices.ADMINISTRATOR,
+                )
+            )
+            .exclude(pk=request.user.pk)[:10]
         )
         data = [
             {
-                "id":     u.id,
-                "email":  u.email,
-                "name":   u.get_full_name() or u.email,
-                "role":   u.role,
+                "id": u.id,
+                "email": u.email,
+                "name": u.get_full_name() or u.email,
+                "role": u.role,
                 "avatar": request.build_absolute_uri(u.avatar.url) if u.avatar else None,
             }
             for u in users
@@ -78,9 +82,7 @@ class UserViewSet(viewsets.ModelViewSet):
         else:
             queryset = User.objects.all()
         # Backs ?ordering=full_name for the admin table's User column.
-        return queryset.annotate(
-            full_name=Concat("first_name", Value(" "), "last_name")
-        )
+        return queryset.annotate(full_name=Concat("first_name", Value(" "), "last_name"))
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -120,9 +122,7 @@ class UserViewSet(viewsets.ModelViewSet):
         try:
             UserService.soft_delete_user(user, acting_user=request.user)
         except (SelfActionError, LastAdministratorError) as e:
-            return Response(
-                {"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(request=None, responses={200: UserSerializer})
@@ -149,9 +149,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 acting_user=request.user,
             )
         except (SelfActionError, LastAdministratorError) as e:
-            return Response(
-                {"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return self._user_response(user)
 

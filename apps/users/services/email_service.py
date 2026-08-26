@@ -9,7 +9,11 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from apps.users.email_content import get_email_content, resolve_email_locale
-from apps.users.tokens import email_verification_token, password_reset_token, teacher_invitation_token
+from apps.users.tokens import (
+    email_verification_token,
+    password_reset_token,
+    teacher_invitation_token,
+)
 
 COMPANY_NAME = "Nexo4You"
 LOGO_PATH = Path(settings.BASE_DIR) / "apps" / "common" / "assets" / "logo" / "nexo4u_logo.png"
@@ -112,7 +116,7 @@ class EmailService:
         """The one email sent after a teacher application is approved.
 
         A single link both confirms the email and lets the teacher set their
-        own password — no generated password is ever emailed.
+        own password, no generated password is ever emailed.
         """
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = teacher_invitation_token.make_token(user)

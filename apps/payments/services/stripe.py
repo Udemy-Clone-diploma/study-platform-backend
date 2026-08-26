@@ -14,7 +14,9 @@ class StripeService(PaymentBaseService):
         try:
             import stripe
         except ImportError as exc:
-            raise ImproperlyConfigured("Install the stripe package to use Stripe payments.") from exc
+            raise ImproperlyConfigured(
+                "Install the stripe package to use Stripe payments."
+            ) from exc
 
         secret_key = getattr(settings, "STRIPE_SECRET_KEY", "")
         if not secret_key:
@@ -81,7 +83,9 @@ class StripeService(PaymentBaseService):
         )
 
     @classmethod
-    def _create_stripe_refund(cls, *, payment: Payment, amount, reason: str, idempotency_key: str | None = None):
+    def _create_stripe_refund(
+        cls, *, payment: Payment, amount, reason: str, idempotency_key: str | None = None
+    ):
         stripe = cls._load_stripe()
         return stripe.Refund.create(
             payment_intent=payment.stripe_payment_intent_id,
@@ -91,7 +95,8 @@ class StripeService(PaymentBaseService):
             metadata={"payment_id": str(payment.id), "reason": reason},
             reverse_transfer=True,
             refund_application_fee=True,
-            idempotency_key=idempotency_key or f"refund-payment-{payment.id}-{cls._to_minor_units(amount)}",
+            idempotency_key=idempotency_key
+            or f"refund-payment-{payment.id}-{cls._to_minor_units(amount)}",
         )
 
     @classmethod

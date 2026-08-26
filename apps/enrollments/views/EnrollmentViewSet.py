@@ -1,10 +1,9 @@
-from drf_spectacular.utils import extend_schema
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.enrollments.exceptions import (
     CourseNotEnrollableError,
     DuplicateEnrollmentError,
@@ -18,6 +17,7 @@ from apps.enrollments.serializers import (
     EnrollmentUpdateSerializer,
 )
 from apps.enrollments.services import EnrollmentService
+from apps.schedule.exceptions import SlotAlreadyBookedError, SlotNotAvailableError
 from apps.users.permissions import IsAdmin
 
 

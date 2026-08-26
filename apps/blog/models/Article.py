@@ -43,7 +43,7 @@ class Article(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=ARTICLE_IMAGE_EXTENSIONS)],
     )
-    # Cached MD5 of `cover_image`'s bytes -- see Course.image_hash for why.
+    # Cached MD5 of `cover_image`'s bytes. See Course.image_hash for why.
     cover_image_hash = models.CharField(max_length=32, blank=True, default="")
 
     # Per-format crop box: {"card": {"x", "y", "width", "height"}, "row": {...}, "banner": {...}}

@@ -68,7 +68,10 @@ class AdminBulkDeleteRecomputesLessonsCountTests(TestCase):
     def setUpTestData(cls):
         _, cls.teacher_profile = make_teacher(email="bulk_admin@example.com")
         cls.course = make_course(
-            cls.teacher_profile, title="Bulk", slug="bulk", short_description="x",
+            cls.teacher_profile,
+            title="Bulk",
+            slug="bulk",
+            short_description="x",
             full_description="x",
         )
         cls.module = Module.objects.create(course=cls.course, title="M", order=1)
@@ -86,9 +89,7 @@ class AdminBulkDeleteRecomputesLessonsCountTests(TestCase):
     def test_lesson_admin_bulk_delete_drops_count(self):
         request = RequestFactory().post("/admin/courses/lesson/")
         to_delete_ids = list(
-            Lesson.objects.filter(module=self.module)
-            .order_by("order")
-            .values_list("pk", flat=True)
+            Lesson.objects.filter(module=self.module).order_by("order").values_list("pk", flat=True)
         )[:2]
         to_delete = Lesson.objects.filter(pk__in=to_delete_ids)
 
@@ -100,9 +101,7 @@ class AdminBulkDeleteRecomputesLessonsCountTests(TestCase):
     def test_module_admin_bulk_delete_drops_count_to_zero(self):
         request = RequestFactory().post("/admin/courses/module/")
 
-        self._admin(Module).delete_queryset(
-            request, Module.objects.filter(pk=self.module.pk)
-        )
+        self._admin(Module).delete_queryset(request, Module.objects.filter(pk=self.module.pk))
 
         self.course.refresh_from_db()
         self.assertEqual(self.course.lessons_count, 0)

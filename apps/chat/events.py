@@ -1,12 +1,11 @@
 import logging
-from celery import shared_task
 
 from asgiref.sync import async_to_sync
+from celery import shared_task
 from channels.layers import get_channel_layer
 
 from apps.chat.models import ChatParticipant, ChatRoom, Message
 from apps.chat.serializers import ChatMessageSerializer, ChatRoomSerializer
-
 
 logger = logging.getLogger(__name__)
 

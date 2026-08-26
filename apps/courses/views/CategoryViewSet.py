@@ -57,11 +57,7 @@ class CategoryViewSet(
 
     def _is_admin_request(self) -> bool:
         user = self.request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and user.role == User.RoleChoices.ADMINISTRATOR
-        )
+        return bool(user and user.is_authenticated and user.role == User.RoleChoices.ADMINISTRATOR)
 
     def list(self, request, *args, **kwargs):
         if self._is_admin_request():

@@ -122,8 +122,9 @@ class CartSerializer(serializers.ModelSerializer):
 
 class CartItemAddSerializer(serializers.Serializer):
     course_id = serializers.PrimaryKeyRelatedField(
-        queryset=Course.objects.select_related("teacher_profile__user", "category")
-        .prefetch_related("delivery_formats", "delivery_formats__pricing", "tags"),
+        queryset=Course.objects.select_related(
+            "teacher_profile__user", "category"
+        ).prefetch_related("delivery_formats", "delivery_formats__pricing", "tags"),
         source="course",
         write_only=True,
     )
@@ -162,18 +163,19 @@ class CartItemAddSerializer(serializers.Serializer):
 
         if pricing_plan is None:
             from apps.courses.models import PricingPlan as _PricingPlan
-            pricing_plan = _PricingPlan.objects.filter(delivery_format__course=course).order_by("price", "id").first()
+
+            pricing_plan = (
+                _PricingPlan.objects.filter(delivery_format__course=course)
+                .order_by("price", "id")
+                .first()
+            )
             if pricing_plan is not None:
                 attrs["pricing_plan"] = pricing_plan
 
         delivery_format = pricing_plan.delivery_format if pricing_plan is not None else None
-        if (
-            cohort is not None
-            and (
-                delivery_format is None
-                or delivery_format.format_type
-                != CourseDeliveryFormat.FormatType.GROUP
-            )
+        if cohort is not None and (
+            delivery_format is None
+            or delivery_format.format_type != CourseDeliveryFormat.FormatType.GROUP
         ):
             raise serializers.ValidationError(
                 {"cohort_id": "A cohort can only be selected for the group format."}
@@ -204,9 +206,7 @@ class CartItemAddSerializer(serializers.Serializer):
                     {"cohort_id": "Enrollment for this cohort has closed."}
                 )
             if cohort.group_size is not None and cohort.members.count() >= cohort.group_size:
-                raise serializers.ValidationError(
-                    {"cohort_id": "This cohort is full."}
-                )
+                raise serializers.ValidationError({"cohort_id": "This cohort is full."})
 
         if schedule_slots:
             if len(schedule_slots) not in (2, 3):
@@ -220,11 +220,15 @@ class CartItemAddSerializer(serializers.Serializer):
                     )
                 if slot.delivery_format.format_type != CourseDeliveryFormat.FormatType.INDIVIDUAL:
                     raise serializers.ValidationError(
-                        {"schedule_slot_ids": "Time slot is not part of the individual coaching format."}
+                        {
+                            "schedule_slot_ids": "Time slot is not part of the individual coaching format."
+                        }
                     )
                 if not slot.is_available:
                     raise serializers.ValidationError(
-                        {"schedule_slot_ids": "One of the selected time slots is no longer available."}
+                        {
+                            "schedule_slot_ids": "One of the selected time slots is no longer available."
+                        }
                     )
 
         return attrs

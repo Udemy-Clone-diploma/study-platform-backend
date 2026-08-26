@@ -17,16 +17,29 @@ from ._factories import make_course, make_teacher
 def _build_module_with_quiz(course):
     module = Module.objects.create(course=course, title="M", order=1)
     test = Test.objects.create(
-        module=module, order=1, title="Quiz", passing_score=80,
-        duration_minutes=20, allow_retakes=True, max_attempts=4,
+        module=module,
+        order=1,
+        title="Quiz",
+        passing_score=80,
+        duration_minutes=20,
+        allow_retakes=True,
+        max_attempts=4,
     )
     Question.objects.create(
-        test=test, order=1, question_type=Question.TypeChoices.MULTIPLE_CHOICE,
-        text="pick", options=["a", "b", "c"], correct_indices=[0, 2],
+        test=test,
+        order=1,
+        question_type=Question.TypeChoices.MULTIPLE_CHOICE,
+        text="pick",
+        options=["a", "b", "c"],
+        correct_indices=[0, 2],
     )
     Question.objects.create(
-        test=test, order=2, question_type=Question.TypeChoices.SHORT_ANSWER,
-        text="cap?", sample_answer="Paris", accepted_answers=["Lutetia"],
+        test=test,
+        order=2,
+        question_type=Question.TypeChoices.SHORT_ANSWER,
+        text="cap?",
+        sample_answer="Paris",
+        accepted_answers=["Lutetia"],
     )
     return module, test
 
@@ -110,6 +123,8 @@ class PendingEditMergeTests(TestCase):
         self.assertTrue(removed.is_deleted)
 
         new_titles = set(
-            Lesson.objects.filter(module=module).exclude(id=kept_lesson.id).values_list("title", flat=True)
+            Lesson.objects.filter(module=module)
+            .exclude(id=kept_lesson.id)
+            .values_list("title", flat=True)
         )
         self.assertEqual(new_titles, {"Brand new"})

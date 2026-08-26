@@ -20,7 +20,8 @@ class LessonOpenedView(APIView):
     @extend_schema(request=None, responses={204: None})
     def post(self, request, slug: str, lesson_id: int):
         course = Course.objects.filter(
-            slug=slug, status=Course.StatusChoices.PUBLISHED,
+            slug=slug,
+            status=Course.StatusChoices.PUBLISHED,
         ).first()
         if course is None:
             raise NotFound("Course not found.")
