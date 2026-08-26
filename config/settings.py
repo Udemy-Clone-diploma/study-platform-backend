@@ -186,6 +186,10 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+SECURE_BROWSER_XSS_FILTER = True # Включаем защиту от XSS атак (не даём вписывать скрипты в поля форм и т.д.)
+X_FRAME_OPTIONS = "DENY" # Запрещаем отображение сайта в iframe (защита от кликджекинга)
+SECURE_CONTENT_TYPE_NOSNIFF = True # Защита от MIME-атаки (не даём отправлять .exe файлы вместо изображений и т.д.)
+
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
