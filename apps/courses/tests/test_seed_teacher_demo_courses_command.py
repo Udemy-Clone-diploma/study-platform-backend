@@ -53,12 +53,24 @@ class SeedTeacherDemoCoursesCommandTests(TestCase):
         )
         self.assertEqual(Module.objects.filter(course__in=courses).count(), 33)
         self.assertEqual(Lesson.objects.filter(module__course__in=courses).count(), 69)
-        self.assertTrue(LessonItem.objects.filter(lesson__module__course__in=courses, item_type="text").exists())
-        self.assertTrue(LessonItem.objects.filter(lesson__module__course__in=courses, item_type="video").exists())
-        self.assertTrue(LessonItem.objects.filter(lesson__module__course__in=courses, item_type="test").exists())
+        self.assertTrue(
+            LessonItem.objects.filter(lesson__module__course__in=courses, item_type="text").exists()
+        )
+        self.assertTrue(
+            LessonItem.objects.filter(
+                lesson__module__course__in=courses, item_type="video"
+            ).exists()
+        )
+        self.assertTrue(
+            LessonItem.objects.filter(lesson__module__course__in=courses, item_type="test").exists()
+        )
         self.assertTrue(LessonDocument.objects.filter(lesson__module__course__in=courses).exists())
         self.assertEqual(
-            set(Question.objects.filter(test__module__course__in=courses).values_list("question_type", flat=True)),
+            set(
+                Question.objects.filter(test__module__course__in=courses).values_list(
+                    "question_type", flat=True
+                )
+            ),
             {"single_choice", "multiple_choice", "true_false", "short_answer"},
         )
 
@@ -108,15 +120,21 @@ class SeedTeacherDemoCoursesCommandTests(TestCase):
         return {
             "courses": Course.objects.filter(id__in=course_ids).count(),
             "formats": CourseDeliveryFormat.objects.filter(course_id__in=course_ids).count(),
-            "pricing": PricingPlan.objects.filter(delivery_format__course_id__in=course_ids).count(),
+            "pricing": PricingPlan.objects.filter(
+                delivery_format__course_id__in=course_ids
+            ).count(),
             "cohorts": Cohort.objects.filter(course_id__in=course_ids).count(),
             "modules": Module.objects.filter(course_id__in=course_ids).count(),
             "lessons": Lesson.objects.filter(module__course_id__in=course_ids).count(),
             "items": LessonItem.objects.filter(lesson__module__course_id__in=course_ids).count(),
-            "documents": LessonDocument.objects.filter(lesson__module__course_id__in=course_ids).count(),
+            "documents": LessonDocument.objects.filter(
+                lesson__module__course_id__in=course_ids
+            ).count(),
             "tests": Test.objects.filter(module__course_id__in=course_ids).count(),
             "questions": Question.objects.filter(test__module__course_id__in=course_ids).count(),
-            "cohort_schedules": CohortSchedule.objects.filter(cohort__course_id__in=course_ids).count(),
+            "cohort_schedules": CohortSchedule.objects.filter(
+                cohort__course_id__in=course_ids
+            ).count(),
             "slots": ScheduleSlot.objects.filter(delivery_format__course_id__in=course_ids).count(),
         }
 

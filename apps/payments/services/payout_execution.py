@@ -223,7 +223,6 @@ class PayoutExecutionService:
         payout: TeacherPayout,
         client_ip: str = "",
     ) -> TeacherPayout:
-
         payout_mode = cls._payout_mode()
 
         provider = cls._provider_for_mode(payout_mode)
