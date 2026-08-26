@@ -99,11 +99,6 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
-        "OPTIONS": {
-            "sslmode": "verify-full",
-            "sslrootcert": config("DB_SSL_ROOT_CERT", default=""),
-        },
-
     }
 }
 
