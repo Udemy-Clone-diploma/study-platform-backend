@@ -44,6 +44,12 @@ class UserSearchView(APIView):
         users = (
             User.objects
             .filter(email__icontains=email)
+            .exclude(
+                role__in=(
+                    User.RoleChoices.MODERATOR,
+                    User.RoleChoices.ADMINISTRATOR,
+                )
+            )
             .exclude(pk=request.user.pk)
             [:10]
         )
