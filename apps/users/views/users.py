@@ -41,7 +41,16 @@ class UserSearchView(APIView):
         if len(email) < 3:
             return Response({"detail": "Provide at least 3 characters"}, status=400)
 
-        users = User.objects.filter(email__icontains=email).exclude(pk=request.user.pk)[:10]
+        users = (
+            User.objects.filter(email__icontains=email)
+            .exclude(
+                role__in=(
+                    User.RoleChoices.MODERATOR,
+                    User.RoleChoices.ADMINISTRATOR,
+                )
+            )
+            .exclude(pk=request.user.pk)[:10]
+        )
         data = [
             {
                 "id": u.id,
