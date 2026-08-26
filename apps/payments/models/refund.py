@@ -1,7 +1,9 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+
 from .payment import Payment
+
 
 class Refund(models.Model):
     class StatusChoices(models.TextChoices):
@@ -23,9 +25,9 @@ class Refund(models.Model):
         default=StatusChoices.PENDING,
     )
     provider = models.CharField(
-    max_length=20,
-    choices=Payment.MethodChoices.choices,
-    default=Payment.MethodChoices.STRIPE,
+        max_length=20,
+        choices=Payment.MethodChoices.choices,
+        default=Payment.MethodChoices.STRIPE,
     )
     provider_reference = models.CharField(
         max_length=255,

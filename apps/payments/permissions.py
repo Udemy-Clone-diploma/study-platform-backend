@@ -4,9 +4,7 @@ from apps.users.models import User
 
 
 class IsFinanceOperator(BasePermission):
-    message = (
-        "Administrator or moderator access required."
-    )
+    message = "Administrator or moderator access required."
 
     def has_permission(
         self,
@@ -18,7 +16,8 @@ class IsFinanceOperator(BasePermission):
         return bool(
             user
             and user.is_authenticated
-            and user.role in {
+            and user.role
+            in {
                 User.RoleChoices.ADMINISTRATOR,
                 User.RoleChoices.MODERATOR,
             }

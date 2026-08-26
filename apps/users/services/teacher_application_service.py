@@ -34,9 +34,7 @@ class TeacherApplicationService:
     @staticmethod
     def _ensure_pending(application: TeacherApplication) -> None:
         if application.status != TeacherApplication.StatusChoices.PENDING:
-            raise ApplicationAlreadyDecidedError(
-                "This application has already been decided."
-            )
+            raise ApplicationAlreadyDecidedError("This application has already been decided.")
 
     @classmethod
     @transaction.atomic
@@ -74,7 +72,9 @@ class TeacherApplicationService:
 
     @classmethod
     @transaction.atomic
-    def cancel(cls, application: TeacherApplication, moderator_profile, comment: str = "") -> TeacherApplication:
+    def cancel(
+        cls, application: TeacherApplication, moderator_profile, comment: str = ""
+    ) -> TeacherApplication:
         cls._ensure_pending(application)
 
         application.status = TeacherApplication.StatusChoices.CANCELLED

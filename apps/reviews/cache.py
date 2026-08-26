@@ -20,9 +20,7 @@ def _request_origin(request: Request) -> str:
 
 def _canonical_query_string(request: Request) -> str:
     pairs = sorted(
-        (key, value)
-        for key in request.query_params
-        for value in request.query_params.getlist(key)
+        (key, value) for key in request.query_params for value in request.query_params.getlist(key)
     )
     return urlencode(pairs)
 

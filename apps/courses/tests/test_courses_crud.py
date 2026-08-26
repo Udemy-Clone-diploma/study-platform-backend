@@ -42,7 +42,8 @@ class CourseViewSetTests(APITestCase):
         self.course.save(update_fields=["status"])
         # The public catalog hides courses with no delivery format.
         CourseDeliveryFormat.objects.create(
-            course=self.course, format_type=self.course.delivery_type,
+            course=self.course,
+            format_type=self.course.delivery_type,
         )
 
         response = self.client.get(reverse("courses-list"))
@@ -205,5 +206,3 @@ class CourseViewSetTests(APITestCase):
         self.assertTrue(self.course.is_deleted)
         self.assertEqual(self.course.status, Course.StatusChoices.ARCHIVED)
         self.assertFalse(Course.objects.filter(pk=self.course.pk).exists())
-
-

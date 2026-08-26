@@ -13,7 +13,9 @@ from ._factories import make_user
 
 
 def _make_teacher(email, *, rating="0.00", first_name="", last_name="", **user_overrides):
-    user = make_user(role="teacher", email=email, first_name=first_name, last_name=last_name, **user_overrides)
+    user = make_user(
+        role="teacher", email=email, first_name=first_name, last_name=last_name, **user_overrides
+    )
     profile = TeacherProfile.objects.create(user=user, rating=Decimal(rating))
     return user, profile
 

@@ -1,6 +1,13 @@
 from .CohortScheduleSerializer import CohortScheduleSerializer, CohortScheduleWriteSerializer
-from .ScheduleSlotSerializer import ScheduleSlotSerializer, ScheduleSlotRescheduleSerializer, ScheduleSlotWriteSerializer
-from .TeacherUnavailabilitySerializer import TeacherUnavailabilitySerializer, TeacherUnavailabilityWriteSerializer
+from .ScheduleSlotSerializer import (
+    ScheduleSlotSerializer,
+    ScheduleSlotRescheduleSerializer,
+    ScheduleSlotWriteSerializer,
+)
+from .TeacherUnavailabilitySerializer import (
+    TeacherUnavailabilitySerializer,
+    TeacherUnavailabilityWriteSerializer,
+)
 
 __all__ = [
     "CohortScheduleSerializer",

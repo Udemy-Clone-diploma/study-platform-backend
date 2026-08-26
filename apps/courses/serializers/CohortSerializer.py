@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.courses.models import Cohort, CohortMember
+from apps.courses.models import Cohort
 from apps.courses.serializers.CohortGroupSerializer import CohortMemberSerializer
 
 

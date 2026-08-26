@@ -12,20 +12,20 @@ class TeacherApplication(models.Model):
         APPROVED = "approved", "Approved"
         CANCELLED = "cancelled", "Cancelled"
 
-    # Identity / contact — shown to the moderator as a separate "contact data" block.
+    # Identity / contact: shown to the moderator as a separate "contact data" block.
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField()
     date_of_birth = models.DateField(null=True, blank=True)
     phone_number = models.CharField(max_length=32, blank=True)
 
-    # Profile info — mirrors TeacherProfile so approval can copy it 1:1.
+    # Profile info: mirrors TeacherProfile so approval can copy it 1:1.
     bio = models.TextField(blank=True)
     experience = models.TextField(blank=True)
     specialization = models.CharField(max_length=150, blank=True)
     years_experience = models.PositiveSmallIntegerField(null=True, blank=True)
 
-    # Additional info — moderator-review-only, never copied onto TeacherProfile/User.
+    # Additional info: moderator-review-only, never copied onto TeacherProfile/User.
     directions = models.ManyToManyField(Category, blank=True, related_name="teacher_applications")
     motivation = models.TextField(blank=True)
     instagram = models.URLField(blank=True, default="")
@@ -34,7 +34,9 @@ class TeacherApplication(models.Model):
 
     # Workflow.
     status = models.CharField(
-        max_length=20, choices=StatusChoices.choices, default=StatusChoices.PENDING,
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.PENDING,
     )
     moderator_profile = models.ForeignKey(
         ModeratorProfile,

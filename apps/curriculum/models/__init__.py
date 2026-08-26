@@ -7,4 +7,13 @@ from .Question import Question
 from .Test import Test
 from .TestAttempt import TestAttempt
 
-__all__ = ["Lesson", "LessonDocument", "LessonItem", "Module", "Note", "Question", "Test", "TestAttempt"]
+__all__ = [
+    "Lesson",
+    "LessonDocument",
+    "LessonItem",
+    "Module",
+    "Note",
+    "Question",
+    "Test",
+    "TestAttempt",
+]

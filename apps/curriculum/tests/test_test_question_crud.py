@@ -17,7 +17,9 @@ class TestCrudTests(APITestCase):
     def setUp(self):
         self.owner_user, self.owner = make_teacher(email="crud_owner@example.com")
         self.course = make_course(
-            self.owner, slug="crud-course", status=Course.StatusChoices.PUBLISHED,
+            self.owner,
+            slug="crud-course",
+            status=Course.StatusChoices.PUBLISHED,
         )
         self.module = make_module(self.course)
 
@@ -32,8 +34,11 @@ class TestCrudTests(APITestCase):
         response = self.client.post(
             self._tests_url(),
             {
-                "title": "Final", "passing_score": 80, "duration_minutes": 30,
-                "allow_retakes": True, "max_attempts": 3,
+                "title": "Final",
+                "passing_score": 80,
+                "duration_minutes": 30,
+                "allow_retakes": True,
+                "max_attempts": 3,
             },
             format="json",
         )
@@ -94,7 +99,9 @@ class QuestionCrudTests(APITestCase):
     def setUp(self):
         self.owner_user, self.owner = make_teacher(email="qcrud_owner@example.com")
         self.course = make_course(
-            self.owner, slug="qcrud-course", status=Course.StatusChoices.PUBLISHED,
+            self.owner,
+            slug="qcrud-course",
+            status=Course.StatusChoices.PUBLISHED,
         )
         self.module = make_module(self.course)
         self.test = Test.objects.create(module=self.module, order=1, title="Quiz")
@@ -111,7 +118,8 @@ class QuestionCrudTests(APITestCase):
             self.questions_url(),
             {
                 "question_type": "single_choice",
-                "text": "2+2?", "options": ["3", "4", "5"],
+                "text": "2+2?",
+                "options": ["3", "4", "5"],
                 "correct_indices": [1],
             },
             format="json",
@@ -128,7 +136,8 @@ class QuestionCrudTests(APITestCase):
             self.questions_url(),
             {
                 "question_type": "short_answer",
-                "text": "Capital?", "sample_answer": "Paris",
+                "text": "Capital?",
+                "sample_answer": "Paris",
                 "accepted_answers": ["Lutetia", "City of Light"],
             },
             format="json",
@@ -139,9 +148,12 @@ class QuestionCrudTests(APITestCase):
     def test_owner_can_patch_question_answer_key(self):
         self.client.force_authenticate(self.owner_user)
         question = Question.objects.create(
-            test=self.test, order=1,
+            test=self.test,
+            order=1,
             question_type=Question.TypeChoices.MULTIPLE_CHOICE,
-            text="pick", options=["a", "b", "c"], correct_indices=[0],
+            text="pick",
+            options=["a", "b", "c"],
+            correct_indices=[0],
         )
         response = self.client.patch(
             f"{self.questions_url()}{question.id}/",
@@ -156,6 +168,8 @@ class QuestionCrudTests(APITestCase):
         student_user, _ = make_student(email="qcrud_student@example.com")
         self.client.force_authenticate(student_user)
         response = self.client.post(
-            self.questions_url(), {"text": "x"}, format="json",
+            self.questions_url(),
+            {"text": "x"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

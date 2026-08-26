@@ -7,7 +7,9 @@ from apps.users.models import TeacherApplication
 class TeacherApplicationSerializer(serializers.ModelSerializer):
     directions = CategorySerializer(many=True, read_only=True)
     moderator_name = serializers.CharField(
-        source="moderator_profile.user.get_full_name", read_only=True, default=None,
+        source="moderator_profile.user.get_full_name",
+        read_only=True,
+        default=None,
     )
 
     class Meta:

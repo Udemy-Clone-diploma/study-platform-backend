@@ -8,10 +8,10 @@ from apps.common.files import UUIDUploadTo, file_content_hash
 from apps.common.managers import ActiveManager
 from apps.users.models import ModeratorProfile, TeacherProfile
 
-COURSE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "svg"]
-
 from .Category import Category
 from .Tag import Tag
+
+COURSE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "svg"]
 
 
 class Course(models.Model):
@@ -50,7 +50,7 @@ class Course(models.Model):
         ARCHIVED = "archived", "Archived"
         PENDING_EDIT = "pending_edit", "Pending Edit (hidden shadow draft of a published course)"
 
-    # FileField (not ImageField) because Pillow — which ImageField uses to validate — cannot
+    # FileField (not ImageField) because Pillow (which ImageField uses to validate) cannot
     # open SVGs, and the default course icons are SVGs. Extension check stands in for that.
     image = models.FileField(
         upload_to=UUIDUploadTo("courses"),
@@ -58,7 +58,7 @@ class Course(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=COURSE_IMAGE_EXTENSIONS)],
     )
-    # Cached MD5 of `image`'s bytes -- see LessonItem.video_hash for why.
+    # Cached MD5 of `image`'s bytes. See LessonItem.video_hash for why.
     image_hash = models.CharField(max_length=32, blank=True, default="")
 
     title = models.CharField(max_length=255, db_index=True)
@@ -118,7 +118,6 @@ class Course(models.Model):
     lessons_count = models.PositiveIntegerField(default=0)
 
     with_certificate = models.BooleanField(default=False)
-
 
     certificate_description = models.TextField(blank=True, default="")
 
@@ -181,7 +180,9 @@ class Course(models.Model):
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        recompute = update_fields is None or ("image" in update_fields and "image_hash" not in update_fields)
+        recompute = update_fields is None or (
+            "image" in update_fields and "image_hash" not in update_fields
+        )
         if recompute:
             self.image_hash = file_content_hash(self.image) or ""
             if update_fields is not None:

@@ -1,7 +1,16 @@
 from .CategoryViewSet import CategoryViewSet
 from .CourseCertificatePreviewView import CourseCertificatePreviewView
-from .CourseModerationView import CourseApproveView, CourseAssignModeratorView, CourseRejectView, SaveReviewDraftView
-from .ModerationCoursesView import MyModerationCoursesView, MyRejectedModerationCoursesView, UnassignedModerationCoursesView
+from .CourseModerationView import (
+    CourseApproveView,
+    CourseAssignModeratorView,
+    CourseRejectView,
+    SaveReviewDraftView,
+)
+from .ModerationCoursesView import (
+    MyModerationCoursesView,
+    MyRejectedModerationCoursesView,
+    UnassignedModerationCoursesView,
+)
 from .CohortView import CohortDetailView, CohortListCreateView
 from .CohortGroupView import (
     CohortMemberDetailView,
@@ -35,7 +44,15 @@ from .CourseRejectedView import (
     TeacherRejectionRecordsView,
 )
 from .WishlistView import WishlistListView, WishlistToggleView
-from apps.curriculum.views import LessonDocumentDetailView, LessonDocumentListView, LessonItemViewSet, LessonViewSet, ModuleViewSet, QuestionViewSet, TestViewSet
+from apps.curriculum.views import (
+    LessonDocumentDetailView,
+    LessonDocumentListView,
+    LessonItemViewSet,
+    LessonViewSet,
+    ModuleViewSet,
+    QuestionViewSet,
+    TestViewSet,
+)
 
 __all__ = [
     "CategoryViewSet",

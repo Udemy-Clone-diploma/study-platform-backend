@@ -6,24 +6,39 @@ from apps.courses.models import CohortMember
 
 class CohortMemberSerializer(serializers.ModelSerializer):
     enrollment_id = serializers.IntegerField(source="enrollment.id", read_only=True)
-    student_id = serializers.IntegerField(source="enrollment.student_profile.user.id", read_only=True)
-    student_name = serializers.CharField(source="enrollment.student_profile.user.get_full_name", read_only=True)
-    student_email = serializers.EmailField(source="enrollment.student_profile.user.email", read_only=True)
+    student_id = serializers.IntegerField(
+        source="enrollment.student_profile.user.id", read_only=True
+    )
+    student_name = serializers.CharField(
+        source="enrollment.student_profile.user.get_full_name", read_only=True
+    )
+    student_email = serializers.EmailField(
+        source="enrollment.student_profile.user.email", read_only=True
+    )
     student_avatar = serializers.SerializerMethodField()
     is_completed = serializers.SerializerMethodField()
 
     class Meta:
         model = CohortMember
         fields = [
-            "id", "enrollment_id", "student_id", "student_name", "student_email",
-            "student_avatar", "joined_at", "is_completed",
+            "id",
+            "enrollment_id",
+            "student_id",
+            "student_name",
+            "student_email",
+            "student_avatar",
+            "joined_at",
+            "is_completed",
         ]
 
     def get_student_avatar(self, obj) -> str | None:
-        return absolute_media_url(obj.enrollment.student_profile.user.avatar, self.context.get("request"))
+        return absolute_media_url(
+            obj.enrollment.student_profile.user.avatar, self.context.get("request")
+        )
 
     def get_is_completed(self, obj) -> bool:
         from apps.enrollments.models import CourseCompletion
+
         return CourseCompletion.objects.filter(
             student_profile=obj.enrollment.student_profile,
             course=obj.enrollment.course,
@@ -63,6 +78,8 @@ class EnrolledStudentSerializer(serializers.Serializer):
         if completed_ids is not None:
             return obj.student_profile_id in completed_ids
         from apps.enrollments.models import CourseCompletion
+
         return CourseCompletion.objects.filter(
-            student_profile=obj.student_profile, course=obj.course,
+            student_profile=obj.student_profile,
+            course=obj.course,
         ).exists()

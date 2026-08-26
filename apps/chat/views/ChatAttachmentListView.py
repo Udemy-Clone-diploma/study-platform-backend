@@ -31,9 +31,7 @@ class ChatAttachmentListView(APIView):
             .order_by("-created_at", "-id")
         )
         if participant.history_cleared_at:
-            messages = messages.filter(
-                created_at__gt=participant.history_cleared_at
-            )
+            messages = messages.filter(created_at__gt=participant.history_cleared_at)
 
         results = []
         for message in messages:

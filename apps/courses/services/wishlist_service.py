@@ -8,9 +8,9 @@ class WishlistService:
     @staticmethod
     def get_wishlisted_courses(student_profile: StudentProfile):
         return CourseService.annotate_min_price(
-            student_profile.wishlisted_courses
-            .select_related("teacher_profile__user", "category")
-            .prefetch_related("tags")
+            student_profile.wishlisted_courses.select_related(
+                "teacher_profile__user", "category"
+            ).prefetch_related("tags")
         )
 
     @staticmethod
@@ -20,8 +20,8 @@ class WishlistService:
                 slug=slug,
                 status=Course.StatusChoices.PUBLISHED,
             )
-        except Course.DoesNotExist:
-            raise CourseNotFoundError(slug)
+        except Course.DoesNotExist as exc:
+            raise CourseNotFoundError(slug) from exc
 
         wishlist = student_profile.wishlisted_courses
         if wishlist.filter(pk=course.pk).exists():

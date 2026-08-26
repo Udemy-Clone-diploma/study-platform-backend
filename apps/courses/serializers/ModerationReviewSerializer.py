@@ -7,8 +7,13 @@ class ModerationReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = ModerationReview
         fields = [
-            "basics_field_statuses", "basics_action", "basics_comment",
-            "content_item_statuses", "content_action", "content_comment",
-            "final_action", "final_comment",
+            "basics_field_statuses",
+            "basics_action",
+            "basics_comment",
+            "content_item_statuses",
+            "content_action",
+            "content_comment",
+            "final_action",
+            "final_comment",
             "updated_at",
         ]

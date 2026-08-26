@@ -5,8 +5,9 @@ from django.db import transaction
 
 from apps.payments.models import TeacherPayoutAccount
 
-from .stripe import StripeService
 from .exceptions import PaymentError
+from .stripe import StripeService
+
 
 class PayoutService(StripeService):
     @staticmethod
@@ -51,6 +52,7 @@ class PayoutService(StripeService):
         country = str(getattr(settings, "STRIPE_CONNECT_COUNTRY", "US")).strip().upper()
         if len(country) != 2 or not country.isalpha():
             from django.core.exceptions import ImproperlyConfigured
+
             raise ImproperlyConfigured(
                 "STRIPE_CONNECT_COUNTRY must be a two-letter ISO country code."
             )
@@ -63,7 +65,8 @@ class PayoutService(StripeService):
             idempotency_key=f"teacher-connect-{teacher.id}",
         )
         return TeacherPayoutAccount.objects.create(
-            teacher=teacher, provider_account_id=account.id,
+            teacher=teacher,
+            provider_account_id=account.id,
             country=cls._value(account, "country", "") or "",
         )
 
@@ -81,14 +84,24 @@ class PayoutService(StripeService):
     @staticmethod
     def safe_data(payout):
         if payout is None:
-            return {"status": "not_configured", "configured": False, "details_submitted": False,
-                    "charges_enabled": False, "payouts_enabled": False,
-                    "outstanding_requirements": [], "disabled_reason": ""}
-        return {"status": payout.status, "configured": True,
-                "details_submitted": payout.details_submitted,
-                "charges_enabled": payout.charges_enabled, "payouts_enabled": payout.payouts_enabled,
-                "outstanding_requirements": payout.outstanding_requirements,
-                "disabled_reason": payout.disabled_reason}
+            return {
+                "status": "not_configured",
+                "configured": False,
+                "details_submitted": False,
+                "charges_enabled": False,
+                "payouts_enabled": False,
+                "outstanding_requirements": [],
+                "disabled_reason": "",
+            }
+        return {
+            "status": payout.status,
+            "configured": True,
+            "details_submitted": payout.details_submitted,
+            "charges_enabled": payout.charges_enabled,
+            "payouts_enabled": payout.payouts_enabled,
+            "outstanding_requirements": payout.outstanding_requirements,
+            "disabled_reason": payout.disabled_reason,
+        }
 
     @staticmethod
     def _stripe_money(amount_minor) -> str:
@@ -131,9 +144,7 @@ class PayoutService(StripeService):
                 stripe_account=payout.provider_account_id,
             )
         except Exception as exc:
-            raise PaymentError(
-                "Could not load Stripe payout information."
-            ) from exc
+            raise PaymentError("Could not load Stripe payout information.") from exc
 
         def balance_rows(values):
             result = []
@@ -141,9 +152,7 @@ class PayoutService(StripeService):
             for item in values or []:
                 result.append(
                     {
-                        "amount": cls._stripe_money(
-                            cls._value(item, "amount", 0)
-                        ),
+                        "amount": cls._stripe_money(cls._value(item, "amount", 0)),
                         "currency": str(
                             cls._value(
                                 item,
@@ -169,13 +178,8 @@ class PayoutService(StripeService):
         ):
             recent_payouts.append(
                 {
-                    "id": str(
-                        cls._value(item, "id", "")
-                        or ""
-                    ),
-                    "amount": cls._stripe_money(
-                        cls._value(item, "amount", 0)
-                    ),
+                    "id": str(cls._value(item, "id", "") or ""),
+                    "amount": cls._stripe_money(cls._value(item, "amount", 0)),
                     "currency": str(
                         cls._value(
                             item,

@@ -14,10 +14,10 @@ class PersonalEvent(models.Model):
         on_delete=models.CASCADE,
         related_name="personal_events",
     )
-    title      = models.CharField(max_length=255)
-    date       = models.DateField()
+    title = models.CharField(max_length=255)
+    date = models.DateField()
     start_time = models.TimeField()
-    end_time   = models.TimeField()
+    end_time = models.TimeField()
     meeting_link = models.URLField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

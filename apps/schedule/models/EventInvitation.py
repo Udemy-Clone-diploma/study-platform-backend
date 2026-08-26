@@ -12,7 +12,7 @@ class EventInvitation(models.Model):
     """
 
     class Status(models.TextChoices):
-        PENDING  = "pending",  "Pending"
+        PENDING = "pending", "Pending"
         ACCEPTED = "accepted", "Accepted"
         DECLINED = "declined", "Declined"
 
@@ -26,7 +26,7 @@ class EventInvitation(models.Model):
         on_delete=models.CASCADE,
         related_name="event_invitations",
     )
-    status       = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     responded_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

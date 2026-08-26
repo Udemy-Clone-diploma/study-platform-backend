@@ -56,7 +56,9 @@ class ArticleDetailSerializer(ArticleListSerializer):
 
 class ArticleCreateUpdateSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(
-        queryset=BlogCategory.objects.all(), required=False, allow_null=True,
+        queryset=BlogCategory.objects.all(),
+        required=False,
+        allow_null=True,
     )
 
     class Meta:

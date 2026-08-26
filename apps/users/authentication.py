@@ -6,8 +6,8 @@ class CustomJWTAuthentication(JWTAuthentication):
     """
     Extends default JWT auth with two extra checks on every authenticated request:
     - Blocked users are rejected.
-    - Role in the token must match the user's current role in the DB (SCRUM-123).
-      This ensures that role changes invalidate existing access tokens.
+    - Role in the token must match the user's current role in the DB, so a role
+      change invalidates every access token issued before it.
     Deleted users are already rejected via ActiveUserManager (User.DoesNotExist -> 401).
     """
 

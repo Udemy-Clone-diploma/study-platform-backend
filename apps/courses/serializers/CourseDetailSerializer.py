@@ -32,17 +32,45 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = [
-            "id", "image", "image_hash", "title", "subtitle", "short_description", "full_description",
-            "slug", "teacher", "moderator_id", "category",
-            "level", "language", "mode", "delivery_type", "course_type",
-            "duration_hours", "lessons_count", "total_duration_minutes",
-            "with_certificate", "certificate_description", "is_on_sale", "discount_percent",
+            "id",
+            "image",
+            "image_hash",
+            "title",
+            "subtitle",
+            "short_description",
+            "full_description",
+            "slug",
+            "teacher",
+            "moderator_id",
+            "category",
+            "level",
+            "language",
+            "mode",
+            "delivery_type",
+            "course_type",
+            "duration_hours",
+            "lessons_count",
+            "total_duration_minutes",
+            "with_certificate",
+            "certificate_description",
+            "is_on_sale",
+            "discount_percent",
             "passing_score",
-            "rating_avg", "rating_count", "students_count", "status",
+            "rating_avg",
+            "rating_count",
+            "students_count",
+            "status",
             "moderator_comment",
-            "created_at", "updated_at", "published_at",
-            "is_enrolled", "enrollment_access_status", "group_chat_url",
-            "tags", "modules", "delivery_formats", "cohorts",
+            "created_at",
+            "updated_at",
+            "published_at",
+            "is_enrolled",
+            "enrollment_access_status",
+            "group_chat_url",
+            "tags",
+            "modules",
+            "delivery_formats",
+            "cohorts",
             "moderation_review",
         ]
 
@@ -53,7 +81,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         return absolute_media_url(obj.image, self.context.get("request"))
 
     def get_image_hash(self, obj) -> str | None:
-        # Only the moderator review diff needs this -- gate it on role. The
+        # Only the moderator review diff needs this, so gate it on role. The
         # value is a cheap cached field (computed on save), not read here.
         request = self.context.get("request")
         if not request or not IsAdminOrModerator().has_permission(request, None):
@@ -72,6 +100,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_is_enrolled(self, obj) -> bool:
         from apps.enrollments.services.enrollment_service import EnrollmentService
+
         request = self.context.get("request")
         if request is None:
             return False
@@ -79,6 +108,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_enrollment_access_status(self, obj) -> str | None:
         from apps.enrollments.services.enrollment_service import EnrollmentService
+
         request = self.context.get("request")
         if request is None:
             return None

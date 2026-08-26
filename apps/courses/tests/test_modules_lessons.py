@@ -26,9 +26,7 @@ class ModuleLessonModelTests(TestCase):
 
     def test_active_manager_hides_soft_deleted_modules(self):
         live = Module.objects.create(course=self.course, title="Live", order=1)
-        Module.objects.create(
-            course=self.course, title="Dead", order=2, is_deleted=True
-        )
+        Module.objects.create(course=self.course, title="Dead", order=2, is_deleted=True)
 
         ids = list(self.course.modules.values_list("id", flat=True))
 
@@ -42,9 +40,7 @@ class ModuleLessonModelTests(TestCase):
                 Module.objects.create(course=self.course, title="B", order=1)
 
     def test_soft_deleted_module_does_not_block_new_one_at_same_order(self):
-        Module.objects.create(
-            course=self.course, title="Old", order=1, is_deleted=True
-        )
+        Module.objects.create(course=self.course, title="Old", order=1, is_deleted=True)
 
         new_module = Module.objects.create(course=self.course, title="New", order=1)
 
@@ -65,9 +61,7 @@ class LessonsCountSignalTests(TestCase):
     def setUp(self):
         _, self.teacher_profile = make_teacher()
         self.course = make_course(self.teacher_profile, slug="signal-course")
-        self.module = Module.objects.create(
-            course=self.course, title="M", order=1
-        )
+        self.module = Module.objects.create(course=self.course, title="M", order=1)
 
     def _refresh_count(self):
         self.course.refresh_from_db()
@@ -129,9 +123,7 @@ class CourseDetailIncludesModulesAndLessonsTests(APITestCase):
         cls.module1 = Module.objects.create(
             course=cls.course, title="Intro", order=1, description="Intro module"
         )
-        cls.module2 = Module.objects.create(
-            course=cls.course, title="Advanced", order=2
-        )
+        cls.module2 = Module.objects.create(course=cls.course, title="Advanced", order=2)
         cls.lesson1 = Lesson.objects.create(
             module=cls.module1, title="Hello", order=1, duration_minutes=10
         )
@@ -144,9 +136,7 @@ class CourseDetailIncludesModulesAndLessonsTests(APITestCase):
             order=3,
             is_deleted=True,
         )
-        Module.objects.create(
-            course=cls.course, title="Hidden Module", order=99, is_deleted=True
-        )
+        Module.objects.create(course=cls.course, title="Hidden Module", order=99, is_deleted=True)
 
     def test_detail_includes_modules_in_order(self):
         response = self.client.get(reverse("courses-public", args=[self.course.slug]))
@@ -165,12 +155,12 @@ class CourseDetailIncludesModulesAndLessonsTests(APITestCase):
         response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         intro = next(m for m in response.data["modules"] if m["title"] == "Intro")
-        titles = [l["title"] for l in intro["lessons"]]
+        titles = [lesson["title"] for lesson in intro["lessons"]]
         self.assertEqual(titles, ["Hello", "Setup"])
 
     def test_lesson_payload_includes_duration(self):
         response = self.client.get(reverse("courses-public", args=[self.course.slug]))
 
         intro = next(m for m in response.data["modules"] if m["title"] == "Intro")
-        durations = [l["duration_minutes"] for l in intro["lessons"]]
+        durations = [lesson["duration_minutes"] for lesson in intro["lessons"]]
         self.assertEqual(durations, [10, 15])

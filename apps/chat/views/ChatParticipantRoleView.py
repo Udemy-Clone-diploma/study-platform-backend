@@ -24,9 +24,7 @@ class ChatParticipantRoleView(APIView):
         if chat.type != ChatRoom.TypeChoices.GROUP:
             raise ValidationError("Participant roles only apply to group chats.")
         if not ChatService.can_manage_participants(request.user, chat):
-            raise PermissionDenied(
-                "Only group owners and admins can update roles."
-            )
+            raise PermissionDenied("Only group owners and admins can update roles.")
         serializer = ParticipantRoleUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         participant = ChatService.update_participant_role(
@@ -35,6 +33,4 @@ class ChatParticipantRoleView(APIView):
             serializer.validated_data["role"],
         )
         events.broadcast_chat_updated(chat.pk)
-        return Response(
-            ChatParticipantSerializer(participant, context={"request": request}).data
-        )
+        return Response(ChatParticipantSerializer(participant, context={"request": request}).data)

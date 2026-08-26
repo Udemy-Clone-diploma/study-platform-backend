@@ -36,17 +36,9 @@ class RefundService(StripeService):
         refund: Refund,
         payload: dict,
     ) -> Refund:
-        refund = (
-            Refund.objects
-            .select_for_update()
-            .select_related("payment")
-            .get(pk=refund.pk)
-        )
+        refund = Refund.objects.select_for_update().select_related("payment").get(pk=refund.pk)
 
-        if (
-            refund.status
-            != Refund.StatusChoices.PENDING
-        ):
+        if refund.status != Refund.StatusChoices.PENDING:
             return refund
 
         payment = refund.payment
@@ -58,157 +50,72 @@ class RefundService(StripeService):
             )
         ).strip()
 
-        response_order_id = str(
-            payload.get("order_id") or ""
-        ).strip()
+        response_order_id = str(payload.get("order_id") or "").strip()
 
-        if (
-            response_order_id
-            and response_order_id
-            != expected_order_id
-        ):
-            raise PaymentError(
-                "LiqPay refund reconciliation "
-                "order_id does not match."
-            )
+        if response_order_id and response_order_id != expected_order_id:
+            raise PaymentError("LiqPay refund reconciliation order_id does not match.")
 
-        response_public_key = (
-            payload.get("public_key")
-        )
+        response_public_key = payload.get("public_key")
 
-        if (
-            response_public_key
-            and response_public_key
-            != LiqPayService._liqpay_public_key()
-        ):
-            raise PaymentError(
-                "LiqPay refund reconciliation "
-                "public_key does not match."
-            )
+        if response_public_key and response_public_key != LiqPayService._liqpay_public_key():
+            raise PaymentError("LiqPay refund reconciliation public_key does not match.")
 
-        response_version = payload.get(
-            "version"
-        )
+        response_version = payload.get("version")
 
         if response_version is not None:
             try:
-                version = int(
-                    response_version
-                )
+                version = int(response_version)
             except (
                 TypeError,
                 ValueError,
             ) as exc:
-                raise PaymentError(
-                    "Invalid LiqPay refund "
-                    "reconciliation API version."
-                ) from exc
+                raise PaymentError("Invalid LiqPay refund reconciliation API version.") from exc
 
-            if (
-                version
-                != LiqPayService._liqpay_api_version()
-            ):
-                raise PaymentError(
-                    "LiqPay refund reconciliation "
-                    "API version does not match."
-                )
+            if version != LiqPayService._liqpay_api_version():
+                raise PaymentError("LiqPay refund reconciliation API version does not match.")
 
         # status API returns information about
         # the ORIGINAL payment.
-        action = str(
-            payload.get("action") or ""
-        ).strip().lower()
+        action = str(payload.get("action") or "").strip().lower()
 
-        if (
-            action
-            and action != "pay"
-        ):
-            raise PaymentError(
-                "Unexpected LiqPay payment "
-                "action during refund "
-                "reconciliation."
-            )
+        if action and action != "pay":
+            raise PaymentError("Unexpected LiqPay payment action during refund reconciliation.")
 
         if payload.get("amount") is not None:
             try:
-                provider_amount = (
-                    cls._decimal_money(
-                        Decimal(
-                            str(
-                                payload["amount"]
-                            )
-                        )
-                    )
-                )
+                provider_amount = cls._decimal_money(Decimal(str(payload["amount"])))
             except (
                 TypeError,
                 ValueError,
             ) as exc:
                 raise PaymentError(
-                    "Invalid LiqPay payment "
-                    "amount during refund "
-                    "reconciliation."
+                    "Invalid LiqPay payment amount during refund reconciliation."
                 ) from exc
 
-            expected_amount = (
-                cls._decimal_money(
-                    Decimal(
-                        str(payment.amount)
-                    )
-                )
-            )
+            expected_amount = cls._decimal_money(Decimal(str(payment.amount)))
 
             if provider_amount != expected_amount:
-                raise PaymentError(
-                    "LiqPay payment amount "
-                    "does not match refund payment."
-                )
+                raise PaymentError("LiqPay payment amount does not match refund payment.")
 
         if payload.get("currency"):
-            provider_currency = str(
-                payload["currency"]
-            ).strip().upper()
+            provider_currency = str(payload["currency"]).strip().upper()
 
-            if (
-                provider_currency
-                != payment.currency.upper()
-            ):
-                raise PaymentError(
-                    "LiqPay payment currency "
-                    "does not match refund payment."
-                )
+            if provider_currency != payment.currency.upper():
+                raise PaymentError("LiqPay payment currency does not match refund payment.")
 
-        provider_status = str(
-            payload.get("status") or ""
-        ).strip().lower()
+        provider_status = str(payload.get("status") or "").strip().lower()
 
-        refund.provider_status = (
-            provider_status
-        )
+        refund.provider_status = provider_status
 
         if payload.get("payment_id") is not None:
-            refund.provider_reference = str(
-                payload["payment_id"]
-            )
+            refund.provider_reference = str(payload["payment_id"])
 
         refund.metadata = {
             **(refund.metadata or {}),
-            "last_reconciliation": (
-                timezone.now().isoformat()
-            ),
-            "last_reconciliation_status": (
-                provider_status
-            ),
-            "wait_reserve_status": (
-                payload.get(
-                    "wait_reserve_status"
-                )
-            ),
-            "liqpay_order_id": (
-                payload.get(
-                    "liqpay_order_id"
-                )
-            ),
+            "last_reconciliation": (timezone.now().isoformat()),
+            "last_reconciliation_status": (provider_status),
+            "wait_reserve_status": (payload.get("wait_reserve_status")),
+            "liqpay_order_id": (payload.get("liqpay_order_id")),
         }
 
         refund.save(
@@ -248,21 +155,12 @@ class RefundService(StripeService):
         *,
         refund: Refund,
     ) -> Refund:
-        refund = (
-            Refund.objects
-            .select_related(
-                "payment",
-            )
-            .get(pk=refund.pk)
-        )
+        refund = Refund.objects.select_related(
+            "payment",
+        ).get(pk=refund.pk)
 
-        if (
-            refund.provider
-            != Payment.MethodChoices.LIQPAY
-        ):
-            raise RefundError(
-                "This is not a LiqPay refund."
-            )
+        if refund.provider != Payment.MethodChoices.LIQPAY:
+            raise RefundError("This is not a LiqPay refund.")
 
         if refund.status in {
             Refund.StatusChoices.SUCCEEDED,
@@ -271,14 +169,8 @@ class RefundService(StripeService):
         }:
             return refund
 
-        if (
-            refund.status
-            != Refund.StatusChoices.PENDING
-        ):
-            raise RefundError(
-                "Only pending LiqPay refund "
-                "can be reconciled."
-            )
+        if refund.status != Refund.StatusChoices.PENDING:
+            raise RefundError("Only pending LiqPay refund can be reconciled.")
 
         metadata = refund.metadata or {}
 
@@ -290,39 +182,21 @@ class RefundService(StripeService):
         ).strip()
 
         if not provider_order_id:
-            raise RefundError(
-                "Refund provider_order_id "
-                "was not recorded."
-            )
+            raise RefundError("Refund provider_order_id was not recorded.")
 
         # IMPORTANT:
         # network request outside transaction/row lock.
-        payload = (
-            LiqPayService
-            ._liqpay_get_payment_status(
-                provider_order_id=(
-                    provider_order_id
-                )
-            )
+        payload = LiqPayService._liqpay_get_payment_status(provider_order_id=(provider_order_id))
+
+        refund = cls._store_liqpay_refund_reconciliation(
+            refund=refund,
+            payload=payload,
         )
 
-        refund = (
-            cls
-            ._store_liqpay_refund_reconciliation(
-                refund=refund,
-                payload=payload,
-            )
-        )
-
-        if (
-            refund.status
-            != Refund.StatusChoices.PENDING
-        ):
+        if refund.status != Refund.StatusChoices.PENDING:
             return refund
 
-        provider_status = str(
-            refund.provider_status or ""
-        ).strip().lower()
+        provider_status = str(refund.provider_status or "").strip().lower()
 
         # This is the only payment-level state
         # that conclusively proves the original
@@ -346,9 +220,7 @@ class RefundService(StripeService):
         if not is_full_remaining_refund:
             refund.metadata = {
                 **metadata,
-                "reconciliation_requires_review": (
-                    True
-                ),
+                "reconciliation_requires_review": (True),
             }
 
             refund.save(
@@ -359,54 +231,30 @@ class RefundService(StripeService):
 
             return refund
 
-        remaining_before_raw = metadata.get(
-            "successful_remaining_before"
-        )
+        remaining_before_raw = metadata.get("successful_remaining_before")
 
         if remaining_before_raw is None:
-            raise RefundError(
-                "Refund reconciliation snapshot "
-                "is incomplete."
-            )
+            raise RefundError("Refund reconciliation snapshot is incomplete.")
 
         try:
-            successful_remaining_before = (
-                cls._decimal_money(
-                    Decimal(
-                        str(
-                            remaining_before_raw
-                        )
-                    )
-                )
-            )
+            successful_remaining_before = cls._decimal_money(Decimal(str(remaining_before_raw)))
         except (
             TypeError,
             ValueError,
         ) as exc:
-            raise RefundError(
-                "Invalid refund reconciliation "
-                "snapshot."
-            ) from exc
+            raise RefundError("Invalid refund reconciliation snapshot.") from exc
 
-        payment = (
-            cls._mark_refund_succeeded(
-                refund=refund,
-                payment=refund.payment,
-                successful_remaining_before=(
-                    successful_remaining_before
-                ),
-                provider_reference=(
-                    refund.provider_reference
-                ),
-                provider_status="reversed",
-                metadata={
-                    "request_uncertain": False,
-                    "reconciled": True,
-                    "reconciliation_requires_review": (
-                        False
-                    ),
-                },
-            )
+        cls._mark_refund_succeeded(
+            refund=refund,
+            payment=refund.payment,
+            successful_remaining_before=(successful_remaining_before),
+            provider_reference=(refund.provider_reference),
+            provider_status="reversed",
+            metadata={
+                "request_uncertain": False,
+                "reconciled": True,
+                "reconciliation_requires_review": (False),
+            },
         )
 
         refund.refresh_from_db()
@@ -418,10 +266,7 @@ class RefundService(StripeService):
         cls,
         payment: Payment,
     ) -> Decimal:
-        remaining = (
-            payment.amount
-            - cls.reserved_refund_total(payment)
-        )
+        remaining = payment.amount - cls.reserved_refund_total(payment)
         return max(
             remaining,
             Decimal("0.00"),
@@ -445,59 +290,33 @@ class RefundService(StripeService):
             successfully_refundable_before_this_refund
         """
         with transaction.atomic():
-            payment = (
-                Payment.objects
-                .select_for_update()
-                .get(pk=payment.pk)
-            )
+            payment = Payment.objects.select_for_update().get(pk=payment.pk)
 
             if payment.status == Payment.StatusChoices.REFUNDED:
-                raise RefundError(
-                    "Payment has already been refunded."
-                )
+                raise RefundError("Payment has already been refunded.")
 
             if not payment.can_be_refunded:
-                raise RefundError(
-                    "Only a successful payment can be refunded."
-                )
-            pending_refund = (
-                payment.refunds
-                .filter(
-                    status=Refund.StatusChoices.PENDING,
-                )
-                .exists()
-            )
+                raise RefundError("Only a successful payment can be refunded.")
+            pending_refund = payment.refunds.filter(
+                status=Refund.StatusChoices.PENDING,
+            ).exists()
 
             if pending_refund:
-                raise RefundError(
-                    "This payment already has a "
-                    "pending refund."
-                )
-            
-            successfully_refunded = cls.refunded_total(
-                payment
-            )
+                raise RefundError("This payment already has a pending refund.")
 
-            successful_remaining = (
-                payment.amount
-                - successfully_refunded
-            )
+            successfully_refunded = cls.refunded_total(payment)
 
-            available = cls.refundable_remaining(
-                payment
-            )
+            successful_remaining = payment.amount - successfully_refunded
+
+            available = cls.refundable_remaining(payment)
 
             if amount is None:
                 amount = available
             else:
-                amount = cls._decimal_money(
-                    Decimal(str(amount))
-                )
+                amount = cls._decimal_money(Decimal(str(amount)))
 
             if amount <= Decimal("0.00"):
-                raise RefundError(
-                    "Refund amount must be positive."
-                )
+                raise RefundError("Refund amount must be positive.")
 
             if amount > available:
                 raise RefundError(
@@ -514,9 +333,7 @@ class RefundService(StripeService):
                 provider=payment.payment_method,
                 status=Refund.StatusChoices.PENDING,
             )
-            TeacherFinanceService.ensure_refund_reservation(
-                refund
-            )
+            TeacherFinanceService.ensure_refund_reservation(refund)
 
             return (
                 payment,
@@ -537,17 +354,9 @@ class RefundService(StripeService):
         stripe_refund_id: str = "",
     ) -> Payment:
         with transaction.atomic():
-            refund = (
-                Refund.objects
-                .select_for_update()
-                .get(pk=refund.pk)
-            )
+            refund = Refund.objects.select_for_update().get(pk=refund.pk)
 
-            payment = (
-                Payment.objects
-                .select_for_update()
-                .get(pk=payment.pk)
-            )
+            payment = Payment.objects.select_for_update().get(pk=payment.pk)
 
             if refund.status == Refund.StatusChoices.SUCCEEDED:
                 return payment
@@ -571,25 +380,14 @@ class RefundService(StripeService):
 
             if stripe_refund_id:
                 refund.stripe_refund_id = stripe_refund_id
-                update_fields.append(
-                    "stripe_refund_id"
-                )
+                update_fields.append("stripe_refund_id")
 
-            refund.save(
-                update_fields=update_fields
-            )
+            refund.save(update_fields=update_fields)
 
-            TeacherFinanceService.post_refund_adjustment(
-                refund
-            )
+            TeacherFinanceService.post_refund_adjustment(refund)
 
-            if (
-                refund.amount
-                >= successful_remaining_before
-            ):
-                payment.status = (
-                    Payment.StatusChoices.REFUNDED
-                )
+            if refund.amount >= successful_remaining_before:
+                payment.status = Payment.StatusChoices.REFUNDED
                 payment.save(
                     update_fields=[
                         "status",
@@ -624,9 +422,7 @@ class RefundService(StripeService):
             ]
         )
 
-        TeacherFinanceService.void_refund_adjustment(
-            refund
-        )
+        TeacherFinanceService.void_refund_adjustment(refund)
 
     @classmethod
     @transaction.atomic
@@ -635,21 +431,12 @@ class RefundService(StripeService):
         *,
         refund: Refund,
     ) -> None:
-        refund = (
-            Refund.objects
-            .select_for_update()
-            .get(pk=refund.pk)
-        )
+        refund = Refund.objects.select_for_update().get(pk=refund.pk)
 
-        if (
-            refund.status
-            != Refund.StatusChoices.PENDING
-        ):
+        if refund.status != Refund.StatusChoices.PENDING:
             return
 
-        refund.provider_status = (
-            "request_uncertain"
-        )
+        refund.provider_status = "request_uncertain"
 
         refund.metadata = {
             **(refund.metadata or {}),
@@ -680,9 +467,7 @@ class RefundService(StripeService):
                 provider_status="missing_payment_intent",
             )
 
-            raise RefundError(
-                "Payment has no Stripe transaction to refund."
-            )
+            raise RefundError("Payment has no Stripe transaction to refund.")
 
         try:
             stripe_refund = cls._create_stripe_refund(
@@ -719,9 +504,7 @@ class RefundService(StripeService):
         return cls._mark_refund_succeeded(
             refund=refund,
             payment=payment,
-            successful_remaining_before=(
-                successful_remaining_before
-            ),
+            successful_remaining_before=(successful_remaining_before),
             provider_reference=stripe_refund_id,
             provider_status=stripe_status,
             stripe_refund_id=stripe_refund_id,
@@ -735,45 +518,21 @@ class RefundService(StripeService):
         refund: Refund,
         successful_remaining_before: Decimal,
     ) -> Payment:
-        attempt = (
-            LiqPayService
-            ._liqpay_refundable_attempt(
-                payment=payment,
-            )
+        attempt = LiqPayService._liqpay_refundable_attempt(
+            payment=payment,
         )
 
-        is_full_remaining_refund = (
-            cls._decimal_money(
-                Decimal(str(refund.amount))
-            )
-            >= cls._decimal_money(
-                Decimal(
-                    str(
-                        successful_remaining_before
-                    )
-                )
-            )
-        )
+        is_full_remaining_refund = cls._decimal_money(
+            Decimal(str(refund.amount))
+        ) >= cls._decimal_money(Decimal(str(successful_remaining_before)))
 
         refund.metadata = {
             **(refund.metadata or {}),
-            "provider_order_id": (
-                attempt.provider_order_id
-            ),
+            "provider_order_id": (attempt.provider_order_id),
             "successful_remaining_before": (
-                str(
-                    cls._decimal_money(
-                        Decimal(
-                            str(
-                                successful_remaining_before
-                            )
-                        )
-                    )
-                )
+                str(cls._decimal_money(Decimal(str(successful_remaining_before))))
             ),
-            "is_full_remaining_refund": (
-                is_full_remaining_refund
-            ),
+            "is_full_remaining_refund": (is_full_remaining_refund),
         }
 
         refund.save(
@@ -783,14 +542,9 @@ class RefundService(StripeService):
         )
 
         try:
-            response = (
-                LiqPayService
-                ._liqpay_create_refund(
-                    provider_order_id=(
-                        attempt.provider_order_id
-                    ),
-                    amount=refund.amount,
-                )
+            response = LiqPayService._liqpay_create_refund(
+                provider_order_id=(attempt.provider_order_id),
+                amount=refund.amount,
             )
         except Exception:
             cls._mark_refund_request_uncertain(
@@ -798,41 +552,26 @@ class RefundService(StripeService):
             )
             raise
 
-        result = str(
-            response.get("result") or ""
-        ).lower()
+        result = str(response.get("result") or "").lower()
 
-        provider_status = str(
-            response.get("status") or ""
-        ).lower()
+        provider_status = str(response.get("status") or "").lower()
 
-        provider_reference = str(
-            response.get("payment_id") or ""
-        )
+        provider_reference = str(response.get("payment_id") or "")
 
         metadata = {
             "liqpay_result": result,
-            "wait_amount": response.get(
-                "wait_amount"
-            ),
-            "provider_order_id": (
-                attempt.provider_order_id
-            ),
+            "wait_amount": response.get("wait_amount"),
+            "provider_order_id": (attempt.provider_order_id),
         }
 
         if result != "ok":
             cls._mark_refund_failed(
                 refund=refund,
-                provider_status=(
-                    provider_status
-                    or "error"
-                ),
+                provider_status=(provider_status or "error"),
                 metadata=metadata,
             )
 
-            raise PaymentError(
-                "LiqPay rejected the refund request."
-            )
+            raise PaymentError("LiqPay rejected the refund request.")
 
         if provider_status in {
             "error",
@@ -844,32 +583,22 @@ class RefundService(StripeService):
                 metadata=metadata,
             )
 
-            raise PaymentError(
-                "LiqPay refund failed."
-            )
+            raise PaymentError("LiqPay refund failed.")
 
         if provider_status == "reversed":
             return cls._mark_refund_succeeded(
                 refund=refund,
                 payment=payment,
-                successful_remaining_before=(
-                    successful_remaining_before
-                ),
-                provider_reference=(
-                    provider_reference
-                ),
+                successful_remaining_before=(successful_remaining_before),
+                provider_reference=(provider_reference),
                 provider_status=provider_status,
                 metadata=metadata,
             )
 
         # LiqPay accepted the request,
         # but the refund is not final yet.
-        refund.provider_reference = (
-            provider_reference
-        )
-        refund.provider_status = (
-            provider_status
-        )
+        refund.provider_reference = provider_reference
+        refund.provider_status = provider_status
         refund.metadata = {
             **(refund.metadata or {}),
             **metadata,
@@ -894,38 +623,26 @@ class RefundService(StripeService):
         reason: str = "",
         created_by: User | None = None,
     ) -> Payment:
-        payment, refund, successful_remaining = (
-            cls._prepare_refund(
-                payment=payment,
-                amount=amount,
-                reason=reason,
-                created_by=created_by,
-            )
+        payment, refund, successful_remaining = cls._prepare_refund(
+            payment=payment,
+            amount=amount,
+            reason=reason,
+            created_by=created_by,
         )
 
-        if (
-            payment.payment_method
-            == Payment.MethodChoices.STRIPE
-        ):
+        if payment.payment_method == Payment.MethodChoices.STRIPE:
             return cls._refund_stripe_payment(
                 payment=payment,
                 refund=refund,
-                successful_remaining_before=(
-                    successful_remaining
-                ),
+                successful_remaining_before=(successful_remaining),
                 reason=reason,
             )
 
-        if (
-            payment.payment_method
-            == Payment.MethodChoices.LIQPAY
-        ):
+        if payment.payment_method == Payment.MethodChoices.LIQPAY:
             return cls._refund_liqpay_payment(
                 payment=payment,
                 refund=refund,
-                successful_remaining_before=(
-                    successful_remaining
-                ),
+                successful_remaining_before=(successful_remaining),
             )
 
         cls._mark_refund_failed(
@@ -933,6 +650,4 @@ class RefundService(StripeService):
             provider_status="unsupported_provider",
         )
 
-        raise RefundError(
-            "This payment provider does not support automatic refunds."
-        )
+        raise RefundError("This payment provider does not support automatic refunds.")

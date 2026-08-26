@@ -43,9 +43,9 @@ class LessonItemSerializer(serializers.ModelSerializer):
         external video_url link). Cloning duplicates the file under a fresh
         generated path (see duplicate_file_field), so comparing video_url alone
         always reports a change for uploaded videos even when the content is
-        identical — compare this instead when a file is actually attached.
+        identical, compare this instead when a file is actually attached.
 
-        Only the moderator review diff needs this -- gate it on role so a
+        Only the moderator review diff needs this, gate it on role so a
         regular course-detail fetch doesn't pay to serialize it (the value
         itself is a cheap cached field, computed on save, not read here).
         """

@@ -25,9 +25,7 @@ class StaffProfileVisibilityTests(APITestCase):
     def test_moderator_sees_administrator_as_public_user(self):
         self.client.force_authenticate(self.moderator)
 
-        response = self.client.get(
-            reverse("user-admin-profile", args=[self.administrator.pk])
-        )
+        response = self.client.get(reverse("user-admin-profile", args=[self.administrator.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.administrator.pk)
@@ -41,9 +39,7 @@ class StaffProfileVisibilityTests(APITestCase):
     def test_moderator_sees_detailed_non_admin_profile(self):
         self.client.force_authenticate(self.moderator)
 
-        response = self.client.get(
-            reverse("user-admin-profile", args=[self.student.pk])
-        )
+        response = self.client.get(reverse("user-admin-profile", args=[self.student.pk]))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["user"]["id"], self.student.pk)

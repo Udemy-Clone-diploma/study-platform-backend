@@ -9,9 +9,8 @@ from apps.enrollments.models import Enrollment
 from apps.homework.models import HomeworkSubmission
 from apps.notifications.models import Notification
 from apps.notifications.services import NotificationService
-from apps.users.models import User
 from apps.notifications.tasks import fan_out_new_lesson
-
+from apps.users.models import User
 
 CHAT_LINK_BY_ROLE = {
     User.RoleChoices.STUDENT: "/student-dashboard/chats",
@@ -139,9 +138,7 @@ def homework_submission_remember_status(sender, instance: HomeworkSubmission, **
         instance._previous_status = None
         return
     instance._previous_status = (
-        HomeworkSubmission.objects.filter(pk=instance.pk)
-        .values_list("status", flat=True)
-        .first()
+        HomeworkSubmission.objects.filter(pk=instance.pk).values_list("status", flat=True).first()
     )
 
 

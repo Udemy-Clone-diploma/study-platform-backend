@@ -16,26 +16,37 @@ class AdminCourseListStatusTests(APITestCase):
     def setUpTestData(cls):
         _, cls.teacher = make_teacher()
         cls.published = make_course(
-            cls.teacher, title="Published", slug="published",
+            cls.teacher,
+            title="Published",
+            slug="published",
             status=Course.StatusChoices.PUBLISHED,
         )
         cls.draft = make_course(
-            cls.teacher, title="Draft", slug="draft",
+            cls.teacher,
+            title="Draft",
+            slug="draft",
             status=Course.StatusChoices.DRAFT,
         )
         cls.review = make_course(
-            cls.teacher, title="Review", slug="review",
+            cls.teacher,
+            title="Review",
+            slug="review",
             status=Course.StatusChoices.REVIEW,
         )
         # DELETE archives via soft delete (status=archived + is_deleted=True),
         # so this row is only reachable through Course.all_objects.
         cls.archived = make_course(
-            cls.teacher, title="Archived", slug="archived",
-            status=Course.StatusChoices.ARCHIVED, is_deleted=True,
+            cls.teacher,
+            title="Archived",
+            slug="archived",
+            status=Course.StatusChoices.ARCHIVED,
+            is_deleted=True,
         )
         # Internal shadow draft of a published course; must never surface.
         cls.pending_edit = make_course(
-            cls.teacher, title="Pending Edit", slug="pending-edit",
+            cls.teacher,
+            title="Pending Edit",
+            slug="pending-edit",
             status=Course.StatusChoices.PENDING_EDIT,
         )
         cls.url = reverse("courses-list")
@@ -45,7 +56,9 @@ class AdminCourseListStatusTests(APITestCase):
 
     def _authenticate_admin(self):
         admin = User.objects.create_user(
-            email="admin@example.com", password="pass12345", role="administrator",
+            email="admin@example.com",
+            password="pass12345",
+            role="administrator",
         )
         self.client.force_authenticate(user=admin)
 
@@ -55,9 +68,7 @@ class AdminCourseListStatusTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            self._slugs(response), {"published", "draft", "review", "archived"}
-        )
+        self.assertEqual(self._slugs(response), {"published", "draft", "review", "archived"})
 
     def test_admin_status_filter_narrows_to_selected(self):
         self._authenticate_admin()
@@ -85,9 +96,7 @@ class AdminCourseListStatusTests(APITestCase):
 
         response = self.client.get(self.url, {"status": "bogus"})
 
-        self.assertEqual(
-            self._slugs(response), {"published", "draft", "review", "archived"}
-        )
+        self.assertEqual(self._slugs(response), {"published", "draft", "review", "archived"})
 
     def test_admin_cannot_surface_pending_edit_via_filter(self):
         self._authenticate_admin()
@@ -103,7 +112,9 @@ class AdminCourseListStatusTests(APITestCase):
 
     def test_student_status_filter_ignored_stays_published_only(self):
         student = User.objects.create_user(
-            email="student@example.com", password="pass12345", role="student",
+            email="student@example.com",
+            password="pass12345",
+            role="student",
         )
         self.client.force_authenticate(user=student)
 

@@ -7,8 +7,12 @@ class TestCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Test
         fields = [
-            "title", "description", "passing_score",
-            "duration_minutes", "allow_retakes", "max_attempts",
+            "title",
+            "description",
+            "passing_score",
+            "duration_minutes",
+            "allow_retakes",
+            "max_attempts",
         ]
         extra_kwargs = {
             "description": {"required": False},

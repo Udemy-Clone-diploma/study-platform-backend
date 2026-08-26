@@ -54,9 +54,7 @@ class CertificateRegistryService:
         student_name = student_user.get_full_name()
 
         if not EnrollmentService.is_enrolled(student_user, course):
-            raise StudentNotEnrolledError(
-                f"{student_name} is not enrolled in {course.title}."
-            )
+            raise StudentNotEnrolledError(f"{student_name} is not enrolled in {course.title}.")
         cls._assert_no_valid_certificate(student_profile, course, student_name)
 
         certificate = Certificate.objects.create(
@@ -220,8 +218,6 @@ class CertificateRegistryService:
         certificate.save(update_fields=["is_public", "updated_at"])
         return certificate
 
-    # ── internals ────────────────────────────────────────────────────────
-
     @staticmethod
     def _student_profile(student_user):
         from apps.users.models import StudentProfile
@@ -256,28 +252,28 @@ class CertificateRegistryService:
                 course=course,
                 student_name=certificate.student_name,
                 course_title=certificate.course_title,
-                teacher_name=(
-                    teacher_profile.user.get_full_name() if teacher_profile else ""
-                ),
+                teacher_name=(teacher_profile.user.get_full_name() if teacher_profile else ""),
                 completed_at=certificate.issued_at,
             )
         except Exception as exc:
             # Raised, not swallowed: both callers run in a transaction, so the
             # row rolls back rather than persisting with a null certificate_url
             # that the caller was promised would be populated.
-            logger.exception(
-                "Certificate rendering failed for certificate %s", certificate.id
-            )
+            logger.exception("Certificate rendering failed for certificate %s", certificate.id)
             raise CertificateRenderError(
                 f"Could not generate the certificate PDF for {course.title}. "
                 f"Check the course's certificate settings and try again."
             ) from exc
 
         certificate.certificate_file.save(
-            f"certificate-{certificate.serial}.pdf", ContentFile(pdf_bytes), save=False,
+            f"certificate-{certificate.serial}.pdf",
+            ContentFile(pdf_bytes),
+            save=False,
         )
         certificate.certificate_thumbnail.save(
-            f"certificate-{certificate.serial}.jpg", ContentFile(thumbnail_bytes), save=False,
+            f"certificate-{certificate.serial}.jpg",
+            ContentFile(thumbnail_bytes),
+            save=False,
         )
         certificate.save(update_fields=["certificate_file", "certificate_thumbnail", "updated_at"])
 

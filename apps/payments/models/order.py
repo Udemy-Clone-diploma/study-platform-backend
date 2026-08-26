@@ -91,12 +91,9 @@ class Order(models.Model):
         # the payment provider callback path path immediately after a payment row was written,
         # so it has to read committed state and never a `payments` prefetch
         # cache the calling instance might already be holding.
-        paid_amount = (
-            self.payments.filter(status=Payment.StatusChoices.SUCCEEDED)
-            .aggregate(total=Sum("amount"))
-            .get("total")
-            or Decimal("0.00")
-        )
+        paid_amount = self.payments.filter(status=Payment.StatusChoices.SUCCEEDED).aggregate(
+            total=Sum("amount")
+        ).get("total") or Decimal("0.00")
         if paid_amount >= self.total_amount:
             self.status = self.StatusChoices.PAID
             self.completed_at = timezone.now()

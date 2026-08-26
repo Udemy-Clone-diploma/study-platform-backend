@@ -10,16 +10,13 @@ class NoteService:
 
     @staticmethod
     def list_notes_for_user(user) -> QuerySet[Note]:
-        return (
-            Note.objects.filter(user=user)
-            .exclude(content="")
-            .order_by("-updated_at")
-        )
+        return Note.objects.filter(user=user).exclude(content="").order_by("-updated_at")
 
     @staticmethod
     def upsert_note(user, lesson: Lesson, content: str) -> Note:
         note, _ = Note.objects.update_or_create(
-            user=user, lesson=lesson,
+            user=user,
+            lesson=lesson,
             defaults={
                 "content": content,
                 "course_id": lesson.module.course_id,

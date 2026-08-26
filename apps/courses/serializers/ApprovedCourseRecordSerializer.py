@@ -10,8 +10,11 @@ class ApprovedCourseRecordSerializer(serializers.ModelSerializer):
         model = ApprovedCourseRecord
         fields = [
             "id",
-            "course_slug", "course_title", "course_image_url",
-            "course_category", "course_level",
+            "course_slug",
+            "course_title",
+            "course_image_url",
+            "course_category",
+            "course_level",
             "changed_fields",
             "approved_at",
         ]

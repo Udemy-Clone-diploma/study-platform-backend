@@ -96,9 +96,7 @@ class PublicBlogCacheTests(APITestCase):
         response = self.client.get(reverse("blog-categories"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        category = next(
-            item for item in response.data if item["slug"] == self.category.slug
-        )
+        category = next(item for item in response.data if item["slug"] == self.category.slug)
         self.assertEqual(category["articles_count"], 1)
 
     def test_category_list_reuses_cache(self):
@@ -107,8 +105,7 @@ class PublicBlogCacheTests(APITestCase):
         self.assertEqual(first.status_code, status.HTTP_200_OK)
 
         with patch(
-            "apps.blog.views.BlogCategoryViews."
-            "BlogCategoryService.annotate_articles_count",
+            "apps.blog.views.BlogCategoryViews.BlogCategoryService.annotate_articles_count",
             side_effect=AssertionError("categories should come from cache"),
         ):
             second = self.client.get(url)
@@ -123,9 +120,7 @@ class PublicBlogCacheTests(APITestCase):
 
         self.assertEqual(english.status_code, status.HTTP_200_OK)
         self.assertEqual(ukrainian.status_code, status.HTTP_200_OK)
-        english_category = next(
-            item for item in english.data if item["slug"] == self.category.slug
-        )
+        english_category = next(item for item in english.data if item["slug"] == self.category.slug)
         ukrainian_category = next(
             item for item in ukrainian.data if item["slug"] == self.category.slug
         )

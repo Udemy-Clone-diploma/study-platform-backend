@@ -17,9 +17,7 @@ class LessonsCountRecomputeMixin:
     affected_course_ids_path: str = ""
 
     def delete_queryset(self, request, queryset):
-        course_ids = list(
-            queryset.values_list(self.affected_course_ids_path, flat=True).distinct()
-        )
+        course_ids = list(queryset.values_list(self.affected_course_ids_path, flat=True).distinct())
         super().delete_queryset(request, queryset)  # type: ignore[misc]
         for course_id in course_ids:
             _recompute_lessons_count(course_id)
@@ -36,8 +34,13 @@ class TestInline(SoftDeleteAdminMixin, admin.TabularInline):
     model = Test
     extra = 0
     fields = (
-        "title", "passing_score", "duration_minutes",
-        "allow_retakes", "max_attempts", "order", "is_deleted",
+        "title",
+        "passing_score",
+        "duration_minutes",
+        "allow_retakes",
+        "max_attempts",
+        "order",
+        "is_deleted",
     )
     show_change_link = True
 
@@ -46,9 +49,15 @@ class QuestionInline(SoftDeleteAdminMixin, admin.TabularInline):
     model = Question
     extra = 0
     fields = (
-        "question_type", "text", "options",
-        "correct_indices", "correct_bool", "sample_answer", "accepted_answers",
-        "order", "is_deleted",
+        "question_type",
+        "text",
+        "options",
+        "correct_indices",
+        "correct_bool",
+        "sample_answer",
+        "accepted_answers",
+        "order",
+        "is_deleted",
     )
     show_change_link = True
 
@@ -73,8 +82,13 @@ class ModuleAdmin(LessonsCountRecomputeMixin, SoftDeleteAdminMixin, admin.ModelA
 @admin.register(Lesson)
 class LessonAdmin(LessonsCountRecomputeMixin, SoftDeleteAdminMixin, admin.ModelAdmin):
     list_display = (
-        "title", "module", "course", "order", "duration_minutes",
-        "is_preview", "is_deleted",
+        "title",
+        "module",
+        "course",
+        "order",
+        "duration_minutes",
+        "is_preview",
+        "is_deleted",
     )
     list_filter = ("is_deleted", "is_preview", "module__course", "module")
     list_select_related = ("module__course",)

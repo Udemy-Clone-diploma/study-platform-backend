@@ -15,7 +15,6 @@ from apps.users.exceptions import (
     EmailNotVerifiedError,
     GoogleAuthError,
     InvalidTokenError,
-    ProfileNotAvailableError,
 )
 from apps.users.messages import EmailMessages
 from apps.users.models import User
@@ -136,9 +135,7 @@ class TokenRefreshView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            tokens = AuthService.refresh_access_token(
-                serializer.validated_data["refresh"]
-            )
+            tokens = AuthService.refresh_access_token(serializer.validated_data["refresh"])
         except TokenError as e:
             return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
         except (InvalidTokenError, AccountForbiddenError) as e:
@@ -171,7 +168,9 @@ class TeacherProfileView(GenericAPIView):
     @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
     def patch(self, request):
         if request.user.role != User.RoleChoices.TEACHER:
-            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN
+            )
         user = UserService.update_profile(request.user, request.data)
         return Response(UserSerializer(user, context={"request": request}).data)
 
@@ -184,7 +183,9 @@ class StudentProfileView(GenericAPIView):
     @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
     def patch(self, request):
         if request.user.role != User.RoleChoices.STUDENT:
-            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN
+            )
         user = UserService.update_profile(request.user, request.data)
         return Response(UserSerializer(user, context={"request": request}).data)
 
@@ -197,7 +198,9 @@ class ModeratorProfileView(GenericAPIView):
     @extend_schema(responses={200: UserSerializer, 400: MessageSerializer})
     def patch(self, request):
         if request.user.role != User.RoleChoices.MODERATOR:
-            return Response({"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "Not available for your role."}, status=status.HTTP_403_FORBIDDEN
+            )
         user = UserService.update_profile(request.user, request.data)
         return Response(UserSerializer(user, context={"request": request}).data)
 
@@ -297,13 +300,17 @@ class PasswordResetConfirmView(APIView):
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(request=ChangePasswordSerializer, responses={200: MessageSerializer, 400: MessageSerializer})
+    @extend_schema(
+        request=ChangePasswordSerializer, responses={200: MessageSerializer, 400: MessageSerializer}
+    )
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         if not request.user.check_password(serializer.validated_data["old_password"]):
-            return Response({"detail": "Incorrect current password."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Incorrect current password."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         request.user.set_password(serializer.validated_data["new_password"])
         request.user.save(update_fields=["password"])
@@ -316,7 +323,9 @@ class PasswordResetValidateView(APIView):
 
     @extend_schema(
         responses={
-            200: inline_serializer("TokenValidOkSerializer", {"valid": drf_serializers.BooleanField()}),
+            200: inline_serializer(
+                "TokenValidOkSerializer", {"valid": drf_serializers.BooleanField()}
+            ),
             400: inline_serializer(
                 "TokenValidErrorSerializer",
                 {"valid": drf_serializers.BooleanField(), "detail": drf_serializers.CharField()},
@@ -341,7 +350,9 @@ class TeacherInvitationValidateView(APIView):
 
     @extend_schema(
         responses={
-            200: inline_serializer("TeacherInvitationValidOkSerializer", {"valid": drf_serializers.BooleanField()}),
+            200: inline_serializer(
+                "TeacherInvitationValidOkSerializer", {"valid": drf_serializers.BooleanField()}
+            ),
             400: inline_serializer(
                 "TeacherInvitationValidErrorSerializer",
                 {"valid": drf_serializers.BooleanField(), "detail": drf_serializers.CharField()},

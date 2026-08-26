@@ -13,7 +13,7 @@ class Note(models.Model):
     # SET_NULL (not CASCADE): a student's note on a course they've already
     # finished must survive the teacher later deleting that lesson/course.
     # The snapshot fields below are what actually get displayed once lesson
-    # is gone -- they're refreshed on every upsert_note() while lesson is
+    # is gone. They are refreshed on every upsert_note() while lesson is
     # still live (see NoteService.upsert_note), then frozen.
     lesson = models.ForeignKey(
         Lesson,

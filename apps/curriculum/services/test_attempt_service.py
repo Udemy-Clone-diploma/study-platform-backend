@@ -11,7 +11,8 @@ class TestAttemptService:
     @staticmethod
     def attempts_used(student_profile: StudentProfile, test: Test) -> int:
         return TestAttempt.objects.filter(
-            student_profile=student_profile, test=test,
+            student_profile=student_profile,
+            test=test,
         ).count()
 
     @staticmethod
@@ -51,7 +52,12 @@ class TestAttemptService:
         score = round(correct_count / question_count * 100)
         passed = score >= test.passing_score
         attempt = cls._create_attempt(
-            student_profile, test, score, passed, answers, question_count,
+            student_profile,
+            test,
+            score,
+            passed,
+            answers,
+            question_count,
         )
 
         return cls._build_result(attempt, graded, correct_count, question_count)
@@ -81,7 +87,11 @@ class TestAttemptService:
 
     @classmethod
     def _build_result(
-        cls, attempt: TestAttempt, graded: list, correct_count: int, question_count: int,
+        cls,
+        attempt: TestAttempt,
+        graded: list,
+        correct_count: int,
+        question_count: int,
     ) -> dict:
         test = attempt.test
         attempts_used = cls.attempts_used(attempt.student_profile, test)
@@ -116,9 +126,7 @@ class TestAttemptService:
         for _ in range(5):
             attempts_used = cls.attempts_used(student_profile, test)
             if not cls.can_attempt(test, attempts_used, question_count):
-                raise RetakeNotAllowedError(
-                    "You have used all of your attempts for this test."
-                )
+                raise RetakeNotAllowedError("You have used all of your attempts for this test.")
             try:
                 with transaction.atomic():
                     return TestAttempt.objects.create(
@@ -158,9 +166,7 @@ class TestAttemptService:
             acceptable = [question.sample_answer, *(question.accepted_answers or [])]
             normalized = cls._normalize(answer_text)
             return any(
-                normalized == cls._normalize(candidate)
-                for candidate in acceptable
-                if candidate
+                normalized == cls._normalize(candidate) for candidate in acceptable if candidate
             )
 
         return False

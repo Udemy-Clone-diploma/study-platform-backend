@@ -56,7 +56,8 @@ class PricingPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
         serializer.is_valid(raise_exception=True)
         try:
             PricingPlanService.validate_installment_fields(
-                serializer.validated_data, instance=plan,
+                serializer.validated_data,
+                instance=plan,
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

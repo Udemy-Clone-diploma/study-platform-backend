@@ -199,9 +199,7 @@ class UserUpdateTests(APITestCase):
 
     def test_update_email_collides_with_soft_deleted_returns_400(self):
         make_user(email="ghost@example.com", is_deleted=True)
-        response = self.client.patch(
-            self.url, {"email": "ghost@example.com"}, format="json"
-        )
+        response = self.client.patch(self.url, {"email": "ghost@example.com"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
@@ -228,9 +226,7 @@ class UserDeleteTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_admin_cannot_delete_self(self):
-        response = self.client.delete(
-            reverse("users-detail", args=[self.admin.pk])
-        )
+        response = self.client.delete(reverse("users-detail", args=[self.admin.pk]))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.admin.refresh_from_db()
         self.assertFalse(self.admin.is_deleted)
@@ -282,9 +278,7 @@ class UserBlockTests(APITestCase):
 class UserRestoreTests(APITestCase):
     def setUp(self):
         self.admin = authenticate_as_admin(self.client)
-        self.deleted = make_user(
-            email="ghost@example.com", is_deleted=True, status="inactive"
-        )
+        self.deleted = make_user(email="ghost@example.com", is_deleted=True, status="inactive")
         self.url = reverse("users-restore", args=[self.deleted.pk])
 
     def test_deleted_users_listed_by_default_and_narrowed_by_param(self):
@@ -329,26 +323,20 @@ class UserProfileUpdateTests(APITestCase):
 
     def test_update_student_profile_creates_if_missing(self):
         url = reverse("users-profile", args=[self.student.pk])
-        response = self.client.patch(
-            url, {"education_level": "bachelor"}, format="json"
-        )
+        response = self.client.patch(url, {"education_level": "bachelor"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["profile"]["education_level"], "bachelor")
 
     def test_update_student_profile_updates_existing(self):
         StudentProfile.objects.create(user=self.student, education_level="bachelor")
         url = reverse("users-profile", args=[self.student.pk])
-        response = self.client.patch(
-            url, {"education_level": "master"}, format="json"
-        )
+        response = self.client.patch(url, {"education_level": "master"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["profile"]["education_level"], "master")
 
     def test_update_teacher_profile(self):
         url = reverse("users-profile", args=[self.teacher.pk])
-        response = self.client.patch(
-            url, {"specialization": "Python"}, format="json"
-        )
+        response = self.client.patch(url, {"specialization": "Python"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["profile"]["specialization"], "Python")
 
@@ -402,27 +390,19 @@ class UserViewSetAccessTests(APITestCase):
     def _assert_all_endpoints_status(self, expected):
         for method, url, data in self._endpoint_calls():
             response = getattr(self.client, method)(url, data, format="json")
-            self.assertEqual(
-                response.status_code, expected, f"{method.upper()} {url}"
-            )
+            self.assertEqual(response.status_code, expected, f"{method.upper()} {url}")
 
     def test_anonymous_gets_401_on_every_endpoint(self):
         self._assert_all_endpoints_status(status.HTTP_401_UNAUTHORIZED)
 
     def test_student_gets_403_on_every_endpoint(self):
-        self.client.force_authenticate(
-            user=make_user(role="student", email="s2@e.com")
-        )
+        self.client.force_authenticate(user=make_user(role="student", email="s2@e.com"))
         self._assert_all_endpoints_status(status.HTTP_403_FORBIDDEN)
 
     def test_teacher_gets_403_on_every_endpoint(self):
-        self.client.force_authenticate(
-            user=make_user(role="teacher", email="t2@e.com")
-        )
+        self.client.force_authenticate(user=make_user(role="teacher", email="t2@e.com"))
         self._assert_all_endpoints_status(status.HTTP_403_FORBIDDEN)
 
     def test_moderator_gets_403_on_every_endpoint(self):
-        self.client.force_authenticate(
-            user=make_user(role="moderator", email="m2@e.com")
-        )
+        self.client.force_authenticate(user=make_user(role="moderator", email="m2@e.com"))
         self._assert_all_endpoints_status(status.HTTP_403_FORBIDDEN)

@@ -79,12 +79,9 @@ class RefundSerializer(serializers.ModelSerializer):
         if not payment.can_be_refunded:
             raise serializers.ValidationError("This payment cannot be refunded.")
 
-        total_refunded = (
-            payment.refunds.filter(status=Refund.StatusChoices.SUCCEEDED)
-            .aggregate(total=Sum("amount"))
-            .get("total")
-            or Decimal("0.00")
-        )
+        total_refunded = payment.refunds.filter(status=Refund.StatusChoices.SUCCEEDED).aggregate(
+            total=Sum("amount")
+        ).get("total") or Decimal("0.00")
         if attrs["amount"] > payment.amount - total_refunded:
             raise serializers.ValidationError("Refund amount exceeds remaining payment amount.")
         return attrs

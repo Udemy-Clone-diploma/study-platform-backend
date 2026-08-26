@@ -87,9 +87,7 @@ class ModeratorDashboardTests(APITestCase):
             2,
         )
         user_report_category = next(
-            item
-            for item in response.data["categories"]
-            if item["key"] == "user_reports"
+            item for item in response.data["categories"] if item["key"] == "user_reports"
         )
         self.assertEqual(user_report_category["count"], 2)
 
@@ -168,9 +166,7 @@ class ModeratorDashboardTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["metrics"]["total_reviewed"]["value"], 3)
-        category_counts = {
-            item["key"]: item["count"] for item in response.data["categories"]
-        }
+        category_counts = {item["key"]: item["count"] for item in response.data["categories"]}
         self.assertEqual(category_counts["chat_reports"], 1)
         self.assertEqual(category_counts["course_reviews"], 1)
         self.assertEqual(category_counts["reported_reviews"], 1)
