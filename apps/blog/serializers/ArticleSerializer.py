@@ -105,12 +105,20 @@ class ArticleCreateUpdateSerializer(serializers.ModelSerializer):
             x, y = crop.get("x"), crop.get("y")
             width, height = crop.get("width"), crop.get("height")
             if not isinstance(x, (int, float)) or not (0 <= x <= 100):
-                raise serializers.ValidationError(f"cover_crops.{slot}.x must be between 0 and 100.")
+                raise serializers.ValidationError(
+                    f"cover_crops.{slot}.x must be between 0 and 100."
+                )
             if not isinstance(y, (int, float)) or not (0 <= y <= 100):
-                raise serializers.ValidationError(f"cover_crops.{slot}.y must be between 0 and 100.")
+                raise serializers.ValidationError(
+                    f"cover_crops.{slot}.y must be between 0 and 100."
+                )
             if not isinstance(width, (int, float)) or not (0 < width <= 100):
-                raise serializers.ValidationError(f"cover_crops.{slot}.width must be between 0 and 100.")
+                raise serializers.ValidationError(
+                    f"cover_crops.{slot}.width must be between 0 and 100."
+                )
             if not isinstance(height, (int, float)) or not (0 < height <= 100):
-                raise serializers.ValidationError(f"cover_crops.{slot}.height must be between 0 and 100.")
+                raise serializers.ValidationError(
+                    f"cover_crops.{slot}.height must be between 0 and 100."
+                )
 
         return {slot: value[slot] for slot in COVER_CROP_SLOTS}
