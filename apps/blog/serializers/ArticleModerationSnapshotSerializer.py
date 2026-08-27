@@ -22,6 +22,7 @@ class ArticleModerationSnapshotSerializer(serializers.ModelSerializer):
             "title",
             "subtitle",
             "cover_image",
+            "cover_crops",
             "author_name",
             "moderator_name",
             "created_at",

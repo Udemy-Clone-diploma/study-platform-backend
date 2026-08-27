@@ -10,6 +10,18 @@ from .BlogCategory import BlogCategory
 
 ARTICLE_IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "jfif", "webp", "svg"]
 
+# The distinct cover-image aspect ratios actually rendered across the frontend --
+# every place that shows Article.cover_image maps to exactly one of these:
+#   card:   46/52 -- ArticleCard (public blog grid), StudentStoryCard (homepage)
+#   row:    4/3   -- ArticleRow (teacher/moderator/admin "my articles" list)
+#   banner: 16/9  -- ArticleDetailPanel (dashboard preview), ArticleDetailView (article page)
+# Keep this tuple and the frontend's COVER_CROP_SLOTS (entities/blog) in sync.
+COVER_CROP_SLOTS = ("card", "row", "banner")
+
+
+def default_cover_crops() -> dict:
+    return {slot: {"x": 0, "y": 0, "width": 100, "height": 100} for slot in COVER_CROP_SLOTS}
+
 
 class Article(models.Model):
     class StatusChoices(models.TextChoices):
@@ -33,6 +45,14 @@ class Article(models.Model):
     )
     # Cached MD5 of `cover_image`'s bytes. See Course.image_hash for why.
     cover_image_hash = models.CharField(max_length=32, blank=True, default="")
+
+    # Per-format crop box: {"card": {"x", "y", "width", "height"}, "row": {...}, "banner": {...}}
+    # -- see COVER_CROP_SLOTS above. x/y/width/height are percentages (0-100) of the
+    # image, x/y being the box's top-left corner -- the same shape react-easy-crop's
+    # onCropComplete/initialCroppedAreaPercentages use. Each rendered shape gets its
+    # own crop since one shared focal point reads fine on some aspect ratios but
+    # clips the subject on others.
+    cover_crops = models.JSONField(default=default_cover_crops)
 
     body_html = models.TextField(blank=True, default="")
 

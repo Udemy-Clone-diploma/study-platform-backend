@@ -22,6 +22,7 @@ class PublicArticleListSerializer(serializers.ModelSerializer):
             "slug",
             "subtitle",
             "cover_image",
+            "cover_crops",
             "category",
             "author",
             "status",

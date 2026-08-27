@@ -182,6 +182,7 @@ class ArticleService:
             comment=comment,
             title=article.title,
             subtitle=article.subtitle,
+            cover_crops=article.cover_crops,
             author_name=article.author.get_full_name(),
         )
         duplicate_file_field(article.cover_image, snapshot.cover_image)
