@@ -228,6 +228,32 @@ class CourseReviewsWriteTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
 
+class ReviewReportAuthenticationTests(APITestCase):
+    def setUp(self):
+        _, teacher_profile = make_teacher(email="report_teacher@example.com")
+        course = make_course(
+            teacher_profile,
+            slug="report-auth-course",
+            status=Course.StatusChoices.PUBLISHED,
+        )
+        student, _ = make_student(email="report_author@example.com")
+        self.review = Review.objects.create(
+            course=course,
+            student=student,
+            rating=5,
+            text="Review to report",
+        )
+
+    def test_anonymous_user_cannot_report_review(self):
+        response = self.client.post(
+            reverse("review-report", args=[self.review.id]),
+            {"reason": "Spam"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 class MyCourseReviewTests(APITestCase):
     def setUp(self):
         cache.clear()

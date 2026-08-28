@@ -94,7 +94,6 @@ class CourseFilterTests(APITestCase):
         self.assertEqual(slugs, ["django-course"])
 
     def test_filter_by_plan_kind_in(self):
-
         from ._factories import make_pricing_plan
 
         make_pricing_plan(
@@ -126,7 +125,6 @@ class CourseFilterTests(APITestCase):
         self.assertEqual(slugs, ["django-course"])
 
     def test_ordering_by_min_price_ascending(self):
-
         from ._factories import make_pricing_plan
 
         make_pricing_plan(self.course_dev, price="20.00")

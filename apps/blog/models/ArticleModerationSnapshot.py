@@ -3,7 +3,7 @@ from django.db import models
 from apps.common.files import UUIDUploadTo
 from apps.users.models import ModeratorProfile
 
-from .Article import Article
+from .Article import Article, default_cover_crops
 
 
 class ArticleModerationSnapshot(models.Model):
@@ -38,6 +38,9 @@ class ArticleModerationSnapshot(models.Model):
     title = models.CharField(max_length=255)
     subtitle = models.CharField(max_length=500, blank=True, default="")
     cover_image = models.FileField(upload_to=UUIDUploadTo("blog-snapshots"), null=True, blank=True)
+    # Copied from Article.cover_crops at the moment of the decision, same reason as
+    # cover_image above.
+    cover_crops = models.JSONField(default=default_cover_crops)
     author_name = models.CharField(max_length=255, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
