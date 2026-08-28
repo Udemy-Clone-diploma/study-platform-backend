@@ -99,6 +99,11 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
+        # psycopg2 defaults to "prefer", which silently falls back to plaintext when
+        # the server does not offer TLS. Set DB_SSLMODE=require for a managed
+        # instance reached over the internet (RDS); the default keeps local
+        # Postgres, CI, and the test settings working unchanged.
+        "OPTIONS": {"sslmode": config("DB_SSLMODE", default="prefer")},
     }
 }
 
