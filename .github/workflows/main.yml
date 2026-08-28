@@ -72,3 +72,115 @@ jobs:
         run: |
           echo "✅ Image pushed:"
           echo "   ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_BACK }}:${{ github.sha }}"
+  migrate:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run migration task
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --task-definition ${{ vars.ECS_TASK_DEFINITION_BACKEND }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ vars.PRIVATE_SUBNET_1 }},${{ vars.PRIVATE_SUBNET_2 }}],securityGroups=[${{ vars.BACKEND_SG }}],assignPublicIp=DISABLED}" \
+            --overrides '{
+              "containerOverrides": [{
+                "name": "backend",
+                "command": ["python", "manage.py", "migrate", "--noinput"]
+              }]
+            }' \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "TASK_ARN=$TASK_ARN" >> $GITHUB_ENV
+          echo "Migration task started: $TASK_ARN"
+
+      - name: Wait for migration task to finish
+        run: |
+          aws ecs wait tasks-stopped \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --tasks $TASK_ARN
+
+      - name: Check migration exit code
+        run: |
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --tasks $TASK_ARN \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "❌ Migration failed with exit code $EXIT_CODE"
+            echo "Check CloudWatch Logs group /ecs/nexo-backend for details"
+            exit 1
+          fi
+
+          echo "✅ Migrations applied successfully"
+
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: migrate
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy backend service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --service ${{ vars.ECS_SERVICE_BACKEND }} \
+            --force-new-deployment
+
+      - name: Deploy celery-worker service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --service ${{ vars.ECS_SERVICE_CELERY_WORKER }} \
+            --force-new-deployment
+
+      - name: Deploy websocket service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --service ${{ vars.ECS_SERVICE_WEBSOCKET }} \
+            --force-new-deployment
+
+      - name: Wait for services to stabilize
+        run: |
+          echo "Waiting for backend..."
+          aws ecs wait services-stable \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --services ${{ vars.ECS_SERVICE_BACKEND }}
+
+          echo "Waiting for celery-worker..."
+          aws ecs wait services-stable \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --services ${{ vars.ECS_SERVICE_CELERY_WORKER }}
+
+          echo "Waiting for websocket..."
+          aws ecs wait services-stable \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --services ${{ vars.ECS_SERVICE_WEBSOCKET }}
+
+          echo "✅ All services deployed and stable"
